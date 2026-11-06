@@ -1,44 +1,35 @@
 """Exercise the packaged launcher on a clean desktop and temporary install."""
 
 import hashlib
-import json
 from pathlib import Path
-import subprocess
+import tarfile
 from tempfile import TemporaryDirectory
+import zipfile
 
 from PySide6.QtCore import Qt, QTimer
 
 import install
 
 
-def hd_fixture(root):
-    source = root / "fixture"
-    textures = source / "res-hd"
-    textures.mkdir(parents=True)
-    (textures / "Textures.res").write_bytes(b"test textures")
-    (textures / "manifest.json").write_text("{}", encoding="ascii")
-    checksums = {f"res-hd/{file.name}": hashlib.sha256(file.read_bytes()).hexdigest()
-                 for file in textures.iterdir()}
-    archive = source / "fixture.7z"
-    child = install.start_child(
-        [install.hd_extractor(), "a", str(archive), "res-hd"], cwd=source,
-        env=install.host_environment(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
-    if child.wait(timeout=15):
-        raise RuntimeError("Could not create HD test archive")
-    tag = "hd-v0.0.0"
-    index = source / f"{tag}-index.json"
-    index.write_text(json.dumps({
-        "release": tag,
-        "payloadSha256": checksums,
-        "manifestSha256": checksums["res-hd/manifest.json"],
-        "nativeBytes": sum(file.stat().st_size for file in textures.iterdir()),
-        "parts": [{"file": archive.name, "bytes": archive.stat().st_size,
-                   "sha256": hashlib.sha256(archive.read_bytes()).hexdigest()}],
-    }), encoding="ascii")
+def engine_fixture(root, target):
+    tag = "v0.0.0"
+    name = install.engine_name(tag, target)
+    is_zip = name.endswith(".zip")
+    source = root / name.removesuffix(".zip" if is_zip else ".tar.gz")
+    (source / "fonts").mkdir(parents=True)
+    (source / target.executable).write_bytes(b"test engine")
+    (source / "network-version.txt").write_text("test version", encoding="ascii")
+    archive = root / name
+    if is_zip:
+        with zipfile.ZipFile(archive, "w") as bundle:
+            for path in source.rglob("*"):
+                bundle.write(path, path.relative_to(root))
+    else:
+        with tarfile.open(archive, "w:gz") as bundle:
+            bundle.add(source, arcname=source.name)
     return {"tag_name": tag, "assets": [
-        {"name": file.name, "browser_download_url": file.as_uri(), "size": file.stat().st_size}
-        for file in (archive, index)
+        {"name": name, "browser_download_url": archive.as_uri(), "size": archive.stat().st_size,
+         "digest": "sha256:" + hashlib.sha256(archive.read_bytes()).hexdigest()}
     ]}
 
 
@@ -63,24 +54,21 @@ def smoke_test(app, launcher, hero, log):
                     fail("Could not find both releases and enable the engine download")
                     return
                 record(f"Found {window.engine_release['tag_name']} and {window.hd_release['tag_name']}")
-                window.engine_button.click()
-                return
-            if not (engine / window.target.executable).is_file() or not window.install_folder.isEnabled():
-                fail("The installed engine is missing or its folder action is disabled")
-                return
-            if not install.release_at(engine / "res-hd"):
-                record(f"Installed and verified {install.release_at(engine)}")
                 try:
-                    window.hd_release = hd_fixture(root)
+                    window.engine_release = engine_fixture(root, window.target)
                 except Exception as error:
                     fail(error)
                     return
-                window.hd_button.click()
+                window.engine_button.click()
                 return
-            if (engine / "res-hd/Textures.res").read_bytes() != b"test textures":
-                fail("The installed HD payload does not match the test archive")
+            executable = engine / window.target.executable
+            if not executable.is_file() or not window.install_folder.isEnabled():
+                fail("The installed engine is missing or its folder action is disabled")
                 return
-            record("Installed and verified the HD fixture")
+            if executable.read_bytes() != b"test engine":
+                fail("The installed engine payload does not match the test archive")
+                return
+            record("Installed and verified the local engine fixture")
             app.exit(0)
 
         window.failed.disconnect(window.failure)

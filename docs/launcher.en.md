@@ -69,9 +69,9 @@ archives.
 1. Run [Desktop launcher](../.github/workflows/launcher-release.yml) manually once
    it is on the default branch. To verify a branch before merging, use a
    `launcher-check/…` branch name. The workflow packages all three platforms,
-   opens the launcher from each extracted archive, checks the window and
-   downloads the latest engine with SHA-256 verification, and installs a small
-   HD fixture. Linux is checked separately under X11 and native Wayland.
+   opens the launcher from each extracted archive, checks the window,
+   reads release metadata and installs a tiny local archive with SHA-256
+   verification. Linux is checked separately under X11 and native Wayland.
 2. For a release, tag the verified commit `launcher-vX.Y.Z` and push the tag.
    After all checks pass, the workflow creates a draft with three archives
    and `SHA256SUMS`.

@@ -45,16 +45,17 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Install Linux display and archive dependencies
+      - name: Install Linux display dependencies
         if: runner.os == 'Linux'
+        timeout-minutes: 3
         run: |
-          sudo apt-get update
-          sudo apt-get install -y 7zip libegl1 libgl1 libxcb-cursor0 libxcb-icccm4 \
+          apt_options=(-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/ubuntu.sources
+                       -o Dir::Etc::sourceparts=- -o Acquire::Retries=1
+                       -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20)
+          sudo apt-get "${apt_options[@]}" update
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get "${apt_options[@]}" install -y \
+            --no-install-recommends libegl1 libgl1 libxcb-cursor0 libxcb-icccm4 \
             libxcb-keysyms1 libxcb-xinerama0 libxcb-xinput0 libxkbcommon-x11-0 weston xvfb
-
-      - name: Install 7-Zip on macOS
-        if: runner.os == 'macOS'
-        run: brew install sevenzip
 
       - name: Build launcher
         run: |
@@ -97,7 +98,7 @@ jobs:
           "${command[@]}" --smoke-test smoke/result.log || status=$?
           if [[ -f smoke/result.log ]]; then cat smoke/result.log; fi
           test "$status" = 0
-          grep -q '^Installed and verified the HD fixture' smoke/result.log
+          grep -q '^Installed and verified the local engine fixture' smoke/result.log
           if [[ "$TARGET" == linux-x64 ]]; then grep -q '(xcb)' smoke/result.log; fi
 
       - name: Launch natively on Wayland
@@ -123,7 +124,7 @@ jobs:
           if [[ -f smoke/wayland.log ]]; then cat smoke/wayland.log; fi
           test "$status" = 0
           grep -q '(wayland)' smoke/wayland.log
-          grep -q '^Installed and verified the HD fixture' smoke/wayland.log
+          grep -q '^Installed and verified the local engine fixture' smoke/wayland.log
 
       - uses: actions/upload-artifact@v4
         with:
