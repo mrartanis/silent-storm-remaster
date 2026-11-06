@@ -64,6 +64,7 @@ jobs:
             *) test "$(uname -m)" = x86_64 ;;
           esac
           python -m pip install -r launcher/requirements-build.txt
+          QT_QPA_PLATFORM=offscreen python -m unittest discover -s launcher -p 'test_*.py'
           python -m PyInstaller --noconfirm launcher/launcher.spec
 
       - name: Archive and launch from a clean directory
