@@ -154,7 +154,7 @@ class Launcher(QWidget):
         hero_layout.addStretch()
         hero_layout.addWidget(self.label("NIVAL  /  2003", "heroKicker"))
         hero_layout.addWidget(self.label("SILENT STORM", "title"))
-        hero_layout.addWidget(self.label("R E M A S T E R", "remaster"))
+        hero_layout.addWidget(self.label("R E M A S T E R  /  UNOFFICIAL", "remaster"))
         hero_layout.addStretch()
         layout.addWidget(hero, 1)
 

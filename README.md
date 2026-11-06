@@ -4,6 +4,12 @@
 
 Современный движок для **Silent Storm 1.2** на основе [Silent Storm Reconstruction](https://github.com/met-nikita/Silent-Storm-Reconstruction) и [исходников Nival](https://github.com/nival/Silent-Storm).
 
+## Как запустить на ПК
+
+1. [Скачайте лаунчер](https://github.com/mrartanis/silent-storm-remaster/actions/workflows/launcher-release.yml?query=is%3Asuccess). Откройте последнюю успешную сборку и выберите архив для Windows x64, Linux x64 или macOS ARM64 в разделе **Artifacts**.
+2. Распакуйте архив целиком и откройте `SilentStormLauncher.exe` на Windows, `SilentStormLauncher` на Linux или `SilentStormLauncher.app` на macOS.
+3. Укажите папку своей Silent Storm 1.2 из Steam или GOG. В лаунчере нажмите **Скачать** рядом с движком, затем **Играть**. [Подробная инструкция](docs/launcher.md)
+
 ## Возможности
 
 - 64-битный движок для Windows, Linux, macOS и Android с поддержкой оригинальных игровых данных.
