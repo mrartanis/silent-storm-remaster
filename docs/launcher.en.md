@@ -4,6 +4,7 @@
 
 The launcher downloads the engine from stable GitHub releases for Windows 10/11
 x64, Linux x64 (Ubuntu 24.04 or compatible), and macOS 15+ on Apple silicon.
+The Linux interface supports native Wayland and X11.
 Under **Game data**, select the folder of your Steam or GOG copy of Silent Storm
 1.2. It must contain `game.db`, `start.cfg`, `tree.mma`, `cfg`, `res` and
 `scripts`. For Gold Edition, select the main Silent Storm folder.
@@ -13,7 +14,8 @@ folder has been selected.
 1. Select **Download** next to Engine, then **Play**.
 2. For HD textures, install [7-Zip](https://www.7-zip.org/) and select **Download**
    next to HD textures. The launcher accepts `7zz`, `7z` or `7za` on `PATH`
-   and finds the standard Windows 7-Zip installation. The current pack needs
+   and finds the standard Windows 7-Zip installation or `brew install sevenzip`
+   on macOS. The current pack needs
    about 12 GB of free space. Toggle HD in the game's graphics settings.
 3. When a new version is available, select **Update**. **Repair** reinstalls the
    current engine and preserves the HD pack. **Verify** checks the HD files and
@@ -25,7 +27,15 @@ with the installed HD pack under `res-hd`. Before engine installation it
 opens the launcher data folder. By default the launcher checks for updates
 on startup and the game opens in borderless fullscreen.
 On Linux, follow the [engine installation guide](install.en.md)
-for system libraries and Vulkan.
+for system libraries and Vulkan. On Ubuntu 24.04, install the libraries
+for your display session to open the launcher.
+
+```sh
+# Wayland
+sudo apt install libegl1 libwayland-client0 libwayland-cursor0 libwayland-egl1 libxkbcommon0
+# X11
+sudo apt install libegl1 libgl1 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-xinerama0 libxcb-xinput0 libxkbcommon-x11-0
+```
 
 ## Run from the repository
 
@@ -60,7 +70,8 @@ archives.
    it is on the default branch. To verify a branch before merging, use a
    `launcher-check/…` branch name. The workflow packages all three platforms,
    opens the launcher from each extracted archive, checks the window and
-   downloads the latest engine with SHA-256 verification.
+   downloads the latest engine with SHA-256 verification, and installs a small
+   HD fixture. Linux is checked separately under X11 and native Wayland.
 2. For a release, tag the verified commit `launcher-vX.Y.Z` and push the tag.
    After all checks pass, the workflow creates a draft with three archives
    and `SHA256SUMS`.

@@ -9,6 +9,7 @@ from pathlib import Path
 import platform
 import re
 import shutil
+import ssl
 import stat
 import subprocess
 import sys
@@ -17,6 +18,7 @@ import tempfile
 from urllib.request import Request, urlopen
 import zipfile
 
+import certifi
 from prepare_hd import payloads, seven_zip, valid
 
 
@@ -84,7 +86,9 @@ def choose_releases(releases, target):
 
 
 def github_open(url):
-    return urlopen(Request(url, headers={"User-Agent": USER_AGENT}), timeout=20)
+    context = ssl.create_default_context()
+    context.load_verify_locations(cafile=certifi.where())
+    return urlopen(Request(url, headers={"User-Agent": USER_AGENT}), timeout=20, context=context)
 
 
 def check_releases(target):
@@ -257,6 +261,18 @@ def host_environment():
     return env
 
 
+def hd_extractor():
+    try:
+        return seven_zip()
+    except RuntimeError:
+        if sys.platform == "darwin":
+            # Finder does not inherit Homebrew's shell PATH.
+            for path in ("/opt/homebrew/bin/7zz", "/usr/local/bin/7zz"):
+                if executable := shutil.which(path):
+                    return executable
+        raise
+
+
 def install_hd(root, release, progress, cancel):
     target = root / "engine" / "res-hd"
     tag = release["tag_name"]
@@ -274,7 +290,7 @@ def install_hd(root, release, progress, cancel):
             cancel()
             (target / MARKER).write_text(tag, encoding="ascii")
             return
-        extractor = seven_zip()
+        extractor = hd_extractor()
         parts = index["parts"]
         total = sum(part["bytes"] for part in parts)
         require_space(root, total + index["nativeBytes"] + 16 * 1024 * 1024)

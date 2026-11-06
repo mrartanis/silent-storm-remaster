@@ -1,1 +1,2 @@
 PySide6-Essentials==6.11.3
+certifi==2026.10.23

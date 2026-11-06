@@ -45,11 +45,16 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Install Qt display dependencies
+      - name: Install Linux display and archive dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libegl1 libgl1 libxcb-cursor0 libxkbcommon-x11-0 xvfb
+          sudo apt-get install -y 7zip libegl1 libgl1 libxcb-cursor0 libxcb-icccm4 \
+            libxcb-keysyms1 libxcb-xinerama0 libxcb-xinput0 libxkbcommon-x11-0 weston xvfb
+
+      - name: Install 7-Zip on macOS
+        if: runner.os == 'macOS'
+        run: brew install sevenzip
 
       - name: Build launcher
         run: |
@@ -78,19 +83,47 @@ jobs:
             linux-x64)
               tar -C dist -czf "artifacts/$archive.tar.gz" SilentStormLauncher
               tar -C smoke -xzf "artifacts/$archive.tar.gz"
-              command=(xvfb-run -a ./smoke/SilentStormLauncher/SilentStormLauncher)
+              command=(xvfb-run -a env QT_QPA_PLATFORM=xcb QT_DEBUG_PLUGINS=1
+                       ./smoke/SilentStormLauncher/SilentStormLauncher)
               ;;
             macos-arm64)
               ditto -c -k --sequesterRsrc --keepParent dist/SilentStormLauncher.app "artifacts/$archive.zip"
               ditto -x -k "artifacts/$archive.zip" smoke
-              command=(./smoke/SilentStormLauncher.app/Contents/MacOS/SilentStormLauncher)
+              command=(env PATH=/usr/bin:/bin:/usr/sbin:/sbin
+                       ./smoke/SilentStormLauncher.app/Contents/MacOS/SilentStormLauncher)
               ;;
           esac
           status=0
           "${command[@]}" --smoke-test smoke/result.log || status=$?
           if [[ -f smoke/result.log ]]; then cat smoke/result.log; fi
           test "$status" = 0
-          grep -q '^Installed and verified ' smoke/result.log
+          grep -q '^Installed and verified the HD fixture' smoke/result.log
+          if [[ "$TARGET" == linux-x64 ]]; then grep -q '(xcb)' smoke/result.log; fi
+
+      - name: Launch natively on Wayland
+        if: runner.os == 'Linux'
+        run: |
+          unset DISPLAY
+          export XDG_RUNTIME_DIR
+          XDG_RUNTIME_DIR="$(mktemp -d)"
+          export WAYLAND_DISPLAY=launcher-wayland XDG_SESSION_TYPE=wayland QT_QPA_PLATFORM=wayland
+          weston --backend=headless-backend.so --use-pixman --socket="$WAYLAND_DISPLAY" \
+            --idle-time=0 > smoke/weston.log 2>&1 &
+          compositor=$!
+          trap 'kill "$compositor" 2>/dev/null || true; wait "$compositor" 2>/dev/null || true' EXIT
+          for attempt in {1..100}; do
+            [[ -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]] && break
+            kill -0 "$compositor" 2>/dev/null || break
+            sleep 0.1
+          done
+          if [[ ! -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]]; then cat smoke/weston.log; exit 1; fi
+          status=0
+          QT_DEBUG_PLUGINS=1 ./smoke/SilentStormLauncher/SilentStormLauncher \
+            --smoke-test smoke/wayland.log || status=$?
+          if [[ -f smoke/wayland.log ]]; then cat smoke/wayland.log; fi
+          test "$status" = 0
+          grep -q '(wayland)' smoke/wayland.log
+          grep -q '^Installed and verified the HD fixture' smoke/wayland.log
 
       - uses: actions/upload-artifact@v4
         with:
@@ -103,7 +136,7 @@ jobs:
         if: always()
         with:
           name: launcher-smoke-${{ matrix.target }}
-          path: smoke/result.log
+          path: smoke/*.log
           if-no-files-found: ignore
 
   draft:
