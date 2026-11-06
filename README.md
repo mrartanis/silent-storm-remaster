@@ -7,7 +7,7 @@
 ## Запуск и установка
 
 1. Понадобится купленная **Silent Storm Gold Edition** в Steam или GOG и данные основной игры версии **1.2**.
-2. [Скачайте лаунчер](https://github.com/mrartanis/silent-storm-remaster/actions/workflows/launcher-release.yml?query=is%3Asuccess). Войдите в GitHub и в разделе **Artifacts** последней успешной сборки выберите `launcher-package-…` для своей платформы. Распакуйте скачанный ZIP и вложенный архив, затем откройте лаунчер.
+2. Скачайте лаунчер для своей системы, распакуйте архив и запустите приложение. [Windows x64](https://github.com/mrartanis/silent-storm-remaster/releases/latest/download/silent-storm-launcher-windows-x64.zip) · [Linux x64](https://github.com/mrartanis/silent-storm-remaster/releases/latest/download/silent-storm-launcher-linux-x64.tar.gz) · [macOS ARM64](https://github.com/mrartanis/silent-storm-remaster/releases/latest/download/silent-storm-launcher-macos-arm64.zip)
 3. Укажите папку основной Silent Storm. Скачайте движок и, если хотите, HD-пак. Для распаковки HD-пака понадобится 7-Zip.
 4. Нажмите **Играть**. Вы великолепны.
 

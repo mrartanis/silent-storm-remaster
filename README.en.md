@@ -7,7 +7,7 @@ A modern engine for **Silent Storm 1.2**, based on [Silent Storm Reconstruction]
 ## Installation and launch
 
 1. You'll need a copy of **Silent Storm Gold Edition** purchased on Steam or GOG, with the base game's **1.2** data.
-2. [Download the launcher](https://github.com/mrartanis/silent-storm-remaster/actions/workflows/launcher-release.yml?query=is%3Asuccess). Sign in to GitHub and pick the `launcher-package-…` for your platform under **Artifacts** in the latest successful build. Extract the downloaded ZIP and the archive inside it, then open the launcher.
+2. Download the launcher for your platform, extract the archive, and open the application. [Windows x64](https://github.com/mrartanis/silent-storm-remaster/releases/latest/download/silent-storm-launcher-windows-x64.zip) · [Linux x64](https://github.com/mrartanis/silent-storm-remaster/releases/latest/download/silent-storm-launcher-linux-x64.tar.gz) · [macOS ARM64](https://github.com/mrartanis/silent-storm-remaster/releases/latest/download/silent-storm-launcher-macos-arm64.zip)
 3. Select the base Silent Storm folder. Download the engine and the optional HD pack. You'll need 7-Zip to extract the HD pack.
 4. Click **Play**. You're magnificent.
 
