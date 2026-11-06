@@ -195,8 +195,12 @@ void CWindow::ResolveLayoutAnchors() const {
 		const bool hudLeft=parentID=="unitpanel" && (szID=="unitstabbar" ||
 		    szID=="infopanel_singleunit" || szID=="infopanel_multipleunits");
 		const bool panel=MissionPanel(parentID);
+		// Keep the scene aligned with the letterbox bars, including during fades.
+		const bool cinematicView=szID=="view" &&
+		    (parentID=="movieUI" || parentID=="dialogUI" || parentID=="fadeUI");
 		anchorX = panel ? S2Display::Near : hudLeft ? S2Display::Near : form ? S2Display::Center : S2Display::InferAnchor(sPosition.x,sSize.x,pParent->sSize.x);
-		anchorY = (form || panel) ? S2Display::Center : S2Display::InferAnchor(sPosition.y,sSize.y,pParent->sSize.y);
+		anchorY = cinematicView ? S2Display::Stretch : (form || panel) ? S2Display::Center :
+		    S2Display::InferAnchor(sPosition.y,sSize.y,pParent->sSize.y);
 		bLayoutAnchorsSet = true;
 	}
 }
