@@ -64,8 +64,9 @@ def package(args):
         copy(build / 'network-version.txt', stage / 'network-version.txt')
         shutil.copytree(ROOT / 'assets/fonts', stage / 'fonts')
         copy(ROOT / 'packaging/README-engine.txt', stage / 'README.txt')
-        copy(ROOT / 'INSTALLATION_RU.md', stage / 'INSTALLATION_RU.md')
-        copy(ROOT / 'INSTALLATION_EN.md', stage / 'INSTALLATION_EN.md')
+        for guide in ('docs/install.md', 'docs/install.en.md'):
+            copy(ROOT / guide, stage / guide)
+        copy(ROOT / 'packaging/prepare_hd.py', stage / 'prepare_hd.py')
         copy(ROOT / 'LICENSE.md', stage / 'LICENSE.md')
         runtime = stage if args.platform == 'windows' else stage / 'lib'
         runtime.mkdir(exist_ok=True)

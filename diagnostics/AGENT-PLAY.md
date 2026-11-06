@@ -51,7 +51,7 @@ python tools/agent_play.py --help
 **C++-канал собирается внутри обычной цели `Game`**, отдельного сервера или
 проекта для него нет. Для первой сборки установите зависимости и выполните
 полную конфигурацию CMake по разделу
-[Windows x64 в README](../README.md#windows-x64). Нужны MSVC v143/Windows SDK,
+[сборки для Windows x64](../docs/build.md#windows-x64). Нужны MSVC v143/Windows SDK,
 SDL3, bgfx и остальные зависимости обычного движка. Для существующего
 настроенного каталога сборки, из корня checkout:
 
@@ -64,7 +64,7 @@ cmake --build build --config Release --target Game zlib --parallel
 Для отладочной сборки замените `Release` на `RelWithDebInfo` и передайте
 запускателю `build/RelWithDebInfo/Game.exe`. Рядом с EXE должны лежать
 `network-version.txt`, актуальные DLL и `fonts` из той же сборки; их копируют
-обычные CMake-правила движка. Параметры native media из README обеспечивают
+обычные CMake-правила движка. Параметры native media из инструкции обеспечивают
 звук, музыку и ролики. Старый бинарник без `Game/AgentPlay.cpp` не сможет
 обслуживать этот канал — после обновления исходников пересоберите `Game`.
 

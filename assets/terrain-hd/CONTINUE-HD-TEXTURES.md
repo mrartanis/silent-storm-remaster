@@ -49,7 +49,7 @@ stage4, источники, текущий игровой запуск и ком
 проверяет архив и восстанавливает лишь отсутствующий JSON; существующий не заменяет.
 Доказательство: `expanded/portable-large-proof-clothing-forty-fifth.json`. PNG не сжимаются в архивы.
 
-Прочитай применимые AGENTS.md, корневой HD-TEXTURES.md, assets/terrain-hd/README.md,
+Прочитай применимые AGENTS.md, docs/hd-authoring.md, assets/terrain-hd/README.md,
 sources.json, expanded/queue.json, coverage.json и full-texture-inventory.json.
 Последний содержит 5 801 запись БД. Исторические ресурсы
 `G:/SS/Silent-Storm/Complete/Textures` и `G:/SS/lab/baseline/res` только читай.

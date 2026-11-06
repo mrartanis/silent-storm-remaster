@@ -497,10 +497,10 @@ jobs:
           Use the original Silent Storm 1.2 data from your own copy. The separate HD pack is available for desktop. Android uses the original textures.
           Start macOS with Play.command. For Android, install the APK and copy the game files using the guide below.
           NOTES
-          for guide in 'ПК (русский)|INSTALLATION_RU.md' 'Desktop (English)|INSTALLATION_EN.md' \
-                       'Android (русский)|android/README.md' 'Android (English)|android/README.en.md' \
+          for guide in 'ПК (русский)|docs/install.md' 'Desktop (English)|docs/install.en.md' \
+                       'Android (русский)|docs/android.md' 'Android (English)|docs/android.en.md' \
                        'Компоненты Android / Android components|android/THIRD_PARTY.md'; do
-            printf '\n- [%s](https://github.com/%s/blob/%s/%s)\n' "${guide%%|*}" "$GH_REPO" "$RELEASE_TAG" "${guide#*|}" >> release-notes.txt
+            printf '\n- [%s](https://github.com/%s/blob/HEAD/%s)\n' "${guide%%|*}" "$GH_REPO" "${guide#*|}" >> release-notes.txt
           done
           options=()
           if [[ "$RELEASE_TAG" == *-* ]]; then options+=(--prerelease); fi

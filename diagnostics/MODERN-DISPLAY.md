@@ -46,7 +46,7 @@ AArch64 ELF через QEMU на x64-стенде. Физические Linux GP
 ## Шрифты и сохранения
 
 Общий поставщик использует [FreeType 2.14.3](https://freetype.org/) и поставляемые
-[Liberation Fonts 2.1.5](https://github.com/liberationfonts/liberation-fonts/releases/tag/2.1.5).
+[Liberation Fonts 2.1.5](https://github.com/liberationfonts/liberation-fonts/releases).
 System/Arial соответствуют Liberation Sans, Times — Serif, Courier — Mono.
 Системные установленные шрифты не нужны. Лицензии находятся в `assets/fonts`.
 Векторный вариант включён по умолчанию; неизвестная гарнитура использует оригинальный

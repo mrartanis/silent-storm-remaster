@@ -1,4 +1,4 @@
-"""Install the frozen HD release once; ordinary builds reuse data/res-hd.
+"""Install the latest HD release for a game, or prepare the frozen build cache.
 
 No PNG decoding or texture generation is performed by this command.
 """
@@ -7,12 +7,15 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
+from urllib.request import Request, urlopen
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parent.parent
 STATE = '.prepared-hd.json'
+RELEASES = 'https://api.github.com/repos/mrartanis/silent-storm-remaster/releases'
 
 
 def digest(path):
@@ -140,14 +143,114 @@ def prepare(index_path, cache, output=None, extractor=None):
             print(f'{output}: linked/copied ready-to-use HD pack')
 
 
+def github_open(url):
+    return urlopen(Request(url, headers={'User-Agent': 'silent-storm-hd-installer'}), timeout=60)
+
+
+def latest_hd_release():
+    latest = None
+    page = 1
+    while True:
+        with github_open(f'{RELEASES}?per_page=100&page={page}') as response:
+            releases = json.load(response)
+        for release in releases:
+            if (release['tag_name'].startswith('hd-') and not release['draft'] and
+                    not release['prerelease'] and release['published_at'] and
+                    (latest is None or release['published_at'] > latest['published_at'])):
+                latest = release
+        if len(releases) < 100:
+            break
+        page += 1
+    if latest is None:
+        raise RuntimeError('No stable HD release found')
+    return latest
+
+
+def download(asset, destination):
+    print(f'Downloading {destination.name} ({asset["size"]:,} bytes)', flush=True)
+    with github_open(asset['browser_download_url']) as response, destination.open('wb') as target:
+        shutil.copyfileobj(response, target, length=1024 * 1024)
+    if destination.stat().st_size != asset['size']:
+        raise RuntimeError(f'Incomplete download: {destination.name}')
+
+
+def install_latest(game_dir, extractor=None):
+    game_dir = game_dir.resolve()
+    if not (game_dir / 'game.db').is_file():
+        raise RuntimeError(f'Select the game folder containing game.db: {game_dir}')
+    target = game_dir / 'res-hd'
+    backup = game_dir / '.res-hd-previous'
+    lock = game_dir / '.res-hd-installing'
+    try:
+        lock.mkdir()
+    except FileExistsError:
+        raise RuntimeError(f'An HD installation is already using {lock}') from None
+    try:
+        # Recover the previous pack if an earlier replacement stopped between renames.
+        if backup.exists() and not target.exists():
+            backup.rename(target)
+        if target.is_symlink() or (target.exists() and not target.is_dir()):
+            raise RuntimeError(f'Expected an HD directory: {target}')
+        release = latest_hd_release()
+        tag = release['tag_name']
+        if not re.fullmatch(r'hd-[A-Za-z0-9][A-Za-z0-9._-]*', tag):
+            raise ValueError(f'Invalid HD release tag: {tag}')
+        assets = {asset['name']: asset for asset in release['assets']}
+        index_name = f'{tag}-index.json'
+        with tempfile.TemporaryDirectory(prefix='hd-download-', dir=game_dir) as temp:
+            staging = Path(temp)
+            index_path = staging / index_name
+            download(assets[index_name], index_path)
+            index = json.loads(index_path.read_text(encoding='utf-8'))
+            if index['release'] != tag:
+                raise ValueError(f'HD index does not match release {tag}')
+            if not index['parts']:
+                raise ValueError(f'HD index lists no archive volumes: {tag}')
+            if valid(target, payloads(index), digest(index_path)):
+                print(f'{target}: {tag} up to date')
+                return
+            if backup.exists():
+                raise RuntimeError(f'Move the previous HD pack out of {backup} first')
+
+            executable = seven_zip(extractor)
+            for part in index['parts']:
+                name = part['file']
+                if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]*\.7z(?:\.\d+)?', name):
+                    raise ValueError(f'Invalid HD archive name: {name}')
+                asset = assets[name]
+                if asset['size'] != part['bytes']:
+                    raise ValueError(f'HD archive size differs from the release index: {name}')
+                download(asset, staging / name)
+
+            prepared = staging / 'res-hd'
+            prepare(index_path, prepared, extractor=executable)
+            if target.exists():
+                target.rename(backup)
+            try:
+                prepared.rename(target)
+            except BaseException:
+                if backup.exists():
+                    backup.rename(target)
+                raise
+            if backup.exists():
+                shutil.rmtree(backup)
+            print(f'{target}: installed {tag}')
+    finally:
+        lock.rmdir()
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--game-dir', type=Path, help='download and install the latest HD release here')
     parser.add_argument('--index', type=Path, default=ROOT / 'data/hd-runtime/hd-v0.1-index.json')
     parser.add_argument('--cache', type=Path, default=ROOT / 'data/res-hd')
     parser.add_argument('--output', type=Path)
     parser.add_argument('--sevenzip')
     args = parser.parse_args()
     try:
-        prepare(args.index, args.cache, args.output, args.sevenzip)
-    except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as error:
+        if args.game_dir is not None:
+            install_latest(args.game_dir, args.sevenzip)
+        else:
+            prepare(args.index, args.cache, args.output, args.sevenzip)
+    except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:
         parser.exit(1, f'HD preparation failed: {error}\n')

@@ -36,8 +36,8 @@ the DB texture type and blend mode, restores the complete original alpha, and
 avoids an additional RGB multiplication. It is an explicit source/renderer audit,
 not an automatic exception for every transparent texture.
 
-For the Russian build/install and authoring instructions, see
-[HD-TEXTURES.md](../../HD-TEXTURES.md). To continue generation in a new Codex
+For build setup and source restoration, see
+[HD textures for builds and authoring](../../docs/hd-authoring.en.md). To continue generation in a new Codex
 session, use [CONTINUE-HD-TEXTURES.md](CONTINUE-HD-TEXTURES.md).
 
 The offline HD pack expands the original five-asset landscape prototype to the

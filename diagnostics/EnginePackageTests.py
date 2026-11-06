@@ -44,8 +44,9 @@ class EnginePackageTests(unittest.TestCase):
             write(deps / module / 'LICENSE')
         for name in ('miniaudio.h', 'sources.json', 'ffmpeg-8.1.tar.xz', 'ffmpeg-config.log'):
             write(deps / name)
-        for name in ('assets/fonts/LICENSE', 'assets/fonts/test.ttf', 'LICENSE.md', 'INSTALLATION_RU.md', 'INSTALLATION_EN.md',
-                     'packaging/README-engine.txt', 'packaging/Play.cmd', 'packaging/Play.command',
+        for name in ('assets/fonts/LICENSE', 'assets/fonts/test.ttf', 'LICENSE.md', 'docs/install.md',
+                     'docs/install.en.md', 'packaging/prepare_hd.py', 'packaging/README-engine.txt',
+                     'packaging/Play.cmd', 'packaging/Play.command',
                      '.github/scripts/build-deps.sh',
                      'third_party/squish/LICENSE.txt', 'third_party/zlib/zlib.h',
                      'third_party/libpng/png.h', 'Script/lua.h'):
@@ -63,6 +64,10 @@ class EnginePackageTests(unittest.TestCase):
             archive = next(args.output.glob('*.zip'))
             with zipfile.ZipFile(archive) as package:
                 names = package.namelist()
+                prefix = names[0].split('/')[0] + '/'
+                self.assertTrue({prefix + path for path in (
+                    'docs/install.md', 'docs/install.en.md', 'prepare_hd.py'
+                )}.issubset(names))
                 self.assertFalse(any('/res/' in p or '/res-hd/' in p or '/save/' in p or p.endswith('/game.db') for p in names))
                 info_path = next(p for p in names if p.endswith('/engine-build.json'))
                 info = json.loads(package.read(info_path))

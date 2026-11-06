@@ -1,50 +1,19 @@
-Silent Storm Reconstruction - engine only
+Silent Storm Remaster
 
-This archive contains the engine, runtime libraries and fonts.
-Original Silent Storm v1.2 game data and the optional HD pack are separate.
-Installation guides: INSTALLATION_EN.md and INSTALLATION_RU.md.
+Install on desktop: docs/install.en.md
+Установка на компьютере: docs/install.md
+Latest release / Последний релиз:
+https://github.com/mrartanis/silent-storm-remaster/releases/latest
 
-Use a separate copy of your game installation. Place this archive's contents
-alongside game.db, start.cfg, tree.mma and the complete cfg, res and scripts
-directories. Keep all loose files in res, not just the .res archives.
-Use the data for Silent Storm, not the separate Sentinels campaign.
-Start Play.cmd (Windows), ./Play.sh (Linux) or ./Play.command (macOS).
-Saves and settings use the
-engine's normal user-data directory. The original Steam installation can stay
-untouched. Install an optional HD pack as res-hd alongside Game/Game.exe.
+Original Silent Storm 1.2 game data is required.
+Нужны игровые данные оригинальной Silent Storm 1.2.
+The optional HD installer is included as prepare_hd.py.
 
-For multiplayer, keep the included network-version.txt alongside game.db.
-No local generation or Python installation is needed. The file declares the
-maintained network compatibility version and game-data family. Compatible
-engine releases share the same version; incompatible changes require an
-explicit version update by maintainers. HD does not change this version.
-
-Linux baseline: Ubuntu 24.04 x86_64 or compatible (glibc 2.39+).
-SDL3 and FFmpeg libraries are included in lib. System dependencies include
-libgsf-1-114, libpng16-16t64, zlib1g, libx11-6, libxi6 and libgl1, plus a working
-Vulkan driver/loader (libvulkan1). Hardware GPU/audio testing is separate from CI.
-Windows baseline: Windows 10/11 x64; MSVC runtime DLLs are included.
-macOS baseline: macOS 15+ on Apple silicon (ARM64), Metal renderer.
-SDL3, FFmpeg and their non-system dependencies are included in lib.
-Homebrew is not needed to play. The binaries use local ad-hoc signatures;
-Apple notarization is not provided. If macOS blocks a downloaded archive,
-allow the launch in System Settings > Privacy & Security.
-
-Source and releases: https://github.com/mrartanis/silent-storm-remaster
 Engine licensing: LICENSE.md. Component notices: licenses/ and fonts/.
 Portions of this software are copyright (c) The FreeType Project
 (www.freetype.org). All rights reserved. See fonts/FreeType-FTL.txt.
-FFmpeg is built as shared LGPL libraries without GPL/nonfree/autodetected
-external components. Exact source, build configuration and recipe are included
-under dependencies/. SDL3/bgfx/bimg/bx/miniaudio source references are recorded
-in dependencies/sources.json. Microsoft runtime terms:
+FFmpeg is built as shared LGPL libraries. The exact source, build configuration,
+and recipe are in dependencies/. SDL3/bgfx/bimg/bx/miniaudio source references
+are recorded in dependencies/sources.json.
+Microsoft runtime terms:
 https://visualstudio.microsoft.com/license-terms/vs2022-cruntime/
-Русский
-
-В архиве находятся движок, библиотеки и шрифты. Инструкция по установке
-на русском находится в INSTALLATION_RU.md, английская — в INSTALLATION_EN.md.
-Скопируйте содержимое архива в отдельную папку с game.db, start.cfg, tree.mma
-и полными каталогами cfg, res и scripts оригинальной Silent Storm 1.2.
-Запустите Play.cmd (Windows), ./Play.sh (Linux) или ./Play.command (macOS).
-Для сетевой игры оставьте network-version.txt рядом с game.db.
-Дополнительный HD-пак распаковывается в каталог res-hd рядом с движком.
