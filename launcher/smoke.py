@@ -12,6 +12,7 @@ from PySide6.QtCore import Qt, QTimer
 
 import install
 from gog_smoke import verify_bundled_import
+from hd_smoke import verify_bundled_hd
 
 
 def engine_fixture(root, target):
@@ -36,7 +37,7 @@ def engine_fixture(root, target):
     ]}
 
 
-def smoke_test(app, launcher, hero, log, gog_fixture=None):
+def smoke_test(app, launcher, hero, log, gog_fixture=None, hd_fixture=None):
     with TemporaryDirectory(prefix="silent-storm-launcher-smoke-") as directory:
         root = Path(directory)
         log.write_text("Starting packaged launcher\n", encoding="utf-8")
@@ -53,6 +54,7 @@ def smoke_test(app, launcher, hero, log, gog_fixture=None):
 
         try:
             verify_bundled_import(root, gog_fixture, record)
+            hd_expected = verify_bundled_hd(root, hd_fixture, record)
         except Exception as error:
             record(str(error))
             return 1
@@ -79,6 +81,10 @@ def smoke_test(app, launcher, hero, log, gog_fixture=None):
                 fail("The installed engine payload does not match the test archive")
                 return
             record("Installed and verified the local engine fixture")
+            for name, digest in hd_expected.items():
+                if hashlib.file_digest((engine / 'res-hd' / name).open('rb'), 'sha256').hexdigest() != digest:
+                    fail('Installing the engine did not preserve the HD pack')
+                    return
             app.exit(0)
 
         window.failed.disconnect(window.failure)

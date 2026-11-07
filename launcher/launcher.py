@@ -287,8 +287,8 @@ class Launcher(QWidget):
             tr("Скачать", "Download") if not hd_ready else
             tr("Обновить", "Update") if hd_update else tr("Проверить", "Verify"))
         self.hd_button.setEnabled(idle and not playing and engine_ready and bool(online_hd))
-        self.hd_button.setToolTip(tr("Для распаковки нужен 7-Zip. Переключатель HD есть в игре.",
-                                    "Extraction requires 7-Zip. Toggle HD in the game settings."))
+        self.hd_button.setToolTip(tr("Скачать и установить HD-пак. Переключатель HD есть в игре.",
+                                    "Download and install the HD pack. Toggle HD in the game settings."))
         path = str(self.data) if self.data else tr("Папка пока не выбрана", "No folder selected")
         self.data_path.setText(path)
         self.data_path.setToolTip(path)
@@ -540,6 +540,7 @@ def main():
     parser.add_argument("--language", choices=("ru", "en"))
     parser.add_argument("--smoke-test", type=Path, metavar="LOG", help=argparse.SUPPRESS)
     parser.add_argument("--gog-fixture", type=Path, help=argparse.SUPPRESS)
+    parser.add_argument("--hd-fixture", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
     app = QApplication([sys.argv[0]])
     app.setApplicationName("Silent Storm Launcher")
@@ -548,7 +549,7 @@ def main():
                QLocale.system().language() == QLocale.Language.Russian)
     if args.smoke_test:
         from smoke import smoke_test
-        return smoke_test(app, Launcher, Hero, args.smoke_test, args.gog_fixture)
+        return smoke_test(app, Launcher, Hero, args.smoke_test, args.gog_fixture, args.hd_fixture)
     root = (args.storage or Path(QStandardPaths.writableLocation(
         QStandardPaths.StandardLocation.AppLocalDataLocation))).resolve()
     root.mkdir(parents=True, exist_ok=True)

@@ -34,10 +34,8 @@ before replacing existing imported data, including local modifications in
 ### Engine and HD
 
 1. Select **Download** next to Engine, then **Play**.
-2. For HD textures, install [7-Zip](https://www.7-zip.org/) and select **Download**
-   next to HD textures. The launcher accepts `7zz`, `7z` or `7za` on `PATH`
-   and finds the standard Windows 7-Zip installation or `brew install sevenzip`
-   on macOS. The current pack needs
+2. For HD textures, select **Download** next to HD textures. The launcher downloads,
+   extracts, and verifies the pack automatically. The current pack needs
    about 12 GB of free space. Toggle HD in the game's graphics settings.
 3. When a new version is available, select **Update**. **Repair** reinstalls the
    current engine and preserves the HD pack. **Verify** checks the HD files and
@@ -81,6 +79,7 @@ Run these commands from the repository root on each target OS.
 ```sh
 python -m pip install -r launcher/requirements-build.txt
 python launcher/prepare_innoextract.py
+python launcher/prepare_sevenzip.py
 python -m PyInstaller launcher/launcher.spec
 ```
 
@@ -92,6 +91,8 @@ On macOS, run `brew install innoextract` before building. This is a build-machin
 dependency only: PyInstaller includes the tool and its libraries in the app.
 On Windows and Linux, the preparation script downloads the official binaries
 with pinned SHA-256 verification. The extractor's licenses are included too.
+The HD extractor preparation uses official binaries with pinned SHA-256 hashes
+on all platforms. The matching source archive and license notices are included.
 
 ## Verify and publish on GitHub
 
@@ -102,7 +103,9 @@ with pinned SHA-256 verification. The extractor's licenses are included too.
    reads release metadata and installs a tiny local archive with SHA-256
    verification. The bundled extractor also imports a real test installer with
    external `.bin` files and an empty `PATH`, then verifies its contents by
-   SHA-256. The fixture contains no original game data. Linux is checked separately
+   SHA-256. The fixture contains no original game data. HD installation uses a
+   small split solid Delta/LZMA2 archive through the real download and hash
+   verification flow, also with an empty `PATH`. Linux is checked separately
    under X11 and native Wayland.
 2. For publication, use the usual `v*` engine tag. The [engine release](releasing.en.md)
    includes three verified `silent-storm-launcher-*` archives and lists their

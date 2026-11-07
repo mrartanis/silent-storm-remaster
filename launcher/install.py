@@ -265,6 +265,15 @@ def host_environment():
 
 
 def hd_extractor():
+    name = '7za.exe' if sys.platform == 'win32' else '7zz'
+    if getattr(sys, 'frozen', False):
+        bundled = Path(sys._MEIPASS) / 'sevenzip' / name
+        if bundled.is_file():
+            return str(bundled)
+        raise RuntimeError('The launcher archive is incomplete. Download it again and extract the entire archive.')
+    bundled = Path(__file__).resolve().parents[1] / 'build/launcher-sevenzip' / name
+    if bundled.is_file():
+        return str(bundled)
     try:
         return seven_zip()
     except RuntimeError:

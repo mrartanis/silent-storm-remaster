@@ -9,10 +9,14 @@ extractor = repo / 'build/launcher-innoextract'
 extractor_binary = extractor / ('innoextract.exe' if sys.platform == 'win32' else 'innoextract')
 if not extractor_binary.is_file() or not (extractor / 'license').is_dir():
     raise RuntimeError('Prepare the bundled extractor first: python launcher/prepare_innoextract.py')
+sevenzip = repo / 'build/launcher-sevenzip'
+sevenzip_binary = sevenzip / ('7za.exe' if sys.platform == 'win32' else '7zz')
+if not sevenzip_binary.is_file() or not (sevenzip / 'source').is_dir():
+    raise RuntimeError('Prepare the bundled HD extractor first: python launcher/prepare_sevenzip.py')
 analysis = Analysis(
     [str(here / 'launcher.py')],
     pathex=[str(repo / 'packaging')],
-    binaries=[(str(extractor_binary), 'innoextract')],
+    binaries=[(str(extractor_binary), 'innoextract'), (str(sevenzip_binary), 'sevenzip')],
     datas=[
         (str(here / 'field-desk.qss'), '.'),
         (str(here / 'insignia.svg'), '.'),
@@ -21,6 +25,9 @@ analysis = Analysis(
         (str(here / 'THIRD_PARTY.md'), '.'),
         (str(extractor / 'license'), 'innoextract/license'),
         (str(extractor / 'BUILD.json'), 'innoextract'),
+        (str(sevenzip / 'license'), 'sevenzip/license'),
+        (str(sevenzip / 'source'), 'sevenzip/source'),
+        (str(sevenzip / 'BUILD.json'), 'sevenzip'),
     ] + copy_metadata('PySide6-Essentials') + copy_metadata('shiboken6'),
 )
 if sys.platform == 'win32':
