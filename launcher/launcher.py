@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 import discovery
+import gog
 import install
 
 
@@ -77,6 +78,7 @@ class Launcher(QWidget):
         self.cancelled = Event()
         install.recover_swap(root / "engine", shared="res-hd")
         install.recover_swap(root / "engine" / "res-hd")
+        install.recover_swap(root / gog.DATA_DIRECTORY)
         self.setWindowTitle("Silent Storm Remaster")
         self.setWindowIcon(QIcon(str(HERE / "insignia.svg")))
         self.setMinimumSize(880, 685)
@@ -167,8 +169,8 @@ class Launcher(QWidget):
         data_layout.setSpacing(6)
         data_layout.addWidget(self.label(tr("01   /   РЕСУРСЫ", "01   /   RESOURCES"), "eyebrow"))
         data_layout.addWidget(self.label(tr("Игровые данные", "Game data"), "section"))
-        data_layout.addWidget(self.label(tr("Папка оригинальной Silent Storm 1.2",
-                                            "Original Silent Storm 1.2 folder"), "muted"))
+        data_layout.addWidget(self.label(tr("Папка Silent Storm 1.2 или установщик GOG",
+                                            "Silent Storm 1.2 folder or GOG installer"), "muted"))
         self.data_path = self.label("", "path")
         self.data_path.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.data_path.setWordWrap(True)
@@ -186,6 +188,10 @@ class Launcher(QWidget):
         folder_row.addStretch()
         folder_row.addWidget(self.windowed)
         data_layout.addLayout(folder_row)
+        self.gog_button = self.button(tr("Импорт из GOG…", "Import GOG installer…"), self.import_gog)
+        self.gog_button.setToolTip(tr("Распаковать офлайн-установщик без запуска EXE. Нужен innoextract.",
+                                      "Extract an offline installer without running the EXE. Requires innoextract."))
+        data_layout.addWidget(self.gog_button, 0, Qt.AlignmentFlag.AlignLeft)
         cards.addWidget(data_card, 5)
 
         downloads_card = QFrame(objectName="card")
@@ -256,7 +262,7 @@ class Launcher(QWidget):
         hd_ready = (engine / "res-hd" / "Textures.res").is_file()
         data_ready = not install.missing_data(self.data)
         idle = self.job is None
-        changing = self.job in ("engine", "hd")
+        changing = self.job in ("engine", "hd", "gog")
         playing = self.game is not None
         online_engine = self.engine_release["tag_name"] if self.engine_release else ""
         online_hd = self.hd_release["tag_name"] if self.hd_release else ""
@@ -289,6 +295,7 @@ class Launcher(QWidget):
         self.browse.setEnabled(not playing and not changing and self.job != "discover")
         self.find_button.setVisible(sys.platform == "win32" and self.data is None)
         self.find_button.setEnabled(idle and not playing)
+        self.gog_button.setEnabled(idle and not playing)
         self.check_button.setEnabled(idle)
         self.play.setEnabled(engine_ready and data_ready and not playing and not changing)
         self.play.setText(tr("Игра запущена", "Game running") if playing else tr("▶   Играть", "▶   Play"))
@@ -308,7 +315,7 @@ class Launcher(QWidget):
         self.set_data(Path(folder).resolve(), self.t("Игровые данные найдены.", "Game data found."))
 
     def set_data(self, data, message):
-        if data.is_relative_to(self.root):
+        if data.is_relative_to(self.root) and data != self.root / gog.DATA_DIRECTORY:
             self.show_error(self.t("Выберите оригинальную игру вне папки лаунчера.",
                                    "Choose the original game outside launcher storage."))
             return
@@ -324,6 +331,31 @@ class Launcher(QWidget):
         if self.data is None and self.job is None:
             self.run_job("discover", discovery.find_windows_data,
                          self.t("Ищу Silent Storm в Steam и GOG…", "Looking for Silent Storm in Steam and GOG…"))
+
+    def import_gog(self):
+        installer, _ = QFileDialog.getOpenFileName(
+            self, self.t("Офлайн-установщик GOG", "GOG offline installer"),
+            QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DownloadLocation),
+            self.t("Офлайн-установщик GOG (*.exe)", "GOG offline installer (*.exe)"),
+        )
+        if not installer:
+            return
+        destination = self.root / gog.DATA_DIRECTORY
+        if destination.exists():
+            answer = QMessageBox.question(
+                self, "Silent Storm Remaster",
+                self.t("Заменить ранее импортированные данные и модификации в этой папке?\n"
+                       "Сохранения и исходный установщик останутся без изменений.\n",
+                       "Replace previously imported data and modifications in this folder?\n"
+                       "Saves and the original installer will not be changed.\n") + str(destination),
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Cancel,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+        self.begin_install("gog", lambda report, cancel:
+                           gog.import_installer(self.root, Path(installer), report, cancel),
+                           self.t("Импорт игровых данных GOG…", "Importing GOG game data…"))
 
     def apply_found_data(self, matches):
         matches = [(path, store) for path, store in matches if not path.is_relative_to(self.root)]
@@ -367,7 +399,7 @@ class Launcher(QWidget):
         self.run_job("check", lambda: self.release_check(self.target),
                      self.t("Проверяю релизы GitHub…", "Checking GitHub releases…"))
 
-    def begin_install(self, name, action):
+    def begin_install(self, name, action, message=None):
         last_update = 0
 
         def report(phase, done=0, total=0):
@@ -382,7 +414,7 @@ class Launcher(QWidget):
                 raise install.Cancelled()
 
         self.run_job(name, lambda: action(report, cancel),
-                     self.t("Подготовка загрузки…", "Preparing download…"))
+                     message or self.t("Подготовка загрузки…", "Preparing download…"))
 
     def engine_action(self):
         self.begin_install("engine", lambda report, cancel:
@@ -417,6 +449,9 @@ class Launcher(QWidget):
                                        "HD pack ready. Toggle HD in the game’s graphics settings."))
         elif job == "discover":
             self.apply_found_data(result)
+        elif job == "gog":
+            self.set_data(result, self.t("Данные Silent Storm импортированы из GOG.",
+                                        "Silent Storm data imported from GOG."))
         self.refresh()
 
     def failure(self, error):
@@ -424,7 +459,16 @@ class Launcher(QWidget):
         self.job = None
         self.refresh()
         if isinstance(error, install.Cancelled):
-            self.status.setText(self.t("Загрузка отменена.", "Download cancelled."))
+            self.status.setText(self.t("Операция отменена.", "Operation cancelled."))
+        elif isinstance(error, gog.ExtractorMissing):
+            self.status.setText(self.t("Для импорта нужен innoextract.", "Import requires innoextract."))
+            self.show_error(self.t(
+                "Установите innoextract: https://constexpr.org/innoextract/\n"
+                "macOS: brew install innoextract\nLinux: sudo apt install innoextract\n"
+                "Windows: распакуйте innoextract и добавьте его папку в PATH.",
+                "Install innoextract: https://constexpr.org/innoextract/\n"
+                "macOS: brew install innoextract\nLinux: sudo apt install innoextract\n"
+                "Windows: unpack innoextract and add its folder to PATH."))
         elif job == "check":
             self.status.setText(self.t("GitHub недоступен. Можно запустить установленную игру.",
                                        "GitHub is unavailable. An installed game can still be played."))
@@ -484,7 +528,7 @@ class Launcher(QWidget):
             self.refresh()
 
     def closeEvent(self, event):
-        if self.job in ("engine", "hd") or self.game:
+        if self.job in ("engine", "hd", "gog") or self.game:
             self.status.setText(self.t("Завершите игру или отмените установку перед выходом.",
                                        "Close the game or cancel installation before exiting."))
             event.ignore()

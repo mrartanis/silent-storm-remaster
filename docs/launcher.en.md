@@ -11,6 +11,30 @@ Under **Game data**, select the folder of your Steam or GOG copy of Silent Storm
 On Windows, **Find game** looks for Steam and GOG installations while no game
 folder has been selected.
 
+### Importing a GOG installer
+
+If the game is not installed, click **Import GOG installer…** and select your
+full offline `setup_….exe`. Install [innoextract](https://constexpr.org/innoextract/)
+separately:
+
+- macOS: `brew install innoextract`. The launcher also finds Homebrew when opened from Finder.
+- Ubuntu/Debian: `sudo apt install innoextract`.
+- Windows: unpack innoextract and add its directory to `PATH`.
+
+The EXE is never executed; neither Wine nor GOG Galaxy is needed. For a multipart
+installer, keep all accompanying `.bin` files beside the `.exe`. GOG Galaxy web
+downloaders, unsupported installer formats and standalone Sentinels are not supported.
+
+Only Silent Storm 1.2 game data is extracted. Gold Edition imports the base
+game, not Sentinels or Windows EXE/DLL files. Once validated, it is stored in
+`game-data` inside launcher storage and selected automatically. At least 4 GiB
+of free space is required. Import can be cancelled; failures and cancellation
+preserve existing data and the previously selected folder. Re-importing asks
+before replacing existing imported data, including local modifications in
+`game-data`. The original installer and game saves are not changed.
+
+### Engine and HD
+
 1. Select **Download** next to Engine, then **Play**.
 2. For HD textures, install [7-Zip](https://www.7-zip.org/) and select **Download**
    next to HD textures. The launcher accepts `7zz`, `7z` or `7za` on `PATH`
