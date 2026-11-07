@@ -31,6 +31,28 @@ def download(url, destination, sha256):
         raise ValueError(f'Unexpected SHA-256 for {url}: {actual}')
 
 
+def source_notices(formula, info, temporary, destination):
+    # Homebrew bottles need not install the source license files. Retrieve the
+    # exact source archive identified by the installed formula instead.
+    source = info['urls']['stable']
+    archive = temporary / (formula + '-source.tar')
+    download(source['url'], archive, source['checksum'])
+    found = False
+    with tarfile.open(archive, 'r|*') as bundle:
+        for member in bundle:
+            path = Path(member.name)
+            if not member.isfile() or not path.name.upper().startswith(('LICENSE', 'COPYING', 'COPYRIGHT')):
+                continue
+            if path.is_absolute() or '..' in path.parts:
+                raise ValueError(f'Unsafe notice path in {formula}: {member.name}')
+            notice = destination / path
+            notice.parent.mkdir(parents=True, exist_ok=True)
+            notice.write_bytes(bundle.extractfile(member).read())
+            found = True
+    if not found:
+        raise ValueError(f'Missing redistribution notices in {formula} source')
+
+
 def prepare(output):
     output.mkdir(parents=True, exist_ok=True)
     licenses = output / 'license'
@@ -69,6 +91,7 @@ def prepare(output):
                 ['brew', 'deps', '--formula', '--installed', 'innoextract'], text=True).split()]
             metadata['homebrew'] = json.loads(subprocess.check_output(
                 ['brew', 'info', '--json=v2', *formulae], text=True))['formulae']
+            formula_info = {entry['name']: entry for entry in metadata['homebrew']}
             for formula in formulae:
                 prefix = Path(subprocess.check_output(['brew', '--prefix', formula], text=True).strip()).resolve()
                 found = []
@@ -80,7 +103,7 @@ def prepare(output):
                         shutil.copy2(notice, destination)
                         found.append(str(relative))
                 if not found and formula != 'innoextract':
-                    raise ValueError(f'Missing redistribution notices in Homebrew {formula}')
+                    source_notices(formula, formula_info[formula], temporary, licenses / formula)
             name, digest = ARCHIVES['source']
             archive = temporary / name
             download('https://constexpr.org/innoextract/files/' + name, archive, digest)
