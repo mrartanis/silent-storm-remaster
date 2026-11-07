@@ -27443,3 +27443,20 @@ Source: [9c283d25](https://github.com/met-nikita/Silent-Storm-Reconstruction/com
 Source: [1b1f0475](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/1b1f04755b220a34aed90e51d7952854270b30bf).
 
 Source: [d29f3c74](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/d29f3c7472393a0167277fa492f84794b2fae4cc).
+
+## November 7 review for v0.3: blocked-route fix deferred
+
+The only new upstream commit after the November 4 endpoint is
+[ae7392e5](https://github.com/met-nikita/Silent-Storm-Reconstruction/commit/ae7392e5f1b36a313685adc01e0dda45f9eb48ee),
+which parks repeated blocked reroutes and allows an interrupted same-place pose
+change to complete. It is **not imported in v0.3**: a valid native RED has not
+been obtained on the remaster.
+
+Occupied ledge-retreat probes on the native movement executors reached the
+existing no-route cancellation. Further probes could not establish the required
+replacement path through the occupied tile and failed their setup checks.
+Neither these setup failures nor a cancelled route prove the donor's endless
+loop. The exploratory probes were removed; production movement code is
+unchanged. A real blocked replacement route or a user save is still needed
+before importing this commit. The ledger retains 298 classified sources and
+adds one deferred, unreproduced candidate.
