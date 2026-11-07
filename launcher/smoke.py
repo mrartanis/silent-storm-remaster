@@ -11,6 +11,7 @@ import zipfile
 from PySide6.QtCore import Qt, QTimer
 
 import install
+from gog_smoke import verify_bundled_import
 
 
 def engine_fixture(root, target):
@@ -35,7 +36,7 @@ def engine_fixture(root, target):
     ]}
 
 
-def smoke_test(app, launcher, hero, log):
+def smoke_test(app, launcher, hero, log, gog_fixture=None):
     with TemporaryDirectory(prefix="silent-storm-launcher-smoke-") as directory:
         root = Path(directory)
         log.write_text("Starting packaged launcher\n", encoding="utf-8")
@@ -49,6 +50,12 @@ def smoke_test(app, launcher, hero, log):
         def fail(error):
             record(str(error))
             app.exit(1)
+
+        try:
+            verify_bundled_import(root, gog_fixture, record)
+        except Exception as error:
+            record(str(error))
+            return 1
 
         def next_step(_result):
             engine = root / "engine"

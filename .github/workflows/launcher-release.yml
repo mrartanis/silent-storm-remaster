@@ -14,8 +14,31 @@ concurrency:
   cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 jobs:
+  gog-fixture:
+    name: Compile multipart installer fixture
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: launcher
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Compile non-proprietary GOG import fixture
+        run: |
+          python launcher/prepare_innoextract.py
+          python launcher/create_gog_fixture.py --output gog-fixture
+      - uses: actions/upload-artifact@v4
+        with:
+          name: launcher-gog-fixture
+          path: gog-fixture/*
+          if-no-files-found: error
+
   package:
     name: ${{ matrix.target }}
+    needs: gog-fixture
     strategy:
       fail-fast: false
       matrix:
@@ -44,6 +67,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: launcher-gog-fixture
+          path: gog-fixture
+
+      - name: Install macOS extractor build dependency
+        if: runner.os == 'macOS'
+        run: brew install innoextract
+
+      - name: Prepare bundled native extractor and license notices
+        run: python launcher/prepare_innoextract.py
 
       - name: Install Linux display dependencies
         if: runner.os == 'Linux'
@@ -93,10 +128,11 @@ jobs:
               ;;
           esac
           status=0
-          "${command[@]}" --smoke-test smoke/result.log || status=$?
+          "${command[@]}" --smoke-test smoke/result.log --gog-fixture gog-fixture || status=$?
           if [[ -f smoke/result.log ]]; then cat smoke/result.log; fi
           test "$status" = 0
           grep -q '^Installed and verified the local engine fixture' smoke/result.log
+          grep -q '^Imported and verified the multipart GOG fixture with an empty PATH' smoke/result.log
           if [[ "$TARGET" == linux-x64 ]]; then grep -q '(xcb)' smoke/result.log; fi
 
       - name: Launch natively on Wayland
@@ -120,11 +156,12 @@ jobs:
           if [[ ! -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]]; then cat smoke/weston.log; exit 1; fi
           status=0
           QT_DEBUG_PLUGINS=1 ./smoke/SilentStormLauncher/SilentStormLauncher \
-            --smoke-test smoke/wayland.log || status=$?
+            --smoke-test smoke/wayland.log --gog-fixture gog-fixture || status=$?
           if [[ -f smoke/wayland.log ]]; then cat smoke/wayland.log; fi
           test "$status" = 0
           grep -q '(wayland)' smoke/wayland.log
           grep -q '^Installed and verified the local engine fixture' smoke/wayland.log
+          grep -q '^Imported and verified the multipart GOG fixture with an empty PATH' smoke/wayland.log
 
       - uses: actions/upload-artifact@v4
         with:

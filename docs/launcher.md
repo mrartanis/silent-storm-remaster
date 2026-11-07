@@ -14,12 +14,10 @@ GOG. В ней должны лежать `game.db`, `start.cfg`, `tree.mma`, `cf
 ### Импорт установщика GOG
 
 Если игра ещё не установлена, нажмите **Импорт из GOG…** и выберите свой
-полный офлайн-установщик `setup_….exe`. Нужен отдельный
-[innoextract](https://constexpr.org/innoextract/):
-
-- macOS: `brew install innoextract`. Лаунчер находит Homebrew и при запуске из Finder.
-- Ubuntu/Debian: `sudo apt install innoextract`.
-- Windows: распакуйте innoextract и добавьте его каталог в `PATH`.
+полный офлайн-установщик `setup_….exe`. Распаковщик
+[innoextract](https://constexpr.org/innoextract/) включён в архив лаунчера
+вместе с нужными библиотеками. Устанавливать его отдельно, Homebrew или Wine
+не требуется. Распакуйте весь архив лаунчера, сохранив вложенные папки.
 
 EXE не запускается; Wine и GOG Galaxy не нужны. Для составного установщика
 оставьте все сопутствующие `.bin` рядом с `.exe`. Веб-загрузчик GOG Galaxy,
@@ -83,12 +81,18 @@ python launcher/launcher.py
 
 ```sh
 python -m pip install -r launcher/requirements-build.txt
+python launcher/prepare_innoextract.py
 python -m PyInstaller launcher/launcher.spec
 ```
 
 Распространяйте каталог `dist/SilentStormLauncher` целиком. На macOS используйте
 `dist/SilentStormLauncher.app`. Сохраняйте символические ссылки при упаковке
 Linux и macOS.
+
+На macOS перед сборкой установите `brew install innoextract`. Это зависимость
+только компьютера сборки: PyInstaller добавит утилиту и её библиотеки в приложение.
+Для Windows и Linux скрипт подготовки скачивает официальные бинарные файлы с
+проверкой SHA-256. Лицензии включаются в архив вместе с распаковщиком.
 
 ## Проверка и публикация на GitHub
 
@@ -97,7 +101,9 @@ Linux и macOS.
    используйте имя `launcher-check/…`. Workflow собирает архивы для всех трёх
    платформ, запускает лаунчер из распакованного архива, проверяет окно,
    читает список релизов и устанавливает крошечный локальный архив с проверкой
-   SHA-256. Linux проверяется отдельно в X11 и в нативном Wayland.
+   SHA-256. Встроенный распаковщик также извлекает настоящий тестовый установщик
+   с внешними `.bin`, с пустым `PATH`; содержимое сверяется по SHA-256. Оригинальных
+   игровых данных в тесте нет. Linux проверяется отдельно в X11 и в нативном Wayland.
 2. Для выпуска используйте обычный тег движка `v*`. В [релиз движка](releasing.md)
    попадут три проверенных архива `silent-storm-launcher-*`, их хеши будут в
    `SHA256SUMS`. Имена архивов сохраняются между релизами для прямых ссылок

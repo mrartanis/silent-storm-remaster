@@ -84,7 +84,7 @@ class ImportControlsTests(unittest.TestCase):
                 patch.object(self.window, "show_error") as error:
             self.window.gog_button.click()
             self.wait_job()
-        self.assertIn("brew install innoextract", error.call_args.args[0])
+        self.assertIn("распакуйте его целиком", error.call_args.args[0])
         self.assertEqual(self.window.data, self.original)
 
     def test_existing_import_requires_confirmation(self):

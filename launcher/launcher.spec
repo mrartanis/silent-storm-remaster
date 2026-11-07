@@ -5,14 +5,22 @@ from PyInstaller.utils.hooks import copy_metadata
 
 here = Path(SPECPATH)
 repo = here.parent
+extractor = repo / 'build/launcher-innoextract'
+extractor_binary = extractor / ('innoextract.exe' if sys.platform == 'win32' else 'innoextract')
+if not extractor_binary.is_file() or not (extractor / 'license').is_dir():
+    raise RuntimeError('Prepare the bundled extractor first: python launcher/prepare_innoextract.py')
 analysis = Analysis(
     [str(here / 'launcher.py')],
     pathex=[str(repo / 'packaging')],
+    binaries=[(str(extractor_binary), 'innoextract')],
     datas=[
         (str(here / 'field-desk.qss'), '.'),
         (str(here / 'insignia.svg'), '.'),
         (str(here / 'embers.webp'), '.'),
         (str(repo / 'LICENSE.md'), '.'),
+        (str(here / 'THIRD_PARTY.md'), '.'),
+        (str(extractor / 'license'), 'innoextract/license'),
+        (str(extractor / 'BUILD.json'), 'innoextract'),
     ] + copy_metadata('PySide6-Essentials') + copy_metadata('shiboken6'),
 )
 if sys.platform == 'win32':

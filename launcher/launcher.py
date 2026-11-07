@@ -189,8 +189,8 @@ class Launcher(QWidget):
         folder_row.addWidget(self.windowed)
         data_layout.addLayout(folder_row)
         self.gog_button = self.button(tr("Импорт из GOG…", "Import GOG installer…"), self.import_gog)
-        self.gog_button.setToolTip(tr("Распаковать офлайн-установщик без запуска EXE. Нужен innoextract.",
-                                      "Extract an offline installer without running the EXE. Requires innoextract."))
+        self.gog_button.setToolTip(tr("Распаковать офлайн-установщик без запуска EXE. Распаковщик включён.",
+                                      "Extract an offline installer without running the EXE. Extractor included."))
         data_layout.addWidget(self.gog_button, 0, Qt.AlignmentFlag.AlignLeft)
         cards.addWidget(data_card, 5)
 
@@ -461,14 +461,12 @@ class Launcher(QWidget):
         if isinstance(error, install.Cancelled):
             self.status.setText(self.t("Операция отменена.", "Operation cancelled."))
         elif isinstance(error, gog.ExtractorMissing):
-            self.status.setText(self.t("Для импорта нужен innoextract.", "Import requires innoextract."))
+            self.status.setText(self.t("Распаковщик GOG не найден.", "GOG extractor is missing."))
             self.show_error(self.t(
-                "Установите innoextract: https://constexpr.org/innoextract/\n"
-                "macOS: brew install innoextract\nLinux: sudo apt install innoextract\n"
-                "Windows: распакуйте innoextract и добавьте его папку в PATH.",
-                "Install innoextract: https://constexpr.org/innoextract/\n"
-                "macOS: brew install innoextract\nLinux: sudo apt install innoextract\n"
-                "Windows: unpack innoextract and add its folder to PATH."))
+                "Распаковщик входит в комплект лончера. Скачайте архив лончера заново "
+                "и распакуйте его целиком, сохранив вложенные папки.",
+                "The extractor is included with the launcher. Download the launcher archive again "
+                "and extract the entire archive, keeping its subdirectories."))
         elif job == "check":
             self.status.setText(self.t("GitHub недоступен. Можно запустить установленную игру.",
                                        "GitHub is unavailable. An installed game can still be played."))
@@ -541,6 +539,7 @@ def main():
     parser.add_argument("--storage", type=Path, help="launcher files, engine and HD pack")
     parser.add_argument("--language", choices=("ru", "en"))
     parser.add_argument("--smoke-test", type=Path, metavar="LOG", help=argparse.SUPPRESS)
+    parser.add_argument("--gog-fixture", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
     app = QApplication([sys.argv[0]])
     app.setApplicationName("Silent Storm Launcher")
@@ -549,7 +548,7 @@ def main():
                QLocale.system().language() == QLocale.Language.Russian)
     if args.smoke_test:
         from smoke import smoke_test
-        return smoke_test(app, Launcher, Hero, args.smoke_test)
+        return smoke_test(app, Launcher, Hero, args.smoke_test, args.gog_fixture)
     root = (args.storage or Path(QStandardPaths.writableLocation(
         QStandardPaths.StandardLocation.AppLocalDataLocation))).resolve()
     root.mkdir(parents=True, exist_ok=True)

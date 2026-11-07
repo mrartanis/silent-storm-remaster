@@ -62,7 +62,7 @@ class ImportTests(unittest.TestCase):
         self.assertEqual(command[0], "innoextract-fixture")
         self.assertEqual(command[-1], str(self.installer.resolve()))
         filters = [command[i + 1] for i, value in enumerate(command) if value == "--include"]
-        self.assertEqual(set(filters), {f"{root}/{name}" for root in gog.INSTALLER_ROOTS
+        self.assertEqual(set(filters), {str(Path(root) / name) for root in gog.INSTALLER_ROOTS
                                        for name in install.DATA_FILES + install.DATA_DIRS})
         self.assertEqual(child.call_args.kwargs["stdin"], subprocess.DEVNULL)
         self.progress.assert_called_with("extract")
@@ -183,13 +183,35 @@ class ImportTests(unittest.TestCase):
 
 
 class ExtractorDiscoveryTests(unittest.TestCase):
+    def test_packaged_extractor_takes_priority_over_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            executable = root / 'innoextract' / ('innoextract.exe' if sys.platform == 'win32' else 'innoextract')
+            executable.parent.mkdir()
+            executable.touch()
+            with patch.object(gog.sys, '_MEIPASS', str(root), create=True), \
+                    patch.object(gog.sys, 'frozen', True, create=True), \
+                    patch('gog.shutil.which') as system:
+                self.assertEqual(gog.innoextract(), str(executable))
+            system.assert_not_called()
+
+    def test_incomplete_package_cannot_silently_use_system_extractor(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(gog.sys, '_MEIPASS', directory, create=True), \
+                patch.object(gog.sys, 'frozen', True, create=True), \
+                patch('gog.shutil.which', return_value='system-innoextract') as system:
+            with self.assertRaises(gog.ExtractorMissing):
+                gog.innoextract()
+            system.assert_not_called()
+
     def test_finder_homebrew_path(self):
         with patch.object(gog.sys, "platform", "darwin"), \
+                patch('gog.Path.is_file', return_value=False), \
                 patch("gog.shutil.which", side_effect=lambda p: p if p == "/opt/homebrew/bin/innoextract" else None):
             self.assertEqual(gog.innoextract(), "/opt/homebrew/bin/innoextract")
 
     def test_missing_extractor(self):
-        with patch("gog.shutil.which", return_value=None):
+        with patch("gog.shutil.which", return_value=None), patch('gog.Path.is_file', return_value=False):
             with self.assertRaises(gog.ExtractorMissing):
                 gog.innoextract()
 

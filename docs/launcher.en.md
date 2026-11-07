@@ -14,12 +14,10 @@ folder has been selected.
 ### Importing a GOG installer
 
 If the game is not installed, click **Import GOG installer…** and select your
-full offline `setup_….exe`. Install [innoextract](https://constexpr.org/innoextract/)
-separately:
-
-- macOS: `brew install innoextract`. The launcher also finds Homebrew when opened from Finder.
-- Ubuntu/Debian: `sudo apt install innoextract`.
-- Windows: unpack innoextract and add its directory to `PATH`.
+full offline `setup_….exe`. [innoextract](https://constexpr.org/innoextract/)
+and its required libraries are included in the launcher archive. No separate
+extractor installation, Homebrew, or Wine is needed. Extract the entire launcher
+archive, keeping its subdirectories.
 
 The EXE is never executed; neither Wine nor GOG Galaxy is needed. For a multipart
 installer, keep all accompanying `.bin` files beside the `.exe`. GOG Galaxy web
@@ -82,12 +80,18 @@ Run these commands from the repository root on each target OS.
 
 ```sh
 python -m pip install -r launcher/requirements-build.txt
+python launcher/prepare_innoextract.py
 python -m PyInstaller launcher/launcher.spec
 ```
 
 Distribute the complete `dist/SilentStormLauncher` folder. On macOS, use
 `dist/SilentStormLauncher.app`. Preserve symbolic links in Linux and macOS
 archives.
+
+On macOS, run `brew install innoextract` before building. This is a build-machine
+dependency only: PyInstaller includes the tool and its libraries in the app.
+On Windows and Linux, the preparation script downloads the official binaries
+with pinned SHA-256 verification. The extractor's licenses are included too.
 
 ## Verify and publish on GitHub
 
@@ -96,7 +100,10 @@ archives.
    `launcher-check/…` branch name. The workflow packages all three platforms,
    opens the launcher from each extracted archive, checks the window,
    reads release metadata and installs a tiny local archive with SHA-256
-   verification. Linux is checked separately under X11 and native Wayland.
+   verification. The bundled extractor also imports a real test installer with
+   external `.bin` files and an empty `PATH`, then verifies its contents by
+   SHA-256. The fixture contains no original game data. Linux is checked separately
+   under X11 and native Wayland.
 2. For publication, use the usual `v*` engine tag. The [engine release](releasing.en.md)
    includes three verified `silent-storm-launcher-*` archives and lists their
    hashes in `SHA256SUMS`. Archive names stay the same across releases for the

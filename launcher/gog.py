@@ -20,6 +20,15 @@ class ExtractorMissing(RuntimeError):
 
 
 def innoextract():
+    executable = 'innoextract.exe' if sys.platform == 'win32' else 'innoextract'
+    if getattr(sys, 'frozen', False):
+        bundled = Path(sys._MEIPASS) / 'innoextract' / executable
+        if bundled.is_file():
+            return str(bundled)
+        raise ExtractorMissing('The launcher archive is incomplete: bundled innoextract is missing.')
+    bundled = Path(__file__).resolve().parents[1] / 'build/launcher-innoextract' / executable
+    if bundled.is_file():
+        return str(bundled)
     candidates = ["innoextract"]
     if sys.platform == "darwin":
         # Finder does not inherit the user's Homebrew PATH.
@@ -36,7 +45,7 @@ def extract(executable, installer, staging, cancel):
     # Supported path filters, not installer scripts: never execute the EXE.
     for root in INSTALLER_ROOTS:
         for name in (*install.DATA_FILES, *install.DATA_DIRS):
-            command += ["--include", f"{root}/{name}"]
+            command += ["--include", str(Path(root) / name)]
     command.append(str(installer))
     log = staging / "innoextract.log"
     with log.open("wb") as output:
