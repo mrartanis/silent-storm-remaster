@@ -305,6 +305,7 @@ CUnit::CUnit( NDb::CRPGPers *_pPers, NDb::CComplexHead *_pHead, bool _bHero, NDb
 	if ( IsValid( pPers->pPanzerklein ) ) 
 		pInventory->SetPanzerklein( pPers->pPanzerklein, 0 );
 	pDefaultWeapon = dynamic_cast<CMeleeWeaponItem*>( CreateMeleeWeaponItem( NDb::GetMeleeWeapon( N_DEFAULT_WEAPON_ID ) ) );
+	pDefaultWeaponOwner = pDefaultWeapon.GetPtr();
 
 	//pInventory->Equip( NDb::SLOT_WEAPON, CreateWeaponItem( pPers->pWeapon ) );
 	vector< CPtr<IInventoryItem> > items;
@@ -699,6 +700,9 @@ CWeaponItem* CUnit::GetWeaponItem() const
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CMeleeWeaponItem* CUnit::GetMeleeWeaponItem() const
 {
+	// A temporary attack owns its item. Keep the default fists alive after that
+	// attack ends, including when the unit came from a legacy save.
+	if ( pDefaultWeaponOwner.GetPtr()!=pDefaultWeapon.GetPtr() ) pDefaultWeaponOwner = pDefaultWeapon.GetPtr();
 	IInventoryItem *pItem = pInventory->GetActive();
 	if ( !pItem )
 		return pDefaultWeapon;

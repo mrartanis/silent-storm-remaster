@@ -133,6 +133,11 @@ public:
 	bool IsMouseCover() const { return true; };
 
 	bool ProcessEvent( const NInput::SEvent &eEvent );
+	void ShowConvenienceOptions();
+	void ShowKeyboardHelp();
+	bool HandleConvenienceMessage(const SEvent& event);
+	void UpdateConveniencePanels();
+	int keyboardHelpPage=0;
 	bool HandleDisplayMessage(const SEvent& event);
 	void ShowDisplayOptions();
 	void UpdateDisplayPanels();

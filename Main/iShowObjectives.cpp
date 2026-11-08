@@ -190,7 +190,9 @@ public:
 	// retail @0x2208b0: 1=CWindow base, 2=pMission, 3=goal (retail raw-DataChunks the whole
 	// SGoalDescription value, 0x14 bytes, pointers and all -- the dev POD fallback path does the
 	// same over the dev struct), 4=pType, 5=pState, 6=pBackgroundImage, 7=pDescription, 8=bDoubleLine
-	int operator&( CStructureSaver &f ) { f.Add(1,(CWindow*)this); f.Add(2,&pMission); f.Add(3,&goal); f.Add(4,&pType); f.Add(5,&pState); f.Add(6,&pBackgroundImage); f.Add(7,&pDescription); f.Add(8,&bDoubleLine); return 0; }
+	// Never restore the legacy raw tag 3: it contains process pointers and a
+	// vector allocation. Legacy rows retain their separately saved text/images.
+	int operator&( CStructureSaver &f ) { f.Add(1,(CWindow*)this); f.Add(2,&pMission); f.Add(9,&goal); f.Add(4,&pType); f.Add(5,&pState); f.Add(6,&pBackgroundImage); f.Add(7,&pDescription); f.Add(8,&bDoubleLine); return 0; }
 
 	bool ProcessMessage( const SEvent &sEvent );	// @0x21eb90
 };
@@ -279,7 +281,8 @@ public:
 
 	// retail @0x220970: 1=CWindow base, 2=nNumber, 3=pMission, 4=task (raw 8-byte DataChunk over
 	// the STaskDescription value, as retail), 5=pState, 6=pBackgroundImage, 7=pDescription, 8=bDoubleLine
-	int operator&( CStructureSaver &f ) { f.Add(1,(CWindow*)this); f.Add(2,&nNumber); f.Add(3,&pMission); f.Add(4,&task); f.Add(5,&pState); f.Add(6,&pBackgroundImage); f.Add(7,&pDescription); f.Add(8,&bDoubleLine); return 0; }
+	// Legacy raw tag 4 is intentionally ignored, as for CClueLine above.
+	int operator&( CStructureSaver &f ) { f.Add(1,(CWindow*)this); f.Add(2,&nNumber); f.Add(3,&pMission); f.Add(9,&task); f.Add(5,&pState); f.Add(6,&pBackgroundImage); f.Add(7,&pDescription); f.Add(8,&bDoubleLine); return 0; }
 
 	bool ProcessMessage( const SEvent &sEvent );	// @0x21f020
 };
@@ -596,6 +599,9 @@ void CICShowObjectives::Exec()
 {
 	if ( !IsValid( pZone ) )
 		return;
+	if ( !IsValid(pMission) )
+		pMission = dynamic_cast<IMission*>(NMainLoop::GetMissionInterfaceForHarness());
+	if ( !IsValid(pMission) ) return;
 
 	CShowObjectivesInterface *pRes = new CShowObjectivesInterface();
 	pRes->Initialize( pMission, pZone, pScreenShot );

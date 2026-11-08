@@ -106,6 +106,7 @@ set(Main_SRC
     VectorFonts.cpp
     DisplayOptions.cpp
     DisplayPanels.cpp
+    GameplayConvenience.cpp
   "2DScene.cpp"
   "2DSceneSW.cpp"
   "BetaSpline.cpp"

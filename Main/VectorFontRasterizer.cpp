@@ -39,6 +39,7 @@ static bool RasterizeFace(const FT_Open_Args& args, int pixels, Atlas* result, s
   for (unsigned code = 32; code <= 0xfffd; ++code) {
     if (!(code <= 0x2ff || (code >= 0x400 && code <= 0x52f) ||
           (code >= 0x2000 && code <= 0x206f) || code == 0x20ac ||
+          (code >= 0x2190 && code <= 0x22ff) ||
           (code >= 0x2500 && code <= 0x257f) || code == 0xfffd)) continue;
     const FT_UInt index = FT_Get_Char_Index(face, code);
     if (!index || FT_Load_Glyph(face, index, FT_LOAD_DEFAULT) || FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL)) continue;

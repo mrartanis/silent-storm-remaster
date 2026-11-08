@@ -822,6 +822,30 @@ bool CAudioOptionsUI::ProcessMessage( const SEvent &sEvent )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CGamePlayOptionsUI
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+static NDb::CUIContainer* MakeGameplayOptionsTemplate()
+{
+	auto* original=NDb::GetUIContainer(163);
+	auto* modern=new NDb::CUIContainer;modern->nWidth=original->nWidth;modern->nHeight=original->nHeight;
+	for(auto control:original->controls) {
+		if(control->szID!="default") {modern->controls.push_back(control);continue;}
+		for(int part=0;part<2;++part) {
+			auto* button=new NDb::CUIControl;
+			button->type=control->type;button->szID=part?"convenience_options":"default";
+			button->nColor=control->nColor;button->nDepth=control->nDepth;
+			button->bVisible=control->bVisible;button->bDefault=false;
+			button->bTopmost=control->bTopmost;button->bBottommost=control->bBottommost;button->bTransparent=control->bTransparent;
+			button->rect=control->rect;const int middle=(control->rect.x1+control->rect.x2)/2;
+			if(part)button->rect.x1=middle;else button->rect.x2=middle;
+			for(int n=0;n<NDb::N_CTRL_SOUNDS;++n)button->pSounds[n]=control->pSounds[n];
+			for(int n=0;n<NDb::N_CTRL_TEXTURES;++n)button->pTextures[n]=control->pTextures[n];
+			for(int n=0;n<NDb::N_CTRL_MODELS;++n)button->pModels[n]=control->pModels[n];
+			button->pString=control->pString;button->pContainer=control->pContainer;button->pNestedUIContainer=control->pNestedUIContainer;
+			button->toolTipAnchorType=NDb::UIA_NONE;button->sToolTipAnchor=control->sToolTipAnchor;
+			modern->controls.push_back(button);
+		}
+	}
+	return modern;
+}
 class CGamePlayOptionsUI: public CEmptyOptionsUI
 {
 	OBJECT_NOCOPY_METHODS(CGamePlayOptionsUI)
@@ -864,12 +888,15 @@ bool CGamePlayOptionsUI::ProcessMessage( const SEvent &sEvent )
 	case EVENT_TEMPLATELOAD:
 		{
 			pDefault = new CHoverButton( sEvent.pLoader->GetControl( "default" ) );
-			pDefault->AddTextState( CHoverButton::STATE_NORMAL, GetDBString( 4404 ) + GetDBString( 4377 ) );
-			pDefault->AddTextState( CHoverButton::STATE_HOVER, GetDBString( 4405 ) + GetDBString( 4377 ) );
+			pDefault->AddTextState( CHoverButton::STATE_NORMAL, GetDBString( 4404 ) + L"<font size=18pt>" + GetDBString( 4377 ) );
+			pDefault->AddTextState( CHoverButton::STATE_HOVER, GetDBString( 4405 ) + L"<font size=18pt>" + GetDBString( 4377 ) );
 
 			// Retail gameplay container (163) ships a tooltip-delay scroll the dev never built -> build
 			// it as a CComplexScroll so its nested plus/minus/slider template binds.
 			pTooltipDelay = new CComplexScroll( sEvent.pLoader->GetControl( "tooltip_delay" ) );
+			auto* extra=new CHoverButton(sEvent.pLoader->GetControl("convenience_options"));
+			extra->AddTextState(CHoverButton::STATE_NORMAL,GetDBString(4404)+L"<font size=18pt>"+VideoText(L"CONVENIENCE",L"\u0423\u0414\u041e\u0411\u0421\u0422\u0412\u0410"));
+			extra->AddTextState(CHoverButton::STATE_HOVER,GetDBString(4405)+L"<font size=18pt>"+VideoText(L"CONVENIENCE",L"\u0423\u0414\u041e\u0411\u0421\u0422\u0412\u0410"));
 			break;
 		}
 	case EVENT_TEMPLATELOADCOMPLETE:
@@ -889,9 +916,14 @@ bool CGamePlayOptionsUI::ProcessMessage( const SEvent &sEvent )
 		}
 	case EVENT_NOTIFY:
 		{
+			if(sEvent.szID=="convenience_options") {GetInterface()->ShowConvenienceOptions();return true;}
 			if ( sEvent.szID == "default" )
 			{
 				NGlobal::ResetVar( "ui_showicons" );
+				NGlobal::ResetVar("ui_weapon_comparison");
+				NGlobal::ResetVar("ui_keyboard_help");
+				NGlobal::ResetVar("input_mac_numpad");
+				NGlobal::ResetVar("game_other_turn_speed");
 				NGlobal::ResetVar( "ui_showhints" );
 				NGlobal::ResetVar( "cheat_blood" );
 				NGlobal::ResetVar( "game_autosaves" );
@@ -913,6 +945,7 @@ bool CGamePlayOptionsUI::ProcessMessage( const SEvent &sEvent )
 				UpdateConfig( pDblClkMoveInRT, "game_dblclkmoveinrealtime" );
 				NGlobal::SetVar( "ui_tooltipdelay", NGlobal::CValue( pTooltipDelay->GetValue() ) );
 			}
+			NGlobal::SaveConfig(".\\cfg\\config.cfg");
 			break;
 		}
 	}
@@ -1415,9 +1448,12 @@ void COptionsInterface::Initialize( EOptionsScreen eScreen, NGScene::CScreenshot
 		NUI::LoadTemplate( pOptionsUI, NDb::GetUIContainer( 162 ) );
 		break;
 	case OS_GAMEPLAY:
+	{
 		pOptionsUI = new NUI::CGamePlayOptionsUI( NUI::SWindowInfo( pInterface, NUI::SPoint( 0, 0 ), NUI::SPoint( 1024, 768 ), "options", NUI::STYLE_ENABLED ) );
-		NUI::LoadTemplate( pOptionsUI, NDb::GetUIContainer( 163 ) );
+		CObj<NDb::CUIContainer> modern=NUI::MakeGameplayOptionsTemplate();
+		NUI::LoadTemplate( pOptionsUI, modern );
 		break;
+	}
 	case OS_CONTROLS:
 		pOptionsUI = new NUI::CControlsOptionsUI( NUI::SWindowInfo( pInterface, NUI::SPoint( 0, 0 ), NUI::SPoint( 1024, 768 ), "options", NUI::STYLE_ENABLED ) );
 		NUI::LoadTemplate( pOptionsUI, NDb::GetUIContainer( 164 ) );
@@ -1536,6 +1572,10 @@ REGISTER_SAVELOAD_CLASS( 0xB081515A, COptionsInterface );
 // cheat_blood is already registered (wDumbUnit.cpp) with its real BloodHandler, so it is NOT re-listed.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 START_REGISTER(iOptionsMenu)
+	REGISTER_VAR("ui_weapon_comparison",0,1.0f,true)
+	REGISTER_VAR("ui_keyboard_help",0,1.0f,true)
+	REGISTER_VAR("input_mac_numpad",0,1.0f,true)
+	REGISTER_VAR("game_other_turn_speed",0,1.0f,true)
 	REGISTER_VAR( "ui_showicons",              0, 1.0f, true )
 	REGISTER_VAR( "ui_showhints",              0, 1.0f, true )
 	// retail iMissionUIInit @0x215b90: bShowAcks / bShowAcksSubtitles, both default 1.0 (on) --

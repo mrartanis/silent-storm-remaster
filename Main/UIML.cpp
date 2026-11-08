@@ -860,7 +860,12 @@ void CML::Generate( NGScene::I2DGameView *pView, int nWidth )
 			bBracketsBlock = !bBracketsBlock;
 		else if ( iswalnum( wcChar ) != 0 )
 			eThisChar = CHAR_ALNUM;
-		else if ( wcChar == L'=' || iswpunct( wcChar ) )
+		// Bionic's iswpunct excludes math symbols such as '+' and multiplication.
+		// Visible text must retain every printable non-space character; keep the
+		// original token rules inside markup tags.
+		else if ( wcChar == L'=' || iswpunct( wcChar ) ||
+			( !bTAG && ( iswgraph( wcChar ) || wcChar == L'+' || wcChar == L'\u00d7' ||
+				( wcChar >= 0x2190 && wcChar <= 0x22ff ) ) ) )
 			eThisChar = bTAG ? CHAR_PUNCTUATION : CHAR_ALNUM; // Tag assignment is independent of locale.
 		else if  ( !bBracketsBlock && ( wcChar == L' ' ) )
 			eThisChar = CHAR_SPACE;

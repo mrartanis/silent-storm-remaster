@@ -179,9 +179,18 @@ void CPerksTree::Draw( string szFileName )
 	system( str.c_str() );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+static thread_local unsigned readOnlyPerkQueries=0;
+CReadOnlyPerkQueries::CReadOnlyPerkQueries() {++readOnlyPerkQueries;}
+CReadOnlyPerkQueries::~CReadOnlyPerkQueries() {--readOnlyPerkQueries;}
 bool CPerksTree::HasPerk( int nPerkID, float *pParam1, float *pParam2, float *pParam3 )
 {
-	CObj<CPerk> &pPerk = perks[ nPerkID ];
+	const auto found=perks.find(nPerkID);
+	if(found==perks.end()) {
+		// Keep the retail query behavior outside a presentation-only calculation.
+		if(!readOnlyPerkQueries) perks[nPerkID];
+		return false;
+	}
+	const CObj<CPerk> &pPerk=found->second;
 	if ( IsValid( pPerk ) && pPerk->IsTaken() )
 	{
 		vector<float> &params = pPerk->GetDBPerk()->params;

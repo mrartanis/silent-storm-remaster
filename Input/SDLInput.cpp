@@ -1,6 +1,9 @@
 #include "StdAfx.h"
 #include "Input.h"
 #include "SDLKeyTable.h"
+#include "MacNumpad.h"
+#include "Bind.h"
+#include "../MiscDll/Commands.h"
 #include "../Game/Platform.h"
 #include <SDL3/SDL.h>
 #include <array>
@@ -12,6 +15,9 @@ std::uint32_t lastPump = 0;
 std::list<SMessage> messages;
 std::array<bool, 256> keys{};
 std::array<bool, 8> buttons{};
+#if defined(__APPLE__)
+MacNumpadState macNumpad;
+#endif
 float motionX = 0, motionY = 0, wheelRemainder = 0;
 #if defined(__ANDROID__)
 TouchGestures touch;
@@ -94,6 +100,9 @@ void Push(EControlType type, int action, int value, bool down = true,
 }
 void ReleaseAll()
 {
+#if defined(__APPLE__)
+  macNumpad.Reset();
+#endif
 #if defined(__ANDROID__)
   touch.Reset();
 #endif
@@ -219,6 +228,10 @@ void PumpMessages(bool focus, bool force)
       case SDL_EVENT_KEY_DOWN: case SDL_EVENT_KEY_UP: {
         const bool down = event.type == SDL_EVENT_KEY_DOWN;
         SDL_Scancode scancode = event.key.scancode;
+#if defined(__APPLE__)
+        if(!macNumpad.Route(scancode,down,(event.key.mod & SDL_KMOD_GUI)!=0,
+            NGlobal::GetVar("input_mac_numpad",1).GetInt()!=0 && GetSection()=="game",event.key.repeat,&scancode))break;
+#endif
 #if defined(__ANDROID__)
         if (scancode == SDL_SCANCODE_AC_BACK) scancode = SDL_SCANCODE_ESCAPE;
 #endif

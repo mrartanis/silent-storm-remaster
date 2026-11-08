@@ -43,4 +43,22 @@ Close the game and extract the new engine archive over the installed files, incl
 
 Set the `S2_USER_DATA_DIR` environment variable to use a different folder for saves and settings.
 
+In **Settings → Gameplay → Convenience**, you can disable weapon comparisons
+in tooltips and the F1 keyboard reference. Both are enabled by default. Pick up
+a weapon into the character's backpack, keep the current weapon active, and
+hover over the picked-up weapon to compare them. Comparison before picking up
+a weapon from the ground is not available yet. Hold Shift for extra stats.
+On Android, touch and hold the weapon;
+the extra stats appear immediately, without Shift. Estimated damage per AP compares snap
+and aimed shots against an exposed, unarmored target; it does not replace
+the hit chance against a particular enemy.
+
+Other turns run at normal speed by default. The same menu offers ×2, ×3 and
+×4 for enemy and ally turns in single-player turn-based play. Your own turns,
+real time, scripted sequences and network matches retain normal speed.
+On Mac, Command + 0–9, Command + `=` / `-` and Command + `.` act as numpad
+keys. You can disable these aliases in the same menu. The reference shows
+current bindings; if F1 already has another assignment, open it with the
+**Keyboard reference…** button in Convenience settings.
+
 Use the graphics settings to change resolution, window mode, anti-aliasing, and VSync. Open **Display and Interface** to change UI scaling and vector font settings.

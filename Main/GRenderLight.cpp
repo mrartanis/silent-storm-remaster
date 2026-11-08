@@ -84,8 +84,8 @@ void CDirectionalLight::PrepareLightInfo( SLightInfo *pLightInfo )
 	pColor.Refresh();
 	pGlossColor.Refresh();
 	pAmbient.Refresh();
-	pTopAmbient.Refresh();
-	pBottomAmbient.Refresh();
+	if(IsValid(pTopAmbient)) pTopAmbient.Refresh();
+	if(IsValid(pBottomAmbient)) pBottomAmbient.Refresh();
 	lightInfo.bNeedSet = true;
 	lightInfo.bIgnoreCL = ( pCLRender->GetLightingOptions() >> 1 ) & 1;   // retail @0x150c30
 	lightInfo.vGlossColor = pGlossColor->GetValue();
@@ -93,8 +93,10 @@ void CDirectionalLight::PrepareLightInfo( SLightInfo *pLightInfo )
 	lightInfo.vLightPos = CVec4(-vLightDir, 0);
 	lightInfo.vShadowColor = vShadowColor;
 	lightInfo.vAmbientColor = pAmbient->GetValue();
-	lightInfo.vUpDifColor = pTopAmbient->GetValue() - pAmbient->GetValue();
-	ASSERT( ( pTopAmbient->GetValue() + pBottomAmbient->GetValue() ) * 0.5f == pAmbient->GetValue() );
+	// Legacy scene saves can retain only the mean ambient. In that case the
+	// original flat ambient has no upper/lower color difference.
+	lightInfo.vUpDifColor = IsValid(pTopAmbient) ? pTopAmbient->GetValue() - pAmbient->GetValue() : VNULL3;
+	ASSERT( !IsValid(pTopAmbient) || !IsValid(pBottomAmbient) || ( pTopAmbient->GetValue() + pBottomAmbient->GetValue() ) * 0.5f == pAmbient->GetValue() );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static void RenderTnL( SOpGenContext &op, const SMaterialInfo &info, const CVec3 &ambient,
@@ -863,9 +865,9 @@ void CDirectionalLight::GetRadianceInfo( SRadianceInfo *pRes, ERenderPath render
 	pColor.Refresh();
 	pRes->vColor = pColor->GetValue();
 	pAmbient.Refresh();
-	pTopAmbient.Refresh();
+	if(IsValid(pTopAmbient)) pTopAmbient.Refresh();
 	pRes->vAmbientColor = pAmbient->GetValue();
-	pRes->vUpDifColor = pTopAmbient->GetValue() - pAmbient->GetValue();
+	pRes->vUpDifColor = IsValid(pTopAmbient) ? pTopAmbient->GetValue() - pAmbient->GetValue() : VNULL3;
 	pRes->vDirection = vLightDir;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

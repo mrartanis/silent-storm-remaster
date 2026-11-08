@@ -158,6 +158,10 @@ void GetBind( const string &szCmd, list<SBind> *pRes )
 	{
 		SBind &sBind = *( pRes->insert( pRes->end(), SBind()) );
 		sBind.eType = iTempMapping->mType;
+		if(iTempMapping->nPower<0) {
+			if(sBind.eType==MTYPE_EVENT) sBind.eType=MTYPE_EVENT_UP;
+			else if(sBind.eType==MTYPE_SLIDER) sBind.eType=MTYPE_SLIDER_MINUS;
+		}
 		sBind.szSection = iTempMapping->szSection;
 
 		for( int nTemp = 0; nTemp < iTempMapping->actionsSet.size(); nTemp++ )
@@ -168,6 +172,12 @@ void GetBind( const string &szCmd, list<SBind> *pRes )
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+void GetBoundCommands(vector<string>* result)
+{
+	result->clear();
+	for(const auto& entry:GetCommands()) if(!entry.second.mappingsList.empty()) result->push_back(entry.first);
+	std::sort(result->begin(),result->end());
+}
 void UpdateBinds()
 {
 	TCommandsMap &sCommandsMap = GetCommands();

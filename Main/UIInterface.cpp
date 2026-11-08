@@ -525,6 +525,12 @@ bool CInterface::ProcessEvent( const NInput::SEvent &eEvent )
 	}
 	if ( pConsole->ProcessEvent( eEvent ) )
 		return true;
+	CWindow* help=GetChildByID("keyboard_help");
+	const bool helpOpen=IsValid(help) && help->GetStyle(STYLE_VISIBLE);
+	CWindow* convenience=GetChildByID("convenience_settings");
+	const bool convenienceOpen=IsValid(convenience) && convenience->GetStyle(STYLE_VISIBLE);
+	if(eEvent.mMessage.cType==NInput::CT_WIN_KEY &&
+		HandleConvenienceMessage(SEvent(EVENT_WINKEY,eEvent.mMessage.nParam))) return true;
 
 	// retail @0x31c090: div-then-mul at x87 double precision, fistp RC=truncate (NOT round-to-nearest)
 	SPoint sPoint( int(S2UI::FromPixel(pCursor->GetPos().x)), int(S2UI::FromPixel(pCursor->GetPos().y)) );
@@ -589,12 +595,14 @@ bool CInterface::ProcessEvent( const NInput::SEvent &eEvent )
 		bRet = true;
 	}
 
-	return bRet;
+	// Physical key edges arrive before WINKEY. Keep Escape and other bound
+	// actions inside the top modal until its translated key closes it.
+	return bRet || helpOpen || convenienceOpen;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInterface::ProcessMessage( const SEvent &sEvent )
 {
-	if (HandleDisplayMessage(sEvent)) return true;
+	if (HandleConvenienceMessage(sEvent) || HandleDisplayMessage(sEvent)) return true;
 	if ( IsValid( pMouseCapture ) )
 		if ( pMouseCapture->ProcessMessage( sEvent ) )
 			return true;

@@ -245,6 +245,8 @@ public:
 	CObj<NDb::CModel> pModel;                    // release: owning CObj (was CPtr)
 	CObj<IInventory> pInventory;
 	CPtr<CMeleeWeaponItem> pDefaultWeapon;
+	// Lifetime owner only; tag 13 retains the original save representation.
+	mutable CObj<CMeleeWeaponItem> pDefaultWeaponOwner;
 	CPtr<CWeaponItem> pCannonItem; // CRAP
 private:
 	int nDeathVP;
@@ -273,6 +275,7 @@ public:
 		f.Add(11,&pModel);
 		f.Add(12,&pInventory);
 		f.Add(13,&pDefaultWeapon);
+		if(f.IsReading()) pDefaultWeaponOwner=pDefaultWeapon.GetPtr();
 		f.Add(14,&pCannonItem);
 		f.Add(15,&nDeathVP);
 		f.Add(16,&bUnconscious);

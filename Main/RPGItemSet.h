@@ -194,6 +194,7 @@ class CWeaponItem: public CInventoryItem, public IWeaponItem
 	OBJECT_BASIC_METHODS(CWeaponItem);
 private:
 	void RestoreMissingClipOnLoad();
+	CWeaponItem(const CWeaponItem& source, NDb::EShootMode previewMode);
 	ZDATA_(CInventoryItem)
 	CObj<CClipItem> pInnerClip;
 	NDb::EShootMode eShootMode;
@@ -206,6 +207,7 @@ public:
 	bool FindProperClip( IInventoryInfo *pInventory, SFindClipResult *pResult, bool bCheckSameColor ) const;
 	CWeaponItem() {}
 	CWeaponItem( NDb::CRPGWeapon *_pWeapon );
+	CWeaponItem* CreateComparisonPreview(NDb::EShootMode mode) const;
 
 	int GetShootAP() const;
 	int GetReloadAP() const;

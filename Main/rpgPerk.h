@@ -11,6 +11,14 @@ namespace NDb
 //
 namespace NRPG
 {
+// Tooltips may query missing perks without adding empty entries to saved state.
+class CReadOnlyPerkQueries {
+public:
+	CReadOnlyPerkQueries();
+	~CReadOnlyPerkQueries();
+	CReadOnlyPerkQueries(const CReadOnlyPerkQueries&)=delete;
+	CReadOnlyPerkQueries& operator=(const CReadOnlyPerkQueries&)=delete;
+};
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CPerk
 ////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -63,6 +63,7 @@ struct STaskDescription
 	CDBPtr<NDb::CString>	pString;
 	EScenarioTaskState		state;
 	STaskDescription(): state( STS_UNKNOWN ) {}
+	int operator&(CStructureSaver &f) { f.Add(1,&pString); f.Add(2,&state); return 0; }
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // SGoalDescription (release, size 20) -- a goal value: localized string + state + its tasks.
@@ -74,6 +75,7 @@ struct SGoalDescription
 	vector< STaskDescription >	tasks;
 	SGoalDescription(): state( STS_UNKNOWN ) {}
 	SGoalDescription( const SGoalDescription &src );	// @0x220370
+	int operator&(CStructureSaver &f) { f.Add(1,&pString); f.Add(2,&state); f.Add(3,&tasks); return 0; }
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 } // namespace NScenario

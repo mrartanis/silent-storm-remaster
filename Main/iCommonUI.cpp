@@ -1,4 +1,7 @@
 #include "StdAfx.h"
+#include "GameplayConvenience.h"
+#include "../MiscDll/Commands.h"
+#include <SDL3/SDL_keyboard.h>
 #include "../diagnostics/FrameProfiler.h"
 #include "DisplayLayout.h"
 #include "../Game/Platform.h"
@@ -965,6 +968,7 @@ void CShowItemModel::Set( NGScene::IGameView *pView, NWorld::CUnit *_pUnit, NRPG
 	SetToolTip( pToolTip );
 
 	// -------- the FULL STATIC tooltip build (retail CShowItemModel::Set @0x1c0f50) --------
+	comparisonText.clear();comparisonVisible=false;comparisonTime=0;
 	// The Jan03 build did this in Draw with a different key set; retail moved every fixed value here and
 	// left only the live ammo/quantity/familiarity numbers to Draw. Key strings + string-DB ids verified
 	// from the disasm; the game.db tooltip templates key on THESE names.
@@ -985,7 +989,8 @@ void CShowItemModel::Set( NGScene::IGameView *pView, NWorld::CUnit *_pUnit, NRPG
 	{
 		NDb::CRPGWeapon *pW = pWeapon->GetDBWeapon();
 		NRPG::IClipItem *pInner = pWeapon->GetInnerClip();
-		pToolTip->SetText( GetDBString( 4468 ) );
+		pToolTip->SetText( GetDBString( 4468 ) + L"<value id=weaponcompare>" );
+		comparisonTemplateReady=true;
 		pToolTip->SetVal( L"typename", GetDBString( pW->pWeaponType->pName ) );
 
 		NRPG::SWeaponInfo sInfo;
@@ -1193,6 +1198,27 @@ void CShowItemModel::Draw( const STime &sTime, NGScene::I2DGameView *pView )
 		pToolTip->SetVal( L"maxrange", sInfo.nMaxRange );
 		pToolTip->SetVal( L"damagemin", sInfo.nDmgMin );
 		pToolTip->SetVal( L"damagemax", sInfo.nDmgMax );
+		const bool shown=pToolTip->GetStyle(STYLE_VISIBLE);
+		// Saved inventory controls can contain the original tooltip template.
+		// Refresh only its text; retain the saved item values and window state.
+		if(!comparisonTemplateReady) {
+			pToolTip->SetText(GetDBString(4468)+L"<value id=weaponcompare>");
+			comparisonTemplateReady=true;
+		}
+#if defined(__ANDROID__)
+		const bool details=true; // Touch users have no Shift key for this tooltip.
+#else
+		const bool details=(SDL_GetModState() & SDL_KMOD_SHIFT)!=0;
+#endif
+		const bool enabled=NGlobal::GetVar("ui_weapon_comparison",1).GetInt()!=0;
+		// Tooltip values can come from a saved UI while the runtime cache is new.
+		if(!enabled) {comparisonText.clear();pToolTip->SetVal(L"weaponcompare",comparisonText);}
+		else if(shown && (!comparisonVisible || details!=comparisonDetails || sTime-comparisonTime>=500)) {
+			comparisonTime=sTime;comparisonDetails=details;
+			const wstring text=WeaponComparisonText(pUnit,pWeapon,details);
+			if(text!=comparisonText) {comparisonText=text;pToolTip->SetVal(L"weaponcompare",text);}
+		}
+		comparisonVisible=shown && enabled;
 		pToolTip->SetVal( L"familiarity", IsValid( pUnit ) ? Float2Int( pUnit->GetRPG()->GetRPGUnit()->GetWeaponAdaptation( pItem ) ) : 0 );
 	}
 	else if ( pMelee )

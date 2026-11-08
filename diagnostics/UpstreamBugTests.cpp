@@ -124,6 +124,8 @@ extern CBasicShare<int,CChapterInfoLoader> shareChapterInfo;
 #include "../Main/RPGAttackSession.h"
 #include "../Main/PlayerTracker.h"
 #include "../Main/iOptionsMenu.h"
+#include "../Main/GameplayConvenience.h"
+#include "../Input/MacNumpad.h"
 #include "../Main/iMultiPlayerMenu.h"
 #include "../Main/iSideMenu.h"
 #include "../Main/iHeroMenu.h"
@@ -17473,6 +17475,21 @@ static void MarkupLeadingWhitespace(const char* databasePath,const char* resourc
                 Require(false,"native markup retained undefined coordinates for a leading space omitted from reflow");
             }
         }
+    }
+}
+
+static void MarkupConvenienceSymbols(const char* databasePath,const char* resourcePath)
+{
+    auto world=FixtureWorld(databasePath,resourcePath,true);
+    CObj<DialogueLayoutView> view=new DialogueLayoutView;
+    for(const auto& content:{wstring(L"Ctrl+UP"),wstring(L"\u00d7" L"2"),wstring(L"(+3/-2)"),wstring(L"1\u22122\u21923")}) {
+        CObj<NUI::IML> text=NUI::CreateML();
+        text->SetText(L"<font face=Courier size=24pt><color=red><left>"+content,0);
+        text->Generate(view,512);
+        list<NativeUIDrawRect> bounds;
+        text->Render(&bounds,NativeUIDrawPoint(0,0),NativeUIDrawRect(0,0,0,0));
+        if(bounds.size()!=content.size())std::printf("symbol text first=U+%04x expected=%zu actual=%zu\n",unsigned(content[0]),content.size(),bounds.size());
+        Require(bounds.size()==content.size(),"markup dropped a shortcut, speed or comparison symbol");
     }
 }
 
@@ -36586,8 +36603,359 @@ static void NativeCachedLightingPipeline(const char* databasePath,const char* re
 }
 
 
+static void DefaultMeleeLifetime(const char* databasePath)
+{
+    CFileStream database; database.OpenRead(databasePath);
+    NDatabase::Serialize(database,CStructureSaver::READ);
+    CObj<NRPG::IUnitMission> mission=NRPG::CreateUnit(NDb::GetPers(103));
+    auto* unit=mission->GetRPGUnit();
+    CObj<NRPG::IInventoryItem> first=unit->pInventory->TakeOff(NDb::SLOT_1);
+    CObj<NRPG::IInventoryItem> second=unit->pInventory->TakeOff(NDb::SLOT_2);
+    CPtr<NRPG::CMeleeWeaponItem> fists=unit->GetMeleeWeaponItem();
+    Require(IsValid(fists),"unarmed unit has no default melee weapon");
+    for(int i=0;i<3;++i) {
+        { CObj<NRPG::IMeleeWeaponItem> attack=unit->GetMeleeWeaponItem(); }
+        Require(IsValid(fists) && unit->GetMeleeWeaponItem()==fists.GetPtr(),
+            "ending a melee attack destroyed the unit's default fists");
+    }
+    CMemoryStream saved; {CStructureSaver writer(saved,CStructureSaver::WRITE);writer.Add(1,&mission);}
+    saved.Seek(0);CObj<NRPG::IUnitMission> restored;
+    {CStructureSaver reader(saved,CStructureSaver::READ);reader.Add(1,&restored);}
+    CPtr<NRPG::CMeleeWeaponItem> loaded=restored->GetRPGUnit()->GetMeleeWeaponItem();
+    {CObj<NRPG::IMeleeWeaponItem> attack=loaded.GetPtr();}
+    Require(IsValid(loaded),"loaded fists have no lifetime owner");
+}
+
+static void ObjectivesValueRoundTrip(const char* databasePath)
+{
+    CFileStream database;database.OpenRead(databasePath);NDatabase::Serialize(database,CStructureSaver::READ);
+    NScenario::SGoalDescription goal;goal.pString=NDb::GetString(4382);goal.state=NScenario::STS_COMPLETED;
+    NScenario::STaskDescription task;task.pString=NDb::GetString(4382);task.state=NScenario::STS_FAILED;
+    goal.tasks.push_back(task);
+    CMemoryStream saved;{CStructureSaver writer(saved,CStructureSaver::WRITE);writer.Add(1,&goal);}
+    saved.Seek(0);
+    // The old raw-vector reader aliases the source storage. Keep that invalid
+    // object alive on failure so the assertion reports the defect before a double free.
+    auto* restored=new NScenario::SGoalDescription;
+    {CStructureSaver reader(saved,CStructureSaver::READ);reader.Add(1,restored);}
+    Require(restored->tasks.size()==1 && restored->tasks.data()!=goal.tasks.data(),
+        "saved objectives restored raw vector storage instead of their values");
+    Require(restored->pString==goal.pString && restored->state==goal.state &&
+        restored->tasks[0].pString==task.pString && restored->tasks[0].state==task.state,
+        "objectives lost localized text or completion state");
+    delete restored;
+}
+
+static void ObjectivesRowCompatibility()
+{
+    for(int type:{int(0xB3225131),int(0xB3225132)}) {
+        CObj<CObjectBase> row=pSSClasses->CreateObject(type);
+        Require(IsValid(row),"objective row class is unregistered");
+        unsigned char invalid[40];memset(invalid,0xff,sizeof(invalid));
+        CMemoryStream legacy;
+        {CStructureSaver writer(legacy,CStructureSaver::WRITE);writer.AddRawData(type==int(0xB3225131)?3:4,invalid,sizeof(invalid));}
+        legacy.Seek(0);{CStructureSaver reader(legacy,CStructureSaver::READ);row->operator&(reader);}
+        CMemoryStream saved;{CStructureSaver writer(saved,CStructureSaver::WRITE);writer.Add(1,&row);}
+        saved.Seek(0);CObj<CObjectBase> restored;
+        {CStructureSaver reader(saved,CStructureSaver::READ);reader.Add(1,&restored);}
+        Require(restored && typeid(*restored.GetPtr())==typeid(*row.GetPtr()),"legacy row did not survive ordinary save/reload");
+    }
+}
+
+static void ConvenienceDefaultsAndInput()
+{
+    Require(NGlobal::GetVar("ui_weapon_comparison").GetInt()==1 && NGlobal::GetVar("ui_keyboard_help").GetInt()==1 &&
+        NGlobal::GetVar("input_mac_numpad").GetInt()==1 && NGlobal::GetVar("game_other_turn_speed").GetInt()==1,
+        "convenience defaults are incorrect");
+    for(int speed=1;speed<=4;++speed) {
+        Require(NGame::OtherTurnSpeed(speed,false,false,false,false,false)==speed,"speed selection was lost");
+        for(int gate=0;gate<5;++gate)Require(NGame::OtherTurnSpeed(speed,gate==0,gate==1,gate==2,gate==3,gate==4)==1,
+            "speed escaped the network/realtime/player/sequence/pause guard");
+    }
+    Require(NGame::OtherTurnSpeed(99,false,false,false,false,false)==1,"invalid speed is not normal");
+    for(int digit=0;digit<10;++digit) {
+        auto source=digit?SDL_Scancode(SDL_SCANCODE_1+digit-1):SDL_SCANCODE_0;
+        auto target=digit?SDL_Scancode(SDL_SCANCODE_KP_1+digit-1):SDL_SCANCODE_KP_0;
+        Require(NInput::MacNumpadAlias(source,true,true)==target,"Mac digit does not reach numpad");
+        Require(NInput::MacNumpadAlias(source,false,true)==source && NInput::MacNumpadAlias(source,true,false)==source,
+            "ordinary digits or disabled aliases were changed");
+    }
+    Require(NInput::MacNumpadAlias(SDL_SCANCODE_S,true,true)==SDL_SCANCODE_S,"Mac aliases added an unrelated save shortcut");
+    NInput::MacNumpadState aliases;SDL_Scancode mapped=SDL_SCANCODE_UNKNOWN;
+    Require(aliases.Route(SDL_SCANCODE_8,true,true,true,false,&mapped) && mapped==SDL_SCANCODE_KP_8,"Mac alias press failed");
+    Require(aliases.Route(SDL_SCANCODE_8,true,false,false,true,&mapped) && mapped==SDL_SCANCODE_KP_8,"Mac repeat lost its original key route");
+    Require(!aliases.Route(SDL_SCANCODE_KP_8,true,false,true,false,&mapped),"physical numpad duplicated an alias press");
+    Require(!aliases.Route(SDL_SCANCODE_8,false,false,false,false,&mapped),"releasing Command or disabling aliases released a held physical numpad");
+    Require(aliases.Route(SDL_SCANCODE_KP_8,false,false,false,false,&mapped) && mapped==SDL_SCANCODE_KP_8,"last numpad release was lost");
+    aliases.Route(SDL_SCANCODE_5,true,true,true,false,&mapped);aliases.Reset();
+    Require(!aliases.Route(SDL_SCANCODE_5,false,false,true,false,&mapped),"focus loss retained a stale alias");
+    NGlobal::ProcessCommand(L"bind test_custom_reference 'F12'");
+    vector<string> commands;NInput::GetBoundCommands(&commands);
+    Require(std::find(commands.begin(),commands.end(),string("test_custom_reference"))!=commands.end(),"help omits custom bindings");
+    NInput::Unbind("test_custom_reference");NInput::GetBoundCommands(&commands);
+    Require(std::find(commands.begin(),commands.end(),string("test_custom_reference"))==commands.end(),"help retains removed bindings");
+}
+
+static void WeaponComparisonState(const char* databasePath,const char* resourcePath)
+{
+    auto world=FixtureWorld(databasePath,resourcePath);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor=nullptr;
+    for(auto unit:units)if(unit && unit->GetUnitRPG() && unit->GetUnitRPG()->GetRPGUnit()->GetWeaponItem()) {actor=unit;break;}
+    Require(actor,"comparison fixture has no equipped native actor");
+    auto* rpg=actor->GetUnitRPG()->GetRPGUnit();auto* held=rpg->GetWeaponItem();
+    CObj<NRPG::CWeaponItem> candidate=held->CreateComparisonPreview(held->GetShootMode());
+    Require(candidate,"comparison fixture cannot create a detached candidate");
+    const auto mode=held->GetShootMode();const int ammo=held->GetAmmoQuantity();
+    const auto* active=rpg->pInventory->GetActive();const int ap=actor->GetAP();
+    CPtr<NRPG::CUnit> rpgReference=rpg;
+    CMemoryStream before;{CStructureSaver writer(before,CStructureSaver::WRITE);writer.Add(1,&rpgReference);}
+    NGlobal::SetVar("ui_weapon_comparison",1);
+    for(int i=0;i<20;++i)Require(!NUI::WeaponComparisonText(actor,candidate,i%2).empty(),"weapon comparison is empty");
+    CMemoryStream after;{CStructureSaver writer(after,CStructureSaver::WRITE);writer.Add(1,&rpgReference);}
+    Require(held->GetShootMode()==mode && held->GetAmmoQuantity()==ammo && rpg->pInventory->GetActive()==active &&
+        actor->GetAP()==ap,"weapon comparison changed gameplay state");
+    Require(before.GetSize()==after.GetSize() && !memcmp(before.GetBuffer(),after.GetBuffer(),before.GetSize()),
+        "weapon comparison changed serialized soldier state");
+    NGlobal::SetVar("ui_weapon_comparison",0);
+    Require(NUI::WeaponComparisonText(actor,candidate,true).empty(),"comparison cannot be disabled");
+}
+
+class ConvenienceClockMission: public NGame::CMission
+{
+    OBJECT_NOCOPY_METHODS(ConvenienceClockMission);
+protected:
+    const STime GetTime() override {return 1050;}
+public:
+    bool player=false,realtime=false,sequence=false;
+    bool IsPlayerTurn() const override {return player;}
+    bool IsRealTime() const override {return realtime;}
+    bool IsSequence() const override {return sequence;}
+    void Prepare(NWorld::CWorld* world,bool pause) {
+        pWorld=world;pRender=new MissionSoundClockRenderer;bPause=pause;
+        sMinFrameTime=0;sTimeCounter.SetCurrent(10000);sTimeCounter.Advance(false,1000);
+        nDeltaTime=0;
+    }
+};
+static void ConvenienceMissionClock(const char* databasePath,const char* resourcePath)
+{
+    auto world=FixtureWorld(databasePath,resourcePath);
+    Require(!NGfx::Is3DActive(),"clock fixture requires the non-rendering mission path");
+    for(int speed=1;speed<=4;++speed)for(int gate=0;gate<5;++gate) {
+        CObj<ConvenienceClockMission> mission=new ConvenienceClockMission;
+        mission->player=gate==1;mission->realtime=gate==2;mission->sequence=gate==3;
+        mission->Prepare(world,gate==4);NGlobal::SetVar("game_other_turn_speed",speed);
+        bool reached=false;
+        try {mission->Step();}catch(const std::runtime_error& error) {reached=string(error.what())=="unexpected sound-clock reset";if(!reached)throw;}
+        Require(reached,"actual mission Step did not reach its timing reset");
+        const int elapsed=mission->GetGameTime()-10000;
+        Require(elapsed==(gate==4?0:gate?50:50*speed),"actual mission clock ignored speed or accelerated a protected phase");
+    }
+}
+
+static void ConvenienceSettingsUI(const char* databasePath,const char* resourcePath)
+{
+    Require(std::getenv("S2_USER_DATA_DIR"),"settings test requires an isolated user directory");
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm convenience settings");
+    Require(NInput::InitInput(true),"convenience flow requires native input");
+    struct InputCleanup { ~InputCleanup() { NMainLoop::DoneInterface(); NInput::DoneInput(); } } inputCleanup;
+    NGlobal::LoadConfig((std::filesystem::path(databasePath).parent_path()/"cfg/input.cfg").string());
+    NGfx::SRenderTargetsInfo targets;
+    Require(NGfx::SetMode(NGfx::SVideoMode(1024,768,32,NGfx::WINDOWED),targets),"convenience UI has no full-size renderer");
+    CObj<NGame::CICOptions> open=new NGame::CICOptions(NGame::OS_GAMEPLAY);open->Exec();
+    CStructureNetworkContext references;
+    auto fields=BorrowedObjectFields(NMainLoop::GetCurrentInterfaceForHarness(),&references);
+    CPtr<NUI::CInterface> ui;
+    {CStructureSaver reader(fields,CStructureSaver::READ,&references);reader.Add(4,&ui);}
+    Require(ui,"options has no active native UI");
+    auto capture=[&](const char* name) {
+        for(int frame=0;frame<4;++frame) {MarkNewDGFrame();NMainLoop::GetCurrentInterfaceForHarness()->Step();}
+        if(const char* directory=std::getenv("S2_CONVENIENCE_EVIDENCE_DIR")) {
+            CArray2D<NGfx::SPixel8888> pixels;NGfx::MakeScreenShot(&pixels,false);
+            std::filesystem::create_directories(directory);
+            std::ofstream file(std::filesystem::path(directory)/(string(name)+".ppm"),std::ios::binary);
+            file<<"P6\n"<<pixels.GetXSize()<<" "<<pixels.GetYSize()<<"\n255\n";
+            for(int y=0;y<pixels.GetYSize();++y)for(int x=0;x<pixels.GetXSize();++x) {
+                const char rgb[]={char(pixels[y][x].r),char(pixels[y][x].g),char(pixels[y][x].b)};file.write(rgb,3);
+            }
+        }
+    };
+    Require(ui->GetChildByID("options") && ui->GetChildByID("options")->GetChildByID("convenience_options"),"gameplay settings have no convenience button");
+    capture("gameplay-settings");
+    auto click=[&](NUI::CWindow* button) {
+        NUI::SPoint position;NUI::SRect rect;
+        Require(button && button->ClientToScreen(&position,&rect) && rect.Width()>0 && rect.Height()>0,"convenience control has no hit rectangle");
+        const int x=(rect.x1+rect.x2)/2,y=(rect.y1+rect.y2)/2;
+        ui->ProcessMessage(NUI::SEvent(NUI::EVENT_MOUSEMOVE,x,y));
+        ui->ProcessMessage(NUI::SEvent(NUI::EVENT_LBUTTONDOWN,x,y));
+        ui->ProcessMessage(NUI::SEvent(NUI::EVENT_LBUTTONUP,x,y));
+    };
+    auto key=[&](SDL_Scancode scan) {
+        for(bool down:{true,false}) {
+            SDL_Event event{};event.type=down?SDL_EVENT_KEY_DOWN:SDL_EVENT_KEY_UP;
+            event.key.windowID=SDL_GetWindowID(S2Platform::Window());event.key.scancode=scan;event.key.down=down;
+            Require(SDL_PushEvent(&event),"convenience flow could not queue native key");
+            S2Platform::PumpEvents();NInput::PumpMessages(true,true);
+            NInput::SEvent input;while(NInput::GetEvent(&input))NMainLoop::GetCurrentInterfaceForHarness()->ProcessEvent(input);
+        }
+    };
+    click(ui->GetChildByID("options")->GetChildByID("convenience_options"));
+    auto* settings=ui->GetChildByID("convenience_settings");
+    Require(settings && settings->GetStyle(NUI::STYLE_VISIBLE),"gameplay button did not open convenience settings");
+    for(const auto& id:{"convenience_compare","convenience_help"}) {
+        const char* variable=!strcmp(id,"convenience_compare")?"ui_weapon_comparison":"ui_keyboard_help";
+        click(settings->GetChildByID(id));
+        Require(NGlobal::GetVar(variable).GetInt()==0,"convenience toggle did not switch off");
+        click(settings->GetChildByID(id));
+        Require(NGlobal::GetVar(variable).GetInt()==1,"convenience toggle did not switch on");
+    }
+    for(int speed:{2,3,4,1}) {click(settings->GetChildByID("convenience_speed"));
+        Require(NGlobal::GetVar("game_other_turn_speed").GetInt()==speed,"speed menu lost its selection");
+        auto* caption=dynamic_cast<NUI::CText*>(settings->GetChildByID("convenience_speed")->GetChildByID("caption"));
+        Require(caption && (speed==1 || caption->GetText().find(wstring(L"\u00d7")+wchar_t(L'0'+speed))!=wstring::npos),
+            "speed menu does not display its selected multiplier");}
+    capture("convenience-settings");
+    click(settings->GetChildByID("convenience_keys"));
+    Require(ui->GetChildByID("keyboard_help")->GetStyle(NUI::STYLE_VISIBLE),"keyboard reference did not open");
+    capture("keyboard-reference");
+    click(ui->GetChildByID("keyboard_help")->GetChildByID("keys_next"));
+    Require(ui->keyboardHelpPage==1,"next page did not change the keyboard reference");
+    click(ui->GetChildByID("keyboard_help")->GetChildByID("keys_previous"));
+    Require(ui->keyboardHelpPage==0,"previous page did not restore the reference");
+    click(ui->GetChildByID("keyboard_help")->GetChildByID("keys_previous"));
+    Require(ui->keyboardHelpPage==0,"keyboard reference moved before its first page");
+    key(SDL_SCANCODE_ESCAPE);
+    Require(!ui->GetChildByID("keyboard_help")->GetStyle(NUI::STYLE_VISIBLE),"native Escape did not close the keyboard reference");
+    key(SDL_SCANCODE_F1);
+    Require(ui->GetChildByID("keyboard_help")->GetStyle(NUI::STYLE_VISIBLE),"native F1 did not open the keyboard reference");
+    key(SDL_SCANCODE_F1);
+    Require(!ui->GetChildByID("keyboard_help")->GetStyle(NUI::STYLE_VISIBLE),"native F1 did not close the keyboard reference");
+    click(settings->GetChildByID("convenience_help"));
+    key(SDL_SCANCODE_F1);
+    Require(!ui->GetChildByID("keyboard_help")->GetStyle(NUI::STYLE_VISIBLE),"disabled F1 reference still opened");
+    click(settings->GetChildByID("convenience_keys"));
+    Require(ui->GetChildByID("keyboard_help")->GetStyle(NUI::STYLE_VISIBLE),"disabled hotkey removed menu access to the reference");
+    key(SDL_SCANCODE_ESCAPE);
+    click(settings->GetChildByID("convenience_compare"));
+    click(settings->GetChildByID("convenience_speed"));
+    // Read the configuration actually written by the buttons, after replacing all live values.
+    NGlobal::SetVar("ui_keyboard_help",1);NGlobal::SetVar("ui_weapon_comparison",1);NGlobal::SetVar("game_other_turn_speed",4);
+    NGlobal::LoadConfig(".\\cfg\\config.cfg");
+    Require(NGlobal::GetVar("ui_keyboard_help").GetInt()==0 && NGlobal::GetVar("ui_weapon_comparison").GetInt()==0 &&
+        NGlobal::GetVar("game_other_turn_speed").GetInt()==2,"menu choices were not persisted to the user's config");
+    click(settings->GetChildByID("convenience_help"));
+    NGlobal::ProcessCommand(L"bind convenience_custom_f1 'F1'");
+    key(SDL_SCANCODE_F1);
+    Require(!ui->GetChildByID("keyboard_help")->GetStyle(NUI::STYLE_VISIBLE),"reference took over an existing F1 binding");
+    NInput::Unbind("convenience_custom_f1");
+    key(SDL_SCANCODE_F1);
+    Require(ui->GetChildByID("keyboard_help")->GetStyle(NUI::STYLE_VISIBLE),"reference did not recover after removing an F1 binding");
+    key(SDL_SCANCODE_ESCAPE);
+    key(SDL_SCANCODE_ESCAPE);
+    Require(!settings->GetStyle(NUI::STYLE_VISIBLE),"Escape did not close convenience settings");
+    Require(!NMainLoop::HaveInterfaceCommand(),"closing a convenience panel also closed its underlying game menu");
+    auto referenceContains=[&](const wstring& caption) {
+        ui->ShowKeyboardHelp();auto* panel=ui->GetChildByID("keyboard_help");bool found=false;
+        for(int page=0;page<32;++page) {
+            for(int row=0;row<12;++row) {
+                char id[32];sprintf(id,"key_row_%d",row);
+                auto* text=dynamic_cast<NUI::CText*>(panel->GetChildByID(id));
+                found|=text && text->GetText().find(caption)!=wstring::npos;
+            }
+            const int current=ui->keyboardHelpPage;click(panel->GetChildByID("keys_next"));
+            if(ui->keyboardHelpPage==current) {key(SDL_SCANCODE_ESCAPE);return found;}
+        }
+        throw std::runtime_error("keyboard reference pagination never reached its last page");
+    };
+    NGlobal::ProcessCommand(L"bind convenience_dynamic_reference 'F12'");
+    Require(referenceContains(L"Convenience dynamic reference"),"keyboard reference omitted a newly assigned shortcut");
+    NInput::Unbind("convenience_dynamic_reference");
+    Require(!referenceContains(L"Convenience dynamic reference"),"keyboard reference retained a removed shortcut");
+}
+
+static void ConvenienceTooltipUI(const char* databasePath,const char* resourcePath)
+{
+    NativeDisplayContext cleanup;cleanup.Initialize(databasePath,resourcePath,"Silent Storm weapon tooltip flow");
+    auto world=FixtureWorld(databasePath,resourcePath);
+    list<CPtr<NWorld::CUnitServer>> units;world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor=nullptr;
+    for(auto unit:units)if(unit && unit->GetUnitRPG() && unit->GetUnitRPG()->GetWeaponItem()) {actor=unit;break;}
+    Require(actor,"tooltip flow has no equipped soldier");
+    auto* rpg=actor->GetUnitRPG()->GetRPGUnit();auto* held=rpg->GetWeaponItem();
+    CObj<NRPG::CWeaponItem> candidate=held->CreateComparisonPreview(held->GetShootMode());
+    CObj<NUI::CInterface> ui=new NUI::CInterface(NUI::ICursor::Create());
+    CObj<NUI::CShowItemModel> item=new NUI::CShowItemModel(NUI::SWindowInfo(ui,NUI::SPoint(20,20),NUI::SPoint(80,80),"comparison_item"));
+    item->Set(nullptr,actor,candidate,NDb::CAMERA_NORMAL);
+    auto* tip=item->GetToolTip();Require(tip,"weapon slot did not create its real tooltip");
+    auto value=[&]() {
+        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(tip,&refs);CPtr<NUI::CText> text;
+        {CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&text);}
+        Require(text,"weapon tooltip lost its text control");wstring result;text->GetVal(L"weaponcompare",&result);return result;
+    };
+    CPtr<NRPG::CUnit> reference=rpg;CMemoryStream before;
+    {CStructureSaver writer(before,CStructureSaver::WRITE);writer.Add(1,&reference);}
+    auto random=GlobalGameRandom();const auto modifiers=SDL_GetModState();
+    struct Modifiers {SDL_Keymod original;~Modifiers(){SDL_SetModState(original);}} restore{modifiers};
+    NGlobal::SetVar("ui_weapon_comparison",1);SDL_SetModState(SDL_KMOD_NONE);tip->ShowWindow(NUI::SWTYPE_SHOW);
+    item->Draw(1000,ui->GetView());
+    const auto shortText=value();Require(!shortText.empty() && shortText==NUI::WeaponComparisonText(actor,candidate,false),"visible inventory tooltip did not refresh the comparison");
+    tip->UpdateToolTip();const int comparedHeight=tip->GetSize().y;
+    // An old save can restore the inventory and its pre-comparison tooltip text.
+    tip->SetText(L"Legacy weapon <value id=name>");
+    CStructureNetworkContext legacyRefs;auto legacyFields=BorrowedObjectFields(item,&legacyRefs);
+    CObj<NUI::CShowItemModel> restored=new NUI::CShowItemModel;
+    {CStructureSaver reader(legacyFields,CStructureSaver::READ,&legacyRefs);restored->operator&(reader);}
+    restored->Draw(1000,ui->GetView());
+    CStructureNetworkContext textRefs;auto tipFields=BorrowedObjectFields(tip,&textRefs);CPtr<NUI::CText> restoredText;
+    {CStructureSaver reader(tipFields,CStructureSaver::READ,&textRefs);reader.Add(2,&restoredText);}
+    Require(restoredText && restoredText->GetText().find(L"<value id=weaponcompare>")!=wstring::npos,
+        "legacy saved inventory tooltip did not acquire its comparison placeholder");
+    SDL_SetModState(SDL_KMOD_SHIFT);item->Draw(1001,ui->GetView());
+    Require(value()!=shortText && value()==NUI::WeaponComparisonText(actor,candidate,true),"Shift did not refresh tooltip details immediately");
+    NGlobal::SetVar("ui_weapon_comparison",0);item->Draw(1002,ui->GetView());
+    Require(value().empty(),"disabled comparison remained visible in the inventory tooltip");
+    tip->UpdateToolTip();
+    Require(tip->GetSize().y<comparedHeight,"comparison values did not expand the rendered tooltip");
+    NGlobal::SetVar("ui_weapon_comparison",1);SDL_SetModState(SDL_KMOD_NONE);item->Draw(1003,ui->GetView());
+    Require(value()==shortText,"re-enabled comparison did not return immediately");
+    item->Set(nullptr,actor,held,NDb::CAMERA_NORMAL);tip=item->GetToolTip();tip->ShowWindow(NUI::SWTYPE_SHOW);
+    item->Draw(2000,ui->GetView());Require(value().empty(),"equipped weapon compared with itself");
+    CMemoryStream after;{CStructureSaver writer(after,CStructureSaver::WRITE);writer.Add(1,&reference);}
+    auto endRandom=GlobalGameRandom();bool sameRandom=true;for(int i=0;i<8;++i)sameRandom&=random.Get()==endRandom.Get();
+    Require(sameRandom && before.GetSize()==after.GetSize() && !memcmp(before.GetBuffer(),after.GetBuffer(),before.GetSize()),
+        "inventory tooltip changed soldier state or the game random sequence");
+}
+
+static void LegacyDirectionalAmbient()
+{
+    CObj<NGScene::CCVec3> color=new NGScene::CCVec3(CVec3(1,1,1));
+    CObj<NGScene::CCVec3> gloss=new NGScene::CCVec3(VNULL3);
+    CObj<NGScene::CCVec3> ambient=new NGScene::CCVec3(CVec3(.2f,.3f,.4f));
+    // Older saves retain the mean ambient but may have no upper/lower ambient edges.
+    CObj<NGScene::CDirectionalLight> light=new NGScene::CDirectionalLight(color,gloss,VNULL3,
+        CVec3(0,0,1),VNULL3,CVec2(8,8),16,nullptr,ambient,true,0,nullptr,nullptr,nullptr);
+    NGScene::CDirectionalLight::SRadianceInfo info;MarkNewDGFrame();light->GetRadianceInfo(&info,NGScene::RP_GF2);
+    Require(info.bIsRendered && info.vAmbientColor==CVec3(.2f,.3f,.4f) && info.vUpDifColor==VNULL3,
+        "legacy directional lighting lost its saved mean ambient");
+    CObj<NGScene::CCVec3> top=new NGScene::CCVec3(CVec3(.4f,.6f,.8f));
+    CObj<NGScene::CDirectionalLight> complete=new NGScene::CDirectionalLight(color,gloss,VNULL3,
+        CVec3(0,0,1),VNULL3,CVec2(8,8),16,nullptr,ambient,true,0,nullptr,top,gloss);
+    complete->GetRadianceInfo(&info,NGScene::RP_GF2);
+    Require(info.vAmbientColor==CVec3(.2f,.3f,.4f) && info.vUpDifColor==CVec3(.2f,.3f,.4f),
+        "legacy lighting fallback changed a complete directional light");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
+    if(!std::strcmp(mode,"legacy-directional-ambient")) {LegacyDirectionalAmbient();return true;}
+    if(!std::strcmp(mode,"convenience-tooltip-ui")) {Require(argc==4,"tooltip requires db/res");ConvenienceTooltipUI(argv[2],argv[3]);return true;}
+    if(!std::strcmp(mode,"convenience-mission-clock")) {Require(argc==4,"clock requires db/res");ConvenienceMissionClock(argv[2],argv[3]);return true;}
+    if(!std::strcmp(mode,"objectives-row-compatibility")) {ObjectivesRowCompatibility();return true;}
+    if(!std::strcmp(mode,"convenience-defaults-input")) {ConvenienceDefaultsAndInput();return true;}
+    if(!std::strcmp(mode,"weapon-comparison-state")) {Require(argc==4,"comparison requires db/res");WeaponComparisonState(argv[2],argv[3]);return true;}
+    if(!std::strcmp(mode,"convenience-settings-ui")) {Require(argc==4,"settings require db/res");ConvenienceSettingsUI(argv[2],argv[3]);return true;}
+    if(!std::strcmp(mode,"default-melee-lifetime")) {Require(argc==3,"melee lifetime requires db");DefaultMeleeLifetime(argv[2]);return true;}
+    if(!std::strcmp(mode,"objectives-value-roundtrip")) {Require(argc==3,"objectives require db");ObjectivesValueRoundTrip(argv[2]);return true;}
     if (!std::strcmp(mode,"native-knife-solver")) { Require(argc==5,"knife solver requires db/resources/mode"); NativeKnifeLaunchTarget(argv[2],argv[3],std::atoi(argv[4]),true); return true; }
     if (!std::strcmp(mode,"native-knife-flight-intent")) { Require(argc==5,"knife flight intent requires db/resources/mode"); NativeKnifeFlightIntent(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode,"native-knife-frame")) { Require(argc==5,"knife frame requires db/resources/mode"); NativeKnifeDoorFrame(argv[2],argv[3],std::atoi(argv[4])); return true; }
@@ -37743,6 +38111,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "oversized-dialogue-line") && argc == 4) { OversizedDialogueLine(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "markup-dialogue-progress") && argc == 4) { OversizedDialogueLine(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "markup-leading-whitespace") && argc == 4) { MarkupLeadingWhitespace(argv[2],argv[3]); return true; }
+    if (!std::strcmp(mode, "convenience-markup-symbols") && argc == 4) { MarkupConvenienceSymbols(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "dialogue-formatted-pagination") && (argc == 4 || argc == 5)) { OversizedDialogueLine(argv[2], argv[3], 3, argc==5?std::strtof(argv[4],nullptr):1); return true; }
     if (!std::strcmp(mode, "dialogue-normal-pagination") && argc == 4) { OversizedDialogueLine(argv[2], argv[3], 2); return true; }
     if (!std::strcmp(mode, "forced-move-item-eligibility") && argc==4) { ForcedMoveItemEligibility(argv[2],argv[3]); return true; }

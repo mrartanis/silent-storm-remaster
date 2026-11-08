@@ -163,6 +163,16 @@ void CWeaponItem::RestoreMissingClipOnLoad()
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+CWeaponItem::CWeaponItem(const CWeaponItem& source,NDb::EShootMode mode):
+    CInventoryItem(source.GetDBItem()),pInnerClip(source.pInnerClip),eShootMode(mode),
+    pDBWeapon(source.pDBWeapon),bWorking(source.bWorking)
+{
+    nQuantity=source.nQuantity;
+}
+CWeaponItem* CWeaponItem::CreateComparisonPreview(NDb::EShootMode mode) const
+{
+    return IsShootModeSupported(mode) && IsValid(pInnerClip) ? new CWeaponItem(*this,mode) : nullptr;
+}
 bool CWeaponItem::SetShootMode( NDb::EShootMode _eShootMode )
 {
 	if ( !IsShootModeSupported( _eShootMode ) )

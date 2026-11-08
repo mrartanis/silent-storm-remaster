@@ -51,6 +51,7 @@ void SetSection( const string &_szSection, bool bUpdate = true );
 void Bind( const string &szCmd, const SBind &sCmdBind );
 void Unbind( const string &szCmd );
 void GetBind( const string &szCmd, list<SBind> *pRes );
+void GetBoundCommands(vector<string>* result);
 void UpdateBinds();
 ////
 float GetControlCoeff( const string &szControl );

@@ -11,6 +11,7 @@ int main(int argc,char** argv) {
     Check(ok,"rasterize packaged font"); if(!ok) { std::fprintf(stderr,"%s\n",error.c_str()); continue; }
     Check(atlas.lineHeight>=size && atlas.averageWidth>0,"font metrics");
     for (unsigned code : {65u,120u,63u,0x416u,0x451u}) Check(std::any_of(atlas.glyphs.begin(),atlas.glyphs.end(),[code](const S2Fonts::Glyph& g){return g.code==code;}),"Latin and Cyrillic coverage");
+    for (unsigned code : {43u,0xd7u,0x2212u,0x2192u}) Check(std::any_of(atlas.glyphs.begin(),atlas.glyphs.end(),[code](const S2Fonts::Glyph& g){return g.code==code && g.width>0;}),"comparison and shortcut symbols");
     Check(std::any_of(atlas.rgba.begin(),atlas.rgba.end(),[](unsigned char c){return c!=0;}),"nonempty raster");
     for(std::size_t i=0;i<atlas.rgba.size();i+=4) Check(atlas.rgba[i]==atlas.rgba[i+3],"premultiplied alpha");
     for(const auto& g:atlas.glyphs) Check(g.x>=0&&g.y>=0&&g.x+g.width<=atlas.width&&g.y+g.height<=atlas.height,"glyph bounds");

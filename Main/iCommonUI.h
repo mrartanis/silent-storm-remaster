@@ -527,6 +527,10 @@ private:
 	CPtr<NRPG::IInventoryItem> pItem;
 	////
 	CObj<CToolTip> pToolTip;
+	wstring comparisonText;
+	STime comparisonTime=0;
+	bool comparisonVisible=false,comparisonDetails=false;
+	bool comparisonTemplateReady=false;
 public:
 	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CModel*)this); f.Add(2,&pUnit); f.Add(3,&pItem); f.Add(4,&pToolTip); return 0; }
 	CPtr<NWorld::CUnit> pUnit;

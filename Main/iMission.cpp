@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "GameplayConvenience.h"
 #include "NetworkWorld.h"
 #include "iNetworkMenu.h"
 #include "../diagnostics/FrameProfiler.h"
@@ -1317,7 +1318,12 @@ void CMission::Step()
 		return;
 	sFPSLimitLastTime = GetTime();
 	// Harness comparisons freeze animations without switching to the pause UI.
-	sTimeCounter.Advance( !bPause && !NGlobal::GetVar("diag_freeze_world_clock",0).GetInt(), GetTime() );
+	const STime beforeAdvance=sTimeCounter.GetTime()->GetValue();
+	const bool frozen=NGlobal::GetVar("diag_freeze_world_clock",0).GetInt()!=0;
+	sTimeCounter.Advance( !bPause && !frozen, GetTime() );
+	const int speed=OtherTurnSpeed(NGlobal::GetVar("game_other_turn_speed",1).GetInt(),
+		networkSession!=nullptr,!pWorld || IsRealTime(),IsPlayerTurn(),IsSequence(),bPause || frozen);
+	if(speed>1) SetDeltaTime(GetDeltaTime()+(sTimeCounter.GetTime()->GetValue()-beforeAdvance)*(speed-1));
 	sUITimeCounter.Advance( true, GetTime() );
 	EraseInvalidRefs( &soundsList );	// retail @0x5a3b2a
 
