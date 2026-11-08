@@ -1,7 +1,6 @@
 """Prepare the native GOG extractor for PyInstaller; never a runtime download."""
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 import platform
@@ -10,8 +9,10 @@ import subprocess
 import sys
 import tarfile
 import tempfile
-from urllib.request import urlopen
 import zipfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'packaging'))
+from verified_download import download
 
 
 VERSION = '1.9'
@@ -21,14 +22,6 @@ ARCHIVES = {
     'source': ('innoextract-1.9.tar.gz', '6344a69fc1ed847d4ed3e272e0da5998948c6b828cb7af39c6321aba6cf88126'),
 }
 DEFAULT_OUTPUT = Path(__file__).resolve().parents[1] / 'build/launcher-innoextract'
-
-
-def download(url, destination, sha256):
-    with urlopen(url, timeout=90) as response, destination.open('wb') as output:
-        shutil.copyfileobj(response, output)
-    actual = hashlib.file_digest(destination.open('rb'), 'sha256').hexdigest()
-    if actual != sha256:
-        raise ValueError(f'Unexpected SHA-256 for {url}: {actual}')
 
 
 def source_notices(formula, info, temporary, destination):

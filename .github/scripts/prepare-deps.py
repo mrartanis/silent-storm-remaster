@@ -3,11 +3,13 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
-import shutil
 import subprocess
+import sys
 import tarfile
-import urllib.request
 import zipfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'packaging'))
+from verified_download import download as verified_download
 
 GITHUB_SOURCES = {
     'bgfx.cmake': ('bkaradzic/bgfx.cmake', 'de08a6080b39994ab8a9eddb82e79e18bc3df7bd'),
@@ -39,10 +41,7 @@ def download(root, name):
     url, expected = DOWNLOADS[name]
     path = root / name
     if not path.exists():
-        print(f'Downloading {url}', flush=True)
-        request = urllib.request.Request(url, headers={'User-Agent': 'Silent-Storm-release'})
-        with urllib.request.urlopen(request, timeout=180) as response, path.open('wb') as output:
-            shutil.copyfileobj(response, output)
+        verified_download(url, path, expected, timeout=180)
     with path.open('rb') as stream:
         actual = hashlib.file_digest(stream, 'sha256').hexdigest()
     if actual != expected:

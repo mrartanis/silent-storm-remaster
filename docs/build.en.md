@@ -4,6 +4,12 @@
 
 Install CMake 3.21+ and Python 3.11+. Run the commands from the repository root and substitute your dependency paths. To run the engine, prepare a separate copy of the game data using the [installation guide](install.en.md#install-the-engine).
 
+Dependency, launcher-tool and macOS library-source preparation scripts retry
+transient download failures up to four attempts, waiting 2, 4 and 8 seconds.
+Numeric server `Retry-After` delays are honored up to 30 seconds.
+Logs include the URL and attempt number. Files are replaced only after SHA-256
+verification; checksum mismatches fail immediately without retries.
+
 ## Windows x64
 
 Install Visual Studio 2022 with the **Desktop development with C++** workload, MSVC v143, and the Windows SDK. Prepare SDL3, bgfx, bimg, bx, FFmpeg, and miniaudio using the Windows steps in the [release workflow](../.github/workflows/engine-release.yml).

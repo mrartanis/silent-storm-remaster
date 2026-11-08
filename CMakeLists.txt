@@ -112,6 +112,8 @@ target_link_libraries(PortablePackageIndexTests PRIVATE s2_portable_package)
 target_compile_features(PortablePackageIndexTests PRIVATE cxx_std_17)
 enable_testing()
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
+add_test(NAME VerifiedDownloadTests COMMAND "${Python3_EXECUTABLE}"
+  "${root}/diagnostics/VerifiedDownloadTests.py")
 add_test(NAME UpstreamRegistrationTests COMMAND "${Python3_EXECUTABLE}"
   "${root}/diagnostics/UpstreamRegistrationTests.py"
   --build-dir "${CMAKE_BINARY_DIR}" --ctest "${CMAKE_CTEST_COMMAND}"

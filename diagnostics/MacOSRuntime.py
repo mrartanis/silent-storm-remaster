@@ -1,12 +1,14 @@
 """Stage an ARM64 Mach-O runtime with no non-system dependencies outside lib/."""
-import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tarfile
-import urllib.request
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'packaging'))
+from verified_download import download
 
 
 def output(*command):
@@ -60,12 +62,7 @@ def homebrew_sources(prefix, stage):
     if receipt.is_file():
         (destination / receipt.name).write_bytes(receipt.read_bytes())
     archive = destination / Path(url.group(1)).name
-    request = urllib.request.Request(url.group(1), headers={'User-Agent': 'Silent-Storm-release'})
-    with urllib.request.urlopen(request, timeout=180) as response, archive.open('wb') as stream:
-        while block := response.read(1024 * 1024):
-            stream.write(block)
-    if hashlib.sha256(archive.read_bytes()).hexdigest() != checksum.group(1):
-        raise ValueError(f'Homebrew source checksum mismatch: {recipe.stem}')
+    download(url.group(1), archive, checksum.group(1), timeout=180)
     (destination / 'source.json').write_text(json.dumps({
         'url': url.group(1), 'sha256': checksum.group(1), 'prefix': str(prefix),
     }, indent=2) + '\n', encoding='utf-8')
