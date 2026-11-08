@@ -20,6 +20,11 @@ A modern engine for **Silent Storm 1.2**, based on [Silent Storm Reconstruction]
 - A [desktop launcher](docs/launcher.en.md) for installing and updating the engine and HD pack, with game data import from offline GOG installers.
 - Two-player tactical matches with an option to [play against an LLM agent](docs/agent-play.en.md).
 - Native playback of the original audio and cutscenes, plus a new implementation of facial animation.
+- Inventory weapon comparisons against the character's active weapon; on Android, touch and hold to see the details.
+- Configurable ×2, ×3 or ×4 speed for other turns in single-player turn-based play. Acceleration is off by default.
+- A reference for current key bindings and numpad aliases on Mac.
+
+These conveniences are based on ideas from [Gunnarguy's Silent-Storm-Mac](https://github.com/Gunnarguy/Silent-Storm-Mac), adapted for our engine. Configure them in **Settings → Gameplay → Convenience**; see the [guide](docs/install.en.md) for details.
 
 | Original textures | HD textures |
 | :---: | :---: |
