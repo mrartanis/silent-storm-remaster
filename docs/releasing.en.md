@@ -28,3 +28,15 @@ Set-Location ../hd-release-stage
 
 3. Create `hd-vNEXT-index.json` using the [index format example](../data/hd-runtime/hd-v0.1-index.json). Record the tag, volume names and sizes, and SHA-256 hashes for the volumes, manifest, and `res-hd` payloads. Verify the hashes against the extracted archive and prepare `SHA256SUMS`.
 4. Create a draft with the tag `hd-vNEXT` in `mrartanis/silent-storm-remaster`. Upload every volume, the index, the license, and `SHA256SUMS`. Publish it as a stable release with `--latest=false` so the latest release link continues to point to the engine.
+
+## HD sources
+
+Frozen PNGs are published separately from the playable pack, in `assets-hd-sources-*` releases.
+Do not use the `hd-` prefix: the installer treats those releases as ready-to-play packs.
+
+1. Keep a backup of every ZIP and verify sizes, SHA-256, and contents against `data/hd-sources/manifest.json`. Run `python packaging/restore_hd_sources.py --archive-dir /path/to/archives --verify-only` to check every PNG without restoring it.
+2. Keep the path/checksum manifest in Git. Pin the repository, release tag, and manifest SHA-256 in `data/hd-sources/release.json`. Each ZIP must be smaller than 2 GiB and must stay outside Git and LFS.
+3. Create a draft `assets-hd-sources-vNEXT` release. Upload all ZIPs, `manifest.json`, `release.json`, the bilingual `HD-SOURCES-README.md` from `data/hd-sources/README.md`, `HD-LICENSE.md` from `LICENSE.md`, and `SHA256SUMS`. Include all assets except `SHA256SUMS` itself in the checksum list.
+4. Compare uploaded file sizes and SHA-256 hashes through the Releases API by release ID (`/repos/{owner}/{repo}/releases/{id}`): looking up a draft by tag may return 404. Then publish a stable release with `--latest=false`. Check downloading and restoration before removing the old LFS pointers.
+
+Removing pointers or LFS rules does not free server-side quota: old objects remain in GitHub storage. Contact GitHub Support to purge them; do not delete the repository just to reclaim storage. Keep the verified source backup.

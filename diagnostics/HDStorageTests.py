@@ -1,12 +1,14 @@
 """Test frozen HD installation, cache reuse, corruption recovery and source restoration."""
 import hashlib
 import importlib.util
+import io
 import json
 from pathlib import Path
 import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
+from urllib.error import URLError
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -109,6 +111,193 @@ class HDStorageTests(unittest.TestCase):
             (root / 'assets/terrain-hd/a.png').write_bytes(b'edited')
             with self.assertRaisesRegex(RuntimeError, 'overwrite modified PNG'):
                 sources.restore(index, root)
+
+
+class HDSourceReleaseTests(unittest.TestCase):
+    def fixture(self, root):
+        stream = io.BytesIO()
+        data = b'PNG fixture'
+        with zipfile.ZipFile(stream, 'w') as zipped:
+            zipped.writestr('object.png', data)
+        archive = stream.getvalue()
+        manifest = {'archives': [{'file': 'sources.zip', 'bytes': len(archive),
+                                  'sha256': hashlib.sha256(archive).hexdigest()}],
+                    'paths': {'assets/terrain-hd/a.png': 'oid', 'assets/terrain-hd/b.png': 'oid'},
+                    'objects': {'oid': {'archive': 'sources.zip', 'member': 'object.png',
+                                        'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}},
+                    'file_count': 2, 'unique_file_count': 1}
+        index = root / 'manifest.json'
+        index.write_text(json.dumps(manifest))
+        self.release(index)
+        return index, archive
+
+    def release(self, index, **changes):
+        release = {'schema': 1, 'repository': 'mrartanis/silent-storm-remaster',
+                   'tag': 'assets-hd-sources-v0.1', 'manifestSha256': hd.digest(index)}
+        release.update(changes)
+        index.with_name('release.json').write_text(json.dumps(release))
+
+    def test_missing_archive_explains_explicit_download(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            index, _ = self.fixture(root)
+            with patch.object(sources, 'verified_download') as fetch:
+                with self.assertRaisesRegex(RuntimeError, '--download'):
+                    sources.restore(index, root, verify_only=True)
+                fetch.assert_not_called()
+            self.assertFalse((root / 'assets').exists())
+
+    def test_download_pinned_release_then_reuse_without_network(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            index, archive = self.fixture(root)
+
+            def download(url, destination, digest, **options):
+                self.assertEqual(url, 'https://github.com/mrartanis/silent-storm-remaster/'
+                                      'releases/download/assets-hd-sources-v0.1/sources.zip')
+                self.assertEqual(digest, hashlib.sha256(archive).hexdigest())
+                destination.write_bytes(archive)
+
+            with patch.object(sources, 'verified_download', side_effect=download) as fetch:
+                sources.restore(index, root, verify_only=True, download=True)
+                fetch.assert_called_once()
+            self.assertFalse((root / 'assets').exists())
+            with patch.object(sources, 'verified_download', side_effect=AssertionError('must reuse cache')):
+                sources.restore(index, root, download=True)
+            self.assertEqual((root / 'assets/terrain-hd/b.png').read_bytes(), b'PNG fixture')
+
+    def test_offline_backup_directory_and_legacy_manifest(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            index, archive = self.fixture(root)
+            index.with_name('release.json').unlink()
+            backup = root / 'backup'
+            backup.mkdir()
+            (backup / 'sources.zip').write_bytes(archive)
+            sources.restore(index, root, verify_only=True, archive_dir=backup)
+            self.assertFalse((root / 'assets').exists())
+            self.assertFalse((root / 'sources.zip').exists())
+
+    def test_mismatched_manifest_blocks_network_and_restoration(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            index, _ = self.fixture(root)
+            self.release(index, manifestSha256='0' * 64)
+            with patch.object(sources, 'verified_download') as fetch:
+                with self.assertRaisesRegex(ValueError, 'manifest checksum'):
+                    sources.restore(index, root, download=True)
+                fetch.assert_not_called()
+            self.assertFalse((root / 'assets').exists())
+
+    def test_runtime_release_tag_is_not_a_source_release(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            index, _ = self.fixture(root)
+            self.release(index, tag='hd-v0.1')
+            with patch.object(sources, 'verified_download') as fetch:
+                with self.assertRaisesRegex(ValueError, 'source release'):
+                    sources.restore(index, root, download=True)
+                fetch.assert_not_called()
+
+    def test_invalid_archive_path_is_rejected_before_download(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            index, _ = self.fixture(root)
+            manifest = json.loads(index.read_text())
+            manifest['archives'][0]['file'] = '../outside.zip'
+            index.write_text(json.dumps(manifest))
+            self.release(index)
+            with patch.object(sources, 'verified_download') as fetch:
+                with self.assertRaisesRegex(ValueError, 'archive path'):
+                    sources.restore(index, root, download=True)
+                fetch.assert_not_called()
+
+    def test_corrupt_existing_archive_is_preserved(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            index, archive = self.fixture(root)
+            damaged = b'!' * len(archive)
+            (root / 'sources.zip').write_bytes(damaged)
+            with patch.object(sources, 'verified_download') as fetch:
+                with self.assertRaisesRegex(ValueError, 'checksum mismatch'):
+                    sources.restore(index, root, download=True)
+                fetch.assert_not_called()
+            self.assertEqual((root / 'sources.zip').read_bytes(), damaged)
+            self.assertFalse((root / 'assets').exists())
+
+    def test_legacy_lfs_pointer_is_replaced_by_verified_download(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            index, archive = self.fixture(root)
+            (root / 'sources.zip').write_text('version https://git-lfs.github.com/spec/v1\n')
+
+            def download(url, destination, digest, **options):
+                destination.write_bytes(archive)
+
+            with patch.object(sources, 'verified_download', side_effect=download):
+                sources.restore(index, root, verify_only=True, download=True)
+            self.assertEqual((root / 'sources.zip').read_bytes(), archive)
+
+    def test_modified_png_is_preserved_after_download(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            index, archive = self.fixture(root)
+            edited = root / 'assets/terrain-hd/a.png'
+            edited.parent.mkdir(parents=True)
+            edited.write_bytes(b'user edits')
+
+            def download(url, destination, digest, **options):
+                destination.write_bytes(archive)
+
+            with patch.object(sources, 'verified_download', side_effect=download):
+                with self.assertRaisesRegex(RuntimeError, 'overwrite modified PNG'):
+                    sources.restore(index, root, download=True)
+            self.assertEqual(edited.read_bytes(), b'user edits')
+
+    def test_failed_download_does_not_restore_pngs(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            index, _ = self.fixture(root)
+            with patch.object(sources, 'verified_download', side_effect=URLError('offline')):
+                with self.assertRaises(URLError):
+                    sources.restore(index, root, download=True)
+            self.assertFalse((root / 'assets').exists())
+
+    def test_shared_downloader_checks_sha256_before_replacing_pointer(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            index, archive = self.fixture(root)
+            pointer = b'version https://git-lfs.github.com/spec/v1\n'
+            target = root / 'sources.zip'
+            target.write_bytes(pointer)
+            response = io.BytesIO(b'!' * len(archive))
+            response.headers = {'Content-Length': str(len(archive))}
+            with patch('verified_download.urllib.request.urlopen', return_value=response):
+                with self.assertRaisesRegex(ValueError, 'SHA-256'):
+                    sources.restore(index, root, download=True)
+            self.assertEqual(target.read_bytes(), pointer)
+            self.assertFalse(list(root.glob('*.part')))
+            self.assertFalse((root / 'assets').exists())
+
+    def test_shared_downloader_verifies_then_restores(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            index, archive = self.fixture(root)
+            response = io.BytesIO(archive)
+            response.headers = {'Content-Length': str(len(archive))}
+            with patch('verified_download.urllib.request.urlopen', return_value=response):
+                sources.restore(index, root, download=True)
+            self.assertEqual((root / 'sources.zip').read_bytes(), archive)
+            self.assertEqual((root / 'assets/terrain-hd/a.png').read_bytes(), b'PNG fixture')
+            self.assertFalse(list(root.glob('*.part')))
+
+    def test_playable_hd_installer_ignores_newer_source_release(self):
+        releases = [{'tag_name': 'assets-hd-sources-v0.1', 'draft': False, 'prerelease': False,
+                     'published_at': '2026-11-23T12:00:00Z'},
+                    {'tag_name': 'hd-v0.1', 'draft': False, 'prerelease': False,
+                     'published_at': '2026-10-25T19:15:30Z'}]
+        with patch.object(hd, 'github_open', return_value=io.BytesIO(json.dumps(releases).encode())):
+            self.assertEqual(hd.latest_hd_release()['tag_name'], 'hd-v0.1')
 
 
 if __name__ == '__main__':

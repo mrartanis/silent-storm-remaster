@@ -393,6 +393,8 @@ assets/terrain-hd/archives/*.zip
 res-hd/
 /data/res-hd/
 /data/hd-unpack-*/
+/data/hd-sources/*.zip
+/data/hd-sources/*.part
 /assets/terrain-hd/**/*.png
 
 # Restored locally from the verified .json.gz; exceeds GitHub's file limit.

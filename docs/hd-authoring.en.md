@@ -16,12 +16,13 @@ The script verifies the archives and extracts them to `data/res-hd`. With `S2_BU
 
 ## Restore the source textures for authoring
 
-The archives in `data/hd-sources` contain the PNGs. The manifest maps them to their original paths and records their checksums. Exact prompts and metadata are stored in [assets/terrain-hd](../assets/terrain-hd).
+The seven PNG ZIP archives are stored in the separate [assets-hd-sources-v0.1 release](https://github.com/mrartanis/silent-storm-remaster/releases/tag/assets-hd-sources-v0.1), not Git LFS. They total 12.54 GiB and are needed only for texture authoring, not playing or ordinary engine builds. The manifest in `data/hd-sources` maps PNGs to their original paths and records their checksums. `release.json` pins the release and manifest SHA-256. Exact prompts and metadata are stored in [assets/terrain-hd](../assets/terrain-hd).
 
 ```sh
-git lfs pull --include="data/hd-sources/*" --exclude=""
-python packaging/restore_hd_sources.py --verify-only
+python packaging/restore_hd_sources.py --download --verify-only
 python packaging/restore_hd_sources.py
 ```
 
-Git ignores restored PNGs. To restore them to a separate directory, pass `--root /absolute/path`. Follow the [HD release guide](releasing.en.md#hd-pack) to update the prebuilt pack.
+The script downloads missing archives only with `--download`, caches them in `data/hd-sources`, and checks sizes and the SHA-256 hashes of every ZIP and PNG. Without `--download` it never uses the network. You can download the ZIPs manually or use a backup: `python packaging/restore_hd_sources.py --archive-dir /path/to/archives --verify-only`. Corrupt ZIPs are not replaced automatically; move them aside before downloading again.
+
+Git ignores downloaded ZIPs and restored PNGs. Modified PNGs are never overwritten. To restore them to a separate directory, pass `--root /absolute/path`. Follow the [HD release guide](releasing.en.md#hd-pack) to update the prebuilt pack.

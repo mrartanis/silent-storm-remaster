@@ -16,12 +16,13 @@ python packaging/prepare_hd.py
 
 ## Восстановите исходники для работы над текстурами
 
-Архивы в `data/hd-sources` содержат PNG. Манифест сопоставляет их исходным путям и содержит контрольные суммы. Точные промпты и метаданные хранятся в [assets/terrain-hd](../assets/terrain-hd).
+Семь ZIP-архивов с PNG хранятся в отдельном релизе [assets-hd-sources-v0.1](https://github.com/mrartanis/silent-storm-remaster/releases/tag/assets-hd-sources-v0.1), а не в Git LFS. Они занимают 12,54 GiB и нужны только для работы над текстурами, не для игры или обычной сборки движка. Манифест в `data/hd-sources` сопоставляет PNG исходным путям и содержит контрольные суммы. `release.json` закрепляет релиз и SHA-256 манифеста. Точные промпты и метаданные хранятся в [assets/terrain-hd](../assets/terrain-hd).
 
 ```sh
-git lfs pull --include="data/hd-sources/*" --exclude=""
-python packaging/restore_hd_sources.py --verify-only
+python packaging/restore_hd_sources.py --download --verify-only
 python packaging/restore_hd_sources.py
 ```
 
-Восстановленные PNG игнорируются Git. Для восстановления в отдельную папку укажите `--root /абсолютный/путь`. Готовый пак обновляется отдельно по [инструкции по публикации HD](releasing.md#hd-пак).
+Скрипт скачивает недостающие архивы только с `--download`, кеширует их в `data/hd-sources` и проверяет размеры, SHA-256 ZIP и каждого PNG. Без `--download` сеть не используется. Можно скачать ZIP вручную или использовать резервную копию: `python packaging/restore_hd_sources.py --archive-dir /путь/к/архивам --verify-only`. Повреждённый ZIP не перезаписывается автоматически; переместите его в сторону перед повторным скачиванием.
+
+Скачанные ZIP и восстановленные PNG игнорируются Git. Изменённые PNG не перезаписываются. Для восстановления в отдельную папку укажите `--root /абсолютный/путь`. Готовый пак обновляется отдельно по [инструкции по публикации HD](releasing.md#hd-пак).

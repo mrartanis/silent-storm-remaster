@@ -1,6 +1,7 @@
-Storage update (24 October 2026): artwork is frozen. PNGs are preserved in the
-deduplicated LFS ZIPs in `data/hd-sources`; restore them explicitly with
-`packaging/restore_hd_sources.py` before authoring. Ordinary builds reuse the
+Storage update (23 November 2026): artwork is frozen. PNGs are preserved in the
+deduplicated ZIPs in the `assets-hd-sources-v0.1` GitHub release, outside Git LFS;
+restore them explicitly with `packaging/restore_hd_sources.py --download` before authoring.
+The pinned manifest and release metadata remain in `data/hd-sources`. Ordinary builds reuse the
 prebuilt HD release in `data/res-hd` and do not generate textures. Restored PNGs
 are ignored by Git. See `../../data/README.md` for the current workflow.
 

@@ -22,18 +22,20 @@ jobs:
           fi
       - name: Fetch the default runtime-only LFS selection
         run: git lfs pull
-      - name: Check source archives remain pointers
+      - name: Check source archives are release-only and stay undownloaded
         run: |
           python3 - <<'PY'
-          import json
+          import hashlib, json, subprocess
           from pathlib import Path
           root = Path('data/hd-sources')
           manifest = json.loads((root / 'manifest.json').read_text())
+          release = json.loads((root / 'release.json').read_text())
+          assert release['tag'].startswith('assets-hd-sources-')
+          assert hashlib.sha256((root / 'manifest.json').read_bytes()).hexdigest() == release['manifestSha256']
+          assert not subprocess.check_output(['git', 'ls-files', '--', 'data/hd-sources/*.zip']).strip()
           for part in manifest['archives']:
-              path = root / part['file']
-              assert path.stat().st_size < 200
-              assert path.read_text().startswith('version https://git-lfs.github.com/spec/v1\n')
-          print('All seven source ZIPs remain LFS pointers')
+              assert not (root / part['file']).exists()
+          print('Source ZIPs are external release assets; none were downloaded')
           PY
       - name: Verify extraction and unchanged-cache reuse
         run: |

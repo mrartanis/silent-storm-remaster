@@ -65,7 +65,7 @@
 *.sh text eol=lf
 *.command text eol=lf
 network-version.txt text eol=lf
-/data/hd-sources/*.zip filter=lfs diff=lfs merge=lfs -text
+/data/hd-sources/manifest.json text eol=lf
 /data/hd-runtime/*.7z.* filter=lfs diff=lfs merge=lfs -text
 
 # Frozen packet48 evidence preserves exact hashed bytes. Historical text rules stay intact.
