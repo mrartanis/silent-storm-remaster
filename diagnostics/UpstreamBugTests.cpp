@@ -37623,6 +37623,43 @@ static void FlyingGrenadeLifetime(const char* databasePath, const char* resource
         "the expired grenade emitted a new world object before its fuse");
 }
 
+static void BloodyDeathSoundPosition(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    CObj<NWorld::CUnitServer> actor = MovementPolicyActor(world);
+    auto* persona = actor->GetUnitRPG()->GetRPGUnit()->GetAckHolder();
+    if (!persona) persona = actor->GetUnitRPG()->GetRPGPers();
+    const auto* deathSound = persona->pSoundDeath.GetPtr();
+    Require(deathSound && !deathSound->variants.empty() && NDb::GetTEffect(822),
+        "bloody-death fixture requires the authored sound and effect");
+    const auto position = actor->GetPosition();
+    const auto eye = position.GetEyePosition();
+    Require(fabs2(eye - position.GetCenter()) > 0.01f, "fixture needs distinct eye and center positions");
+    std::set<NWorld::IDynamicObject*> existing;
+    for (const auto& object : *world->GetMiscObjects()) existing.insert(object.GetPtr());
+
+    actor->SetBloodyDeath(true);
+    actor->GetUnitRPG()->GetRPGUnit()->Kill();
+    actor->SyncConscious();
+
+    ObjectStageAudio audio;
+    for (const auto& object : *world->GetMiscObjects())
+        if (!existing.count(object.GetPtr()))
+            if (auto* sound = dynamic_cast<NWorld::C3DSound*>(object.GetPtr())) sound->Visit(&audio);
+    const auto matches = [deathSound](auto* sound) {
+        return sound && std::any_of(deathSound->variants.begin(), deathSound->variants.end(),
+            [sound](const auto& variant) { return IsValid(variant) && variant->pSound == sound; });
+    };
+    Require(std::count_if(audio.sounds.begin(), audio.sounds.end(), matches) == 1,
+        "bloody death did not emit exactly one detached persona death sound");
+    const auto index = std::find_if(audio.sounds.begin(), audio.sounds.end(), matches) - audio.sounds.begin();
+    CDGPtr<CFuncBase<CVec3>> soundPosition(audio.positions[index].GetPtr());
+    soundPosition.Refresh();
+    Require(fabs2(soundPosition->GetValue() - eye) < 0.00001f,
+        "bloody death emitted its detached sound from the unit center");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "building-indestructible-hp")) { BuildingIndestructibleHP(); return true; }
@@ -37640,6 +37677,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "hide-empty-roster-slot") && argc == 4) { HideWithEmptyRosterSlot(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "frozen-item-armor-resistance") && argc == 4) { FrozenItemArmorResistance(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "flying-grenade-lifetime") && argc == 4) { FlyingGrenadeLifetime(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "bloody-death-sound-position") && argc == 4) { BloodyDeathSoundPosition(argv[2], argv[3]); return true; }
     if(!std::strcmp(mode,"legacy-directional-ambient")) {LegacyDirectionalAmbient();return true;}
     if(!std::strcmp(mode,"convenience-tooltip-ui")) {Require(argc==4,"tooltip requires db/res");ConvenienceTooltipUI(argv[2],argv[3]);return true;}
     if(!std::strcmp(mode,"convenience-mission-clock")) {Require(argc==4,"clock requires db/res");ConvenienceMissionClock(argv[2],argv[3]);return true;}
