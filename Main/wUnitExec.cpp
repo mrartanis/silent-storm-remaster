@@ -445,7 +445,11 @@ public:
 		if ( pInventory->Get(slot) )
 			subTypeNext = pInventory->Get(slot)->GetDBItem()->subType;
 
-		pInventory->Activate( slot );
+		if ( !pInventory->Activate( slot ) )
+		{
+			Failed();
+			return;
+		}
 
 		bool bActive = pUS->animator.IsActiveItem();
 		if ( slot == oldSlot && bActive )

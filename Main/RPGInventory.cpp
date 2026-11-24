@@ -264,6 +264,8 @@ IInventoryItem *CInventory::TakeOff( NDb::ESlot where )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CInventory::Activate( NDb::ESlot where )
 {
+	if ( IsValid( pPK ) && pPK->bSingleSlot && where == NDb::SLOT_2 )
+		return false;
 	nActiveSlot = where;
 	return true;
 }

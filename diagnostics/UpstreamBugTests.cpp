@@ -27847,12 +27847,18 @@ static void PKFixedWeaponPolicy()
 {
     CObj<NRPG::IInventory> inventory = NRPG::CreateInventory(nullptr);
     Require(CanRemovePKWeapon(inventory.GetPtr(), 0), "normal equipment removal was restricted");
+    Require(inventory->Activate(NDb::SLOT_2) && inventory->GetActiveSlot() == NDb::SLOT_2,
+        "ordinary inventory cannot select its second slot");
     CObj<NDb::CPanzerklein> suit = new NDb::CPanzerklein;
     suit->bSingleSlot = false;
     inventory->SetPanzerklein(suit, nullptr);
     Require(CanRemovePKWeapon(inventory.GetPtr(), 0), "removable PK equipment was restricted");
     suit->bSingleSlot = true;
     Require(!CanRemovePKWeapon(inventory.GetPtr(), 0), "manual removal of a fixed PK weapon is allowed");
+    Require(inventory->Activate(NDb::SLOT_1) && inventory->GetActiveSlot() == NDb::SLOT_1,
+        "a single-slot suit cannot select its fixed weapon");
+    Require(!inventory->Activate(NDb::SLOT_2) && inventory->GetActiveSlot() == NDb::SLOT_1,
+        "a single-slot suit switched to its unused weapon slot");
 }
 
 static void DoorSwingDirection(const char* databasePath,const char* resourcePath)
