@@ -3061,6 +3061,7 @@ if(S2_GAME_DB_PATH AND S2_RESOURCE_PACKAGE_PATH)
   add_test(NAME UpstreamFrozenItemArmorResistance COMMAND UpstreamBugTests frozen-item-armor-resistance "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
   add_test(NAME UpstreamFlyingGrenadeLifetime COMMAND UpstreamBugTests flying-grenade-lifetime "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
   add_test(NAME UpstreamBloodyDeathSoundPosition COMMAND UpstreamBugTests bloody-death-sound-position "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
+  add_test(NAME UpstreamExplosionVoxelBudget COMMAND UpstreamBugTests explosion-voxel-budget "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
   set_tests_properties(UpstreamAIRoamingCurrentPosition PROPERTIES WORKING_DIRECTORY "${_s2_upstream_game_dir}" TIMEOUT 60)
   set_tests_properties(UpstreamAIIdle PROPERTIES WORKING_DIRECTORY "${_s2_upstream_game_dir}" TIMEOUT 60)
   add_test(NAME UpstreamConclusions COMMAND UpstreamBugTests conclusions

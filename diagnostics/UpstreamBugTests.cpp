@@ -37660,6 +37660,29 @@ static void BloodyDeathSoundPosition(const char* databasePath, const char* resou
         "bloody death emitted its detached sound from the unit center");
 }
 
+static void ExplosionVoxelBudget(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* actor = MovementPolicyActor(world);
+    const auto center = actor->GetPosition().GetEyePosition();
+    CObj<NWorld::CExplosionSpace> space = NWorld::CreateExplosionSpace(world->GetAIMap());
+    CObj<NDb::CRPGGrenade> grenade = new NDb::CRPGGrenade;
+    grenade->nWaveNumber = 1;
+    int budgets[2] = {};
+    for (int radius = 1; radius <= 2; ++radius) {
+        grenade->fWaveRadius = radius * NWorld::F_VOXEL_SIZE / FP_GRID_STEP;
+        CObj<NWorld::CVoxelExpl> wave = new NWorld::CVoxelExpl(
+            world, center, nullptr, 0, grenade, actor, nullptr, space);
+        CStructureNetworkContext refs;
+        auto fields = BorrowedObjectFields(wave, &refs);
+        CStructureSaver reader(fields, CStructureSaver::READ, &refs);
+        reader.Add(9, &budgets[radius - 1]);
+    }
+    Require(budgets[0] == 4, "single-voxel-radius control changed its budget");
+    Require(budgets[1] == 33, "a blast rounded its fractional voxel budget upward");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "building-indestructible-hp")) { BuildingIndestructibleHP(); return true; }
@@ -37678,6 +37701,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "frozen-item-armor-resistance") && argc == 4) { FrozenItemArmorResistance(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "flying-grenade-lifetime") && argc == 4) { FlyingGrenadeLifetime(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "bloody-death-sound-position") && argc == 4) { BloodyDeathSoundPosition(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "explosion-voxel-budget") && argc == 4) { ExplosionVoxelBudget(argv[2], argv[3]); return true; }
     if(!std::strcmp(mode,"legacy-directional-ambient")) {LegacyDirectionalAmbient();return true;}
     if(!std::strcmp(mode,"convenience-tooltip-ui")) {Require(argc==4,"tooltip requires db/res");ConvenienceTooltipUI(argv[2],argv[3]);return true;}
     if(!std::strcmp(mode,"convenience-mission-clock")) {Require(argc==4,"clock requires db/res");ConvenienceMissionClock(argv[2],argv[3]);return true;}
