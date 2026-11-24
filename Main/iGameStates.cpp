@@ -309,6 +309,13 @@ bool CStateWait::Initialize( IMission *pMission )
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+void CStateWait::Step()
+{
+	auto* pMission = GetMission();
+	if ( pMission->IsReady() )
+		pMission->ResetState();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 NUI::SCursorInfo CStateWait::GetCursorInfo() const
 {
 	return NUI::SCursorInfo( NDb::GetUICursor( N_CURSOR_BUSY ) );

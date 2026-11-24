@@ -7,7 +7,7 @@ int main(int argc, char** argv)
     using namespace UpstreamTests;
     try {
         const char* mode = argc > 1 ? argv[1] : "temporary-groups";
-        if (!RunAITests(mode, argc, argv) && !RunNavigationTests(mode) &&
+        if (!RunAITests(mode, argc, argv) && !RunNavigationTests(mode) && !RunUITests(mode) &&
             !RunBuildingTests(mode, argc, argv) && !RunDatabaseTests(mode, argc, argv) &&
             !RunRenderTests(mode, argc, argv) && !RunUnitTests(mode, argc, argv) &&
             !RunProjectileTests(mode, argc, argv) && !RunLegacyTests(mode, argc, argv))

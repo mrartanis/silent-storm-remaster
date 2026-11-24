@@ -400,6 +400,8 @@ add_test(NAME UpstreamNavigationAliasArray COMMAND UpstreamBugTests navigation-a
 add_test(NAME UpstreamIsolatedMovementCell COMMAND UpstreamBugTests isolated-movement-cell)
 add_test(NAME UpstreamKnownMinePathReservations COMMAND UpstreamBugTests known-mine-path-reservations)
 add_test(NAME UpstreamDifficultySkillScaling COMMAND UpstreamBugTests difficulty-skill-scaling)
+add_test(NAME UpstreamInventoryDragDuringAction COMMAND UpstreamBugTests inventory-drag-during-action)
+add_test(NAME UpstreamInventoryWaitEndsWhenReady COMMAND UpstreamBugTests inventory-wait-ends-when-ready)
 add_test(NAME UpstreamFlyingShootDirection COMMAND UpstreamBugTests flying-shoot-direction)
 add_test(NAME UpstreamFlyingDynamicLocks COMMAND UpstreamBugTests flying-dynamic-locks)
 add_test(NAME UpstreamRemovedSelectedEnemy COMMAND UpstreamBugTests removed-selected-enemy)

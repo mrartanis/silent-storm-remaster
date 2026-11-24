@@ -100,10 +100,11 @@ private:
 
 public:
 	bool Initialize( IMission *pMission );
+	void Step() override;
 
 	NUI::SCursorInfo GetCursorInfo() const;
 
-	EType GetType() const { return UPDATED; }
+	EType GetType() const { return TEMPORARY; }
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CStateTeam

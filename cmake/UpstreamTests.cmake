@@ -8,6 +8,7 @@ function(s2_add_upstream_test_modules target source_dir)
     "${source_dir}/diagnostics/upstream/ProjectileTests.cpp"
     "${source_dir}/diagnostics/upstream/RenderTests.cpp"
     "${source_dir}/diagnostics/upstream/TestSupport.cpp"
+    "${source_dir}/diagnostics/upstream/UITests.cpp"
     "${source_dir}/diagnostics/upstream/UnitTests.cpp"
   )
 endfunction()
