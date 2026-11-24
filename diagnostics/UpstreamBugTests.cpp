@@ -37379,6 +37379,29 @@ static void WishPoseStrafe(const char* databasePath, const char* resourcePath)
     }
 }
 
+static void HideWithEmptyRosterSlot(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* actor = MovementPolicyActor(world);
+    actor->EnableHide();
+    CObj<NWorld::CCmdHide> hide = new NWorld::CCmdHide;
+    NWorld::EUnitCommandResult result = NWorld::UCR_UNAVAILABLE;
+    CObj<NWorld::CCommandExecute> ordinary = NWorld::CreateExecutor(actor, hide, &result);
+    Require(ordinary && result == NWorld::UCR_OK, "the ordinary hide order was ineligible before adding the empty slot");
+    vector<CPtr<NWorld::CPlayer>> players;
+    world->GetPlayersList(&players);
+    for (auto opponent : players) {
+        if (!IsValid(opponent) || opponent == actor->GetTBSPlayer()) continue;
+        opponent->AddUnit(nullptr);
+        CObj<NWorld::CCommandExecute> withEmpty = NWorld::CreateExecutor(actor, hide, &result);
+        opponent->RemoveUnit(nullptr);
+        Require(withEmpty && result == NWorld::UCR_OK, "an empty opposing roster slot blocked the hide order");
+        return;
+    }
+    Require(false, "hide fixture lacks an opposing roster");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "building-indestructible-hp")) { BuildingIndestructibleHP(); return true; }
@@ -37392,6 +37415,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "zero-scale-map-objects") && argc == 4) { ZeroScaleMapObjects(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "look-action-point-cost") && argc == 4) { LookActionPointCost(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "wish-pose-strafe") && argc == 4) { WishPoseStrafe(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "hide-empty-roster-slot") && argc == 4) { HideWithEmptyRosterSlot(argv[2], argv[3]); return true; }
     if(!std::strcmp(mode,"legacy-directional-ambient")) {LegacyDirectionalAmbient();return true;}
     if(!std::strcmp(mode,"convenience-tooltip-ui")) {Require(argc==4,"tooltip requires db/res");ConvenienceTooltipUI(argv[2],argv[3]);return true;}
     if(!std::strcmp(mode,"convenience-mission-clock")) {Require(argc==4,"clock requires db/res");ConvenienceMissionClock(argv[2],argv[3]);return true;}

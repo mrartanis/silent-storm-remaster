@@ -4338,6 +4338,7 @@ if(S2_GAME_DIR)
     "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   add_test(NAME UpstreamLookActionPointCost COMMAND UpstreamBugTests look-action-point-cost "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   add_test(NAME UpstreamWishPoseStrafe COMMAND UpstreamBugTests wish-pose-strafe "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
+  add_test(NAME UpstreamHideEmptyRosterSlot COMMAND UpstreamBugTests hide-empty-roster-slot "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   set_tests_properties(UpstreamAIRoamingCurrentPosition PROPERTIES WORKING_DIRECTORY "${S2_GAME_DIR}" TIMEOUT 60)
   set_tests_properties(UpstreamAIIdle PROPERTIES WORKING_DIRECTORY "${S2_GAME_DIR}" TIMEOUT 60)
   set_target_properties(Game PROPERTIES
