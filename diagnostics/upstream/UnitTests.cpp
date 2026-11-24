@@ -291,6 +291,55 @@ void InventoryTransferInactivePose(const char* databasePath, const char* resourc
     Require(order && result == UCR_OK, "inactive pose rejected a valid transfer between allies");
 }
 
+void ForcedActionReplacement(const char* databasePath, const char* resourcePath, bool stale)
+{
+    using namespace NWorld;
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* actor = MovementPolicyActor(world);
+    world->GivePlayerTurn(actor->GetTBSPlayer());
+    const auto previousPose = actor->GetWishPose();
+    const auto desiredPose = previousPose == NAI::CROUCH ? NAI::WALK : NAI::CROUCH;
+    const auto submit = [&] {
+        actor->Do(new CCmdSetCommand(actor, new CCmdWishPose(desiredPose)));
+        if (actor->HasCommand())
+            actor->Do(new CCmdSetCommand(actor, new CCmdContinue));
+    };
+    const auto current = [&] {
+        CStructureNetworkContext refs;
+        auto fields = BorrowedObjectFields(actor, &refs);
+        CObj<CCommandExecute> executor;
+        bool forced = false;
+        CStructureSaver reader(fields, CStructureSaver::READ, &refs);
+        reader.Add(7, &executor);
+        reader.Add(12, &forced);
+        return std::make_pair(executor, forced);
+    };
+    Require(!current().first && !current().second, "fixture starts with an existing command");
+    if (stale) {
+        bool forced = true;
+        CMemoryStream fields;
+        { CStructureSaver writer(fields, CStructureSaver::WRITE); writer.Add(12, &forced); }
+        fields.Seek(0);
+        { CStructureSaver reader(fields, CStructureSaver::READ); static_cast<CObjectBase*>(actor)->operator&(reader); }
+        Require(!current().first && current().second, "legacy state fixture did not restore the orphaned latch");
+    } else {
+        Require(IsValid(NDb::GetAnimation(4437)), "fixture lacks the authored animation");
+        CObj<CExecPlayAnimation> animation = new CExecPlayAnimation(actor, 4437, false);
+        actor->RunCriticalExecutor(animation);
+        Require(current().first == animation && current().second && actor->IsPerformingAction(),
+            "the forced animation could not start");
+        submit();
+        Require(current().first == animation && current().second && actor->GetWishPose() == previousPose,
+            "an ordinary command replaced the running forced action");
+        world->GetTime()->Set(actor->animator.GetTimeEnd());
+        actor->Segment();
+    }
+    submit();
+    Require(actor->GetWishPose() == desiredPose && !current().second,
+        "the forced-action flag blocked or outlived the next ordinary command");
+}
+
 static void WishPoseStrafe(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -539,6 +588,7 @@ bool RunUnitTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "look-action-point-cost") && argc == 4) { LookActionPointCost(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "inventory-transfer-validation") && argc == 5) { InventoryTransferValidation(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "inventory-transfer-inactive-pose") && argc == 4) { InventoryTransferInactivePose(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "forced-action-replacement") && argc == 5) { ForcedActionReplacement(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "wish-pose-strafe") && argc == 4) { WishPoseStrafe(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "hide-empty-roster-slot") && argc == 4) { HideWithEmptyRosterSlot(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "normal-state-command-lifetime") && argc == 4) { NormalStateCommandLifetime(argv[2], argv[3]); return true; }
