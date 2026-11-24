@@ -157,7 +157,7 @@ class CRasterizer
 	}
 	void InitFixedEdge( SFixedEdgeInfo *pRes, const CVec3 &a, const CVec3 &dif, int nSY, int nFY )
 	{
-		const float fDX = dif.x / dif.y;
+		const float fDX = ( 1.0f / dif.y ) * dif.x;
 		pRes->nDX = Float2Int( fDX * 65536.0f );
 		pRes->nX0 = std::int32_t( std::uint32_t( Float2Int(
 			( a.x - ( a.y - 0.5f - nSY ) * fDX ) * 65536.0f ) ) + 0x8000u );

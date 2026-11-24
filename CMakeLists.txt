@@ -889,6 +889,7 @@ add_test(NAME ObjectivesLegacyRows COMMAND UpstreamBugTests objectives-row-compa
 add_test(NAME UpstreamBuildingIndestructibleHP COMMAND UpstreamBugTests building-indestructible-hp)
 add_test(NAME UpstreamBuildingDamageParts COMMAND UpstreamBugTests building-damage-parts)
 add_test(NAME UpstreamPackedParticleColor COMMAND UpstreamBugTests packed-particle-color)
+add_test(NAME UpstreamFixedRasterEdgeReciprocal COMMAND UpstreamBugTests fixed-raster-edge-reciprocal)
 add_test(NAME UpstreamUITextureFallbackDimensions COMMAND UpstreamBugTests ui-texture-fallback-dimensions)
 if(S2_GAME_DIR)
   add_test(NAME DefaultMeleeLifetime COMMAND UpstreamBugTests default-melee-lifetime "${S2_GAME_DIR}/game.db")
