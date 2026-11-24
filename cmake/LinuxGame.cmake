@@ -3047,6 +3047,8 @@ if(S2_GAME_DB_PATH AND S2_RESOURCE_PACKAGE_PATH)
     "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
   add_test(NAME UpstreamAIRoamingCurrentPosition COMMAND UpstreamBugTests ai-roaming-current-position
     "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
+  add_test(NAME UpstreamZeroScaleMapObjects COMMAND UpstreamBugTests zero-scale-map-objects
+    "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
   set_tests_properties(UpstreamAIRoamingCurrentPosition PROPERTIES WORKING_DIRECTORY "${_s2_upstream_game_dir}" TIMEOUT 60)
   set_tests_properties(UpstreamAIIdle PROPERTIES WORKING_DIRECTORY "${_s2_upstream_game_dir}" TIMEOUT 60)
   add_test(NAME UpstreamConclusions COMMAND UpstreamBugTests conclusions

@@ -37277,6 +37277,50 @@ static void FirearmAttackCreationResult(const char* databasePath)
     Require(weapon->GetAmmoQuantity() == ammo, "firearm previews spent ammunition");
 }
 
+static void ZeroScaleMapObjects(const char* databasePath, const char* resourcePath)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database, CStructureSaver::READ);
+    NGScene::AddResourceDir(resourcePath);
+    const int variantID = 810;
+    auto* variant = NDb::GetTemplVariant(variantID);
+    Require(IsValid(variant), "zero-scale test lacks an authored map");
+
+    auto build = [variantID] {
+        CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+        SMapInfo result;
+        Require(BuildMap(variantID, {}, network, &result, -1, SRandomSeed(123), 0), "could not build the authored map");
+        return result;
+    };
+    const char* objectLabel = "UpstreamZeroScaleObject";
+    auto hasObject = [objectLabel](const SMapInfo& map) {
+        return std::any_of(map.items.begin(), map.items.end(),
+            [objectLabel](const SMapElement& entry) { return entry.szName == objectLabel; });
+    };
+    for (auto entry : variant->pFinalElements) {
+        if (!IsValid(entry) || !IsValid(entry->pObject) || !IsValid(entry->pObject->pObject)) continue;
+        const CVec3 originalScale = entry->ptScale;
+        if (std::abs(originalScale.x) < 1.e-12f || std::abs(originalScale.y) < 1.e-12f ||
+            std::abs(originalScale.z) < 1.e-12f) continue;
+        const string originalName = entry->szName;
+        entry->szName = objectLabel;
+        const auto baseline = build();
+        if (!hasObject(baseline)) {
+            entry->szName = originalName;
+            continue;
+        }
+        entry->ptScale = CVec3(originalScale.x, 0, originalScale.z);
+        const auto scaled = build();
+        entry->ptScale = originalScale;
+        entry->szName = originalName;
+        Require(scaled.deploySpots.size() == baseline.deploySpots.size(), "zero-scale filtering removed deployment markers");
+        Require(!hasObject(scaled), "native map build instantiated a model with a zero-scale axis");
+        return;
+    }
+    Require(false, "zero-scale fixture could not identify a modeled object in the authored map");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "building-indestructible-hp")) { BuildingIndestructibleHP(); return true; }
@@ -37287,6 +37331,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "packed-particle-color")) { PackedParticleColor(); return true; }
     if (!std::strcmp(mode, "ui-texture-fallback-dimensions")) { UITextureFallbackDimensions(); return true; }
     if (!std::strcmp(mode, "firearm-attack-creation") && argc == 3) { FirearmAttackCreationResult(argv[2]); return true; }
+    if (!std::strcmp(mode, "zero-scale-map-objects") && argc == 4) { ZeroScaleMapObjects(argv[2], argv[3]); return true; }
     if(!std::strcmp(mode,"legacy-directional-ambient")) {LegacyDirectionalAmbient();return true;}
     if(!std::strcmp(mode,"convenience-tooltip-ui")) {Require(argc==4,"tooltip requires db/res");ConvenienceTooltipUI(argv[2],argv[3]);return true;}
     if(!std::strcmp(mode,"convenience-mission-clock")) {Require(argc==4,"clock requires db/res");ConvenienceMissionClock(argv[2],argv[3]);return true;}
