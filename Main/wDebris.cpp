@@ -74,7 +74,7 @@ void CDFrozenItem::GetVisiblePos( vector<CVec3> *pRes ) const
 int CDFrozenItem::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, NRPG::CAttackPortion *pAttack,
 	const CVec3 &vDir, NDb::CRPGArmor *pArmor )
 {
-	if ( IsValid( pArmor ) && nVP > 0 )
+	if ( IsValid( pArmor ) && IsValid( pArmor->pMaterial ) && pArmor->pMaterial->nDR > 0 && nVP > 0 )
 	{
 		int nDmg = pAttack->CalcStructDmg( pWorld, pArmor, 0 );
 		nVP = Max( 0, nVP - nDmg );

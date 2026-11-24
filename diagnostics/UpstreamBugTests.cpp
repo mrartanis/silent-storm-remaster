@@ -37402,6 +37402,36 @@ static void HideWithEmptyRosterSlot(const char* databasePath, const char* resour
     Require(false, "hide fixture lacks an opposing roster");
 }
 
+static void FrozenItemArmorResistance(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, false, &game);
+    auto* book = NDb::GetRPGItem(438);
+    Require(book && IsValid(book->pModel), "test requires the authored book model");
+    CObj<NRPG::IInventoryItem> item = NRPG::CreateClueItem(book);
+    CObj<NWorld::CDFrozenItem> body =
+        world->AddFrozenItem(world->GetAIMap(), CVec3(2, 2, 0), QNULL, item, false, 0);
+    Require(IsValid(body) && body->GetModel().pModel, "the dropped item has no world body");
+    auto* armor = body->GetModel().pModel->pRPGArmor.GetPtr();
+    Require(IsValid(armor) && IsValid(armor->pMaterial), "the dropped item has no authored armor material");
+    struct RestoreResistance {
+        NDb::CRPGMaterial* material;
+        int value;
+        int threshold;
+        ~RestoreResistance() { material->nDR = value; material->nThreshold = threshold; }
+    } restore{armor->pMaterial, armor->pMaterial->nDR, armor->pMaterial->nThreshold};
+
+    NRPG::CAttackPortion hit(100000, 0, 0.f, 5, 5, 0);
+    armor->pMaterial->nThreshold = 0;
+    Require(hit.CalcStructDmg(world, armor, 0) == 5, "test hit does not deal its fixed amount of damage");
+    armor->pMaterial->nDR = 0;
+    Require(body->ProcessAttack(world, 0, &hit, CVec3(1, 0, 0), armor) == 0,
+        "the dropped item took damage from its zero-resistance material");
+    armor->pMaterial->nDR = 1;
+    Require(body->ProcessAttack(world, 0, &hit, CVec3(1, 0, 0), armor) == 5,
+        "a positive-resistance material stopped applying damage");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "building-indestructible-hp")) { BuildingIndestructibleHP(); return true; }
@@ -37416,6 +37446,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "look-action-point-cost") && argc == 4) { LookActionPointCost(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "wish-pose-strafe") && argc == 4) { WishPoseStrafe(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "hide-empty-roster-slot") && argc == 4) { HideWithEmptyRosterSlot(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "frozen-item-armor-resistance") && argc == 4) { FrozenItemArmorResistance(argv[2], argv[3]); return true; }
     if(!std::strcmp(mode,"legacy-directional-ambient")) {LegacyDirectionalAmbient();return true;}
     if(!std::strcmp(mode,"convenience-tooltip-ui")) {Require(argc==4,"tooltip requires db/res");ConvenienceTooltipUI(argv[2],argv[3]);return true;}
     if(!std::strcmp(mode,"convenience-mission-clock")) {Require(argc==4,"clock requires db/res");ConvenienceMissionClock(argv[2],argv[3]);return true;}
