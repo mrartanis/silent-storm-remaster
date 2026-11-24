@@ -20,6 +20,7 @@
 #include "../../DBFormat/DataSound.h"
 #include "../../DBFormat/DataGeometry.h"
 #include "../../DBFormat/DataObject.h"
+#include "../../Misc/RandomGen.h"
 #include "SoundVisitor.h"
 #include <set>
 #include <cstring>
@@ -288,6 +289,51 @@ void ShotRayWithoutCoverCandidates(const char* databasePath, const char* resourc
     Require(ray.vOrigin == source && ray.vDir == V3_AXIS_Z,
         "a blocked muzzle did not return the finite upward miss from the attack origin");
 }
+
+void RangedHitRollRange(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    const auto shooter = std::find_if(units.begin(), units.end(), [](const auto& unit) {
+        if (!unit || !unit->CanFight() || unit->IsWearingPK() || unit->IsEmptyPK()) return false;
+        auto* weapon = dynamic_cast<NRPG::IWeaponItem*>(unit->GetUnitRPG()->GetInventory()->GetActive());
+        return weapon && weapon->GetAmmoQuantity() > 0 && weapon->SetShootMode(NDb::SM_Snap);
+    });
+    Require(shooter != units.end(), "hit roll fixture lacks an equipped firearm");
+    auto* actor = shooter->GetPtr();
+    auto* mission = actor->GetUnitRPG();
+    vector<NRPG::CAttackPortion> attack;
+    Require(mission->CreateAttack(&attack, false) && !attack.empty(), "fixture could not quote a native shot");
+    const auto position = actor->GetPosition();
+    const auto source = actor->GetAttackOrigin(position);
+    CObj<NRPG::CCoverInfo> cover;
+    CVec3 target;
+    const bool firstTurn = world->IsFirstTurn();
+    int expectedChance = 0;
+    for (float distance : {2.f, 4.f, 8.f, 12.f}) {
+        target = position.GetCP() + CVec3(distance, 0.f, 0.1f);
+        cover = world->GetGame()->CalcCoversForTile(source, attack.front(), actor, target, actor->GetMinClearDistance());
+        if (!NRPG::CanShoot(cover)) continue;
+        NRPG::CheckTileToHit(actor, target, 0, NAI::THL_LOWER, cover, firstTurn, &expectedChance);
+        if (expectedChance > 0 && expectedChance < 100) break;
+    }
+    Require(expectedChance > 0 && expectedChance < 100, "fixture has no shot with a nondegenerate hit chance");
+
+    GlobalGameRandom().SeedForHarness(0x5201);
+    int previous = -10;
+    for (int sample = 0; sample < 400; ++sample) {
+        int chance = -1;
+        const float result = NRPG::CheckTileToHit(actor, target, 0, NAI::THL_LOWER, cover, firstTurn, &chance);
+        Require(chance == expectedChance && std::isfinite(result) && result > 0.f,
+            "the native hit check divided by a zero roll");
+        const int roll = int(std::lround(chance / result));
+        Require(roll >= 1 && roll <= 99 && std::abs(roll - previous) >= 6,
+            "hit roll left the original range or repeated a nearby value");
+        previous = roll;
+    }
+}
 }
 
 bool RunProjectileTests(const char* mode, int argc, char** argv)
@@ -299,6 +345,7 @@ bool RunProjectileTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "invalid-projectile-resources") && argc == 5) { InvalidProjectileResources(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "stuck-knife-floor") && argc == 4) { StuckKnifeFloor(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "shot-ray-without-cover-candidates") && argc == 4) { ShotRayWithoutCoverCandidates(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "ranged-hit-roll-range") && argc == 4) { RangedHitRollRange(argv[2], argv[3]); return true; }
     return false;
 }
 }
