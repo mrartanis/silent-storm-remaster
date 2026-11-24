@@ -465,6 +465,8 @@ public:
 			Finished();
 			return;
 		}
+		if ( !bActive )
+			pUS->SetUndrawItem( true );
 		StartAction( pUS->GetWorld(), SKIPPABLE );   // retail @0x3b5005 push 1 = SKIPPABLE
 
 		bTwoHeavy = IsTwoHeavy( subType, subTypeNext );

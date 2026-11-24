@@ -6,6 +6,7 @@
 #include "../../Main/RPGUnitMission.h"
 #include "../../Main/RPGItem.h"
 #include "../../Main/RPGItemMap.h"
+#include "../../Main/RPGItemSet.h"
 #include "../../Main/wUnitAttackExec.h"
 #include "../../Main/rpgGlobal.h"
 #include "../../DBFormat/DataRPG.h"
@@ -202,6 +203,52 @@ static void CarriedClueTransfer(const char* databasePath, const char* resourcePa
     Require(copies == 1 && !inventory->Get(NDb::SLOT_1) && !inventory->Get(NDb::SLOT_2),
         "automatic transfer equipped a carried clue instead of storing it in the backpack");
 }
+
+static void HolsteredEquipment(const char* databasePath, const char* resourcePath, bool transfer)
+{
+    using namespace NWorld;
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    auto* inventory = actor->GetUnitRPG()->GetInventory();
+    auto* record = NDb::GetWeapon(65);
+    Require(record && record->pItem && record->pItem->bPlaceInHand && inventory->Activate(NDb::SLOT_1),
+        "holster fixture needs a visible authored weapon and active first slot");
+    CObj<NRPG::IInventoryItem> previous = inventory->TakeOff(NDb::SLOT_1);
+    CObj<NRPG::IInventoryItem> weapon = new NRPG::CWeaponItem(record);
+    actor->animator.SetActiveItem(false);
+    actor->animator.SetWeaponAnimation(NDb::WT_DEFAULT);
+    actor->SetWalkWithoutWeapon(true);
+    actor->SetUndrawItem(transfer);
+    Require(actor->animator.CanActivateItem(), "the fixture cannot play the draw animation");
+
+    CObj<CCommandExecute> executor;
+    if (transfer) {
+        CTPoint<int> backpack;
+        Require(inventory->FindPlace(weapon, &backpack) && inventory->Place(backpack, weapon),
+            "the fixture could not place its weapon into the backpack");
+        const SItem source(actor, SItem::BACKPACK, backpack, weapon);
+        const SItem target(actor, SItem::SLOT, NDb::SLOT_1);
+        CObj<CCmdMoveInventoryItem> command = new CCmdMoveInventoryItem(source, target);
+        auto* move = new CExecMoveInventoryItem(actor, command);
+        executor = move;
+        Require(move->CanDoIt(actor->GetPosition()) == UCR_OK, "the real equip transfer is unavailable");
+    } else {
+        Require(inventory->Equip(NDb::SLOT_1, weapon), "the fixture could not equip its weapon");
+        CObj<CCmdSetActiveItem> command = new CCmdSetActiveItem(NDb::SLOT_1);
+        EUnitCommandResult result = UCR_UNAVAILABLE;
+        executor = actor->CreateExecutor(command, &result);
+        Require(executor && result == UCR_OK, "the real draw command is unavailable");
+    }
+    executor->Run();
+    Require(inventory->GetActive() == weapon && executor->IsExecuting() && actor->animator.IsActiveItem(),
+        "the real draw sequence did not start with the expected weapon");
+    if (transfer)
+        Require(!actor->IsWalkingWithoutWeapon(), "equipping a weapon retained the scripted holster policy");
+    Require(actor->GetUndrawItem(), "the new weapon became visible before the draw label");
+    executor->TimeLabelReached();
+    Require(!actor->GetUndrawItem(), "the draw label did not reveal the weapon");
+    executor->AnimationFinished();
+}
 }
 
 bool RunUnitTests(const char* mode, int argc, char** argv)
@@ -213,6 +260,8 @@ bool RunUnitTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "normal-state-command-lifetime") && argc == 4) { NormalStateCommandLifetime(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "carried-clue-slot") && argc == 4) { CarriedClueTransfer(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "carried-clue-auto-placement") && argc == 4) { CarriedClueTransfer(argv[2], argv[3], true); return true; }
+    if (!std::strcmp(mode, "holstered-equipment-draw") && argc == 4) { HolsteredEquipment(argv[2], argv[3], false); return true; }
+    if (!std::strcmp(mode, "holstered-equipment-transfer") && argc == 4) { HolsteredEquipment(argv[2], argv[3], true); return true; }
     return false;
 }
 }
