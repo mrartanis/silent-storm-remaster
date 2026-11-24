@@ -10,6 +10,7 @@
 #include "../Main/wMainTrace.h"
 #include "../Main/eventWorld.h"
 #include "../Main/wBuilding.h"
+#include "../Main/BuildingGrid.h"
 #include "../Main/wObject.h"
 #include "../Main/wMine.h"
 #include "../Main/wDecal.h"
@@ -36945,8 +36946,29 @@ static void LegacyDirectionalAmbient()
         "legacy lighting fallback changed a complete directional light");
 }
 
+static void BuildingIndestructibleHP()
+{
+    CObj<NBuilding::CBuildingGrid> grid = new NBuilding::CBuildingGrid;
+    grid->Setup(2, 2, 0, 0, CVec2(0, 0));
+    const NBuilding::SPoint3 ordinary(1, 1, 0), protectedCell(1, 1, 1);
+    grid->AddHP(ordinary, 20);
+    grid->AddHP(ordinary, 30);
+    Require(grid->GetHP(ordinary) == 50, "ordinary building cells must accumulate HP");
+    grid->AddHP(ordinary, 255);
+    Require(grid->GetHP(ordinary) == 253, "ordinary building HP must saturate below sentinel values");
+    Require(grid->DamageSpot(ordinary), "ordinary building cells must remain destructible");
+
+    grid->SetIndestructible(protectedCell);
+    const int sentinel = grid->GetHP(protectedCell);
+    Require(!grid->DamageSpot(protectedCell), "the protected cell must start indestructible");
+    grid->AddHP(protectedCell, 20);
+    Require(grid->GetHP(protectedCell) == sentinel, "overlapping geometry removed a building cell's indestructible flag");
+    Require(!grid->DamageSpot(protectedCell), "a protected building cell was destroyed after adding HP");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "building-indestructible-hp")) { BuildingIndestructibleHP(); return true; }
     if(!std::strcmp(mode,"legacy-directional-ambient")) {LegacyDirectionalAmbient();return true;}
     if(!std::strcmp(mode,"convenience-tooltip-ui")) {Require(argc==4,"tooltip requires db/res");ConvenienceTooltipUI(argv[2],argv[3]);return true;}
     if(!std::strcmp(mode,"convenience-mission-clock")) {Require(argc==4,"clock requires db/res");ConvenienceMissionClock(argv[2],argv[3]);return true;}

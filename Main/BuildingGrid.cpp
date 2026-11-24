@@ -283,9 +283,10 @@ void CBuildingGrid::AddHP( const SPoint3 &pt, BYTE hp )
 {
 	if ( !IsValidCoord( pt ) )
 		return;
-	int nNewHP = At( pt ) + hp;
-	//ASSERT( nNewHP <= N_MAX_HP );
-	At( pt ) = Min( N_MAX_HP, nNewHP );
+	BYTE &cell = At( pt );
+	if ( cell == N_INDESTRUCTIBLE )
+		return;
+	cell = Min( N_MAX_HP, cell + hp );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CBuildingGrid::SetCutFloor( int nFloor ) 
