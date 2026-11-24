@@ -4349,6 +4349,7 @@ if(S2_GAME_DIR)
   add_test(NAME UpstreamTakePerkDuringTreatment COMMAND UpstreamBugTests take-perk-during-treatment "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   add_test(NAME UpstreamZeroScaleMapObjects COMMAND UpstreamBugTests zero-scale-map-objects
     "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
+  add_test(NAME UpstreamTransformedCellarJunctions COMMAND UpstreamBugTests transformed-cellar-junctions "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   add_test(NAME UpstreamLookActionPointCost COMMAND UpstreamBugTests look-action-point-cost "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   add_test(NAME UpstreamInventoryTransferSource COMMAND UpstreamBugTests inventory-transfer-validation "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res" 0)
   add_test(NAME UpstreamInventoryTransferInactivePose COMMAND UpstreamBugTests inventory-transfer-inactive-pose "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")

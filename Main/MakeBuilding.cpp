@@ -585,10 +585,13 @@ inline bool IsGround( const CVec3 &pt )
 	return pt.z <= 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-inline void JuncsMoveRotate( const SDiscretePos &dpos, vector<SJunction> *pJuncs )
+inline void JuncsMoveRotate( const SDiscretePos &dpos, vector<SJunction> *pJuncs, const CArray2D<bool> &cellarWalls )
 {
-	for ( int i = 0; i < pJuncs->size(); ++i )
-		dpos.MoveAndRotate( &(*pJuncs)[i].pt );
+	for ( SJunction &junction : *pJuncs )
+	{
+		dpos.MoveAndRotate( &junction.pt );
+		junction.bCellar = IsCellarWall( junction.pt, cellarWalls );
+	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void AddPieces( CBuildingSchema *pSchema, const vector<int> &parts, const vector<int> &additionparts, NDb::CRPGArmor *pAr, int nAIGeomID, 
@@ -630,7 +633,7 @@ void AddPieces( CBuildingSchema *pSchema, const vector<int> &parts, const vector
 			for ( int i = 0; i < piece.juncs.size(); ++i )
 				juncs.push_back( SJunction( piece.juncs[i].pt, bGround && piece.juncs[i].bGround ) );
 		}
-		JuncsMoveRotate( dpos, &juncs );
+		JuncsMoveRotate( dpos, &juncs, cellarWalls );
 		dpos.MoveAndRotate( &pt );
 		bool bCellarWall = IsCellarWall( pt, cellarWalls );
 		pSchema->AddNode( pAr, pt, bCellarWall, fWeight, juncs );
@@ -659,7 +662,7 @@ void AddPieces( CBuildingSchema *pSchema, const vector<int> &parts, const vector
 			const CVec3 ptJ = pt + links[j];
 			juncs.push_back( SJunction( ptJ, bGround && fabs( ptJ.z ) < FP_EPSILON ) );
 		}
-		JuncsMoveRotate( dpos, &juncs );
+		JuncsMoveRotate( dpos, &juncs, cellarWalls );
 		dpos.MoveAndRotate( &pt );
 		bool bCellarWall = IsCellarWall( pt, cellarWalls );
 		pSchema->AddNode( pAr, pt, bCellarWall, 0.1f * pAr->pMaterial->fWeight, juncs ); // CRAP - volume for virtual part

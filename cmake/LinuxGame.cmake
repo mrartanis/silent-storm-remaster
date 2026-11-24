@@ -3060,6 +3060,7 @@ if(S2_GAME_DB_PATH AND S2_RESOURCE_PACKAGE_PATH)
   add_test(NAME UpstreamTakePerkDuringTreatment COMMAND UpstreamBugTests take-perk-during-treatment "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
   add_test(NAME UpstreamZeroScaleMapObjects COMMAND UpstreamBugTests zero-scale-map-objects
     "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
+  add_test(NAME UpstreamTransformedCellarJunctions COMMAND UpstreamBugTests transformed-cellar-junctions "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
   add_test(NAME UpstreamLookActionPointCost COMMAND UpstreamBugTests look-action-point-cost "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
   add_test(NAME UpstreamInventoryTransferSource COMMAND UpstreamBugTests inventory-transfer-validation "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}" 0)
   add_test(NAME UpstreamInventoryTransferInactivePose COMMAND UpstreamBugTests inventory-transfer-inactive-pose "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")

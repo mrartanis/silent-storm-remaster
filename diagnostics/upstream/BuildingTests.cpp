@@ -1,12 +1,27 @@
 #include "TestSupport.h"
 #include "../../Main/BuildingGrid.h"
+#include "../../Main/BuildingInfo.h"
+#include "../../Main/BuildingSchema.h"
+#include "../../Main/MakeBuilding.h"
+#include "../../Main/MakeBuildingInternal.h"
 #include "../../Main/MapBuild.h"
 #include "../../Main/GInit.h"
 #include "../../Main/aiGrid.h"
 #include "../../DBFormat/DataMap.h"
 #include "../../DBFormat/DataObject.h"
 #include "../../DBFormat/DataFormat.h"
+#include "../../Misc/BasicShare.h"
 #include <cstring>
+
+namespace NGScene
+{
+extern CBasicShare<int, NBuilding::CBuildInfoLoader> shareBuildings;
+}
+
+namespace NBuilding
+{
+void MarkCellarWalls(CArray2D<bool>* walls, const CArray2D<bool>& cellar, const CArray2D<float>& bottom);
+}
 
 namespace UpstreamTests
 {
@@ -97,6 +112,46 @@ static void ZeroScaleMapObjects(const char* databasePath, const char* resourcePa
     }
     Require(false, "zero-scale fixture could not identify a modeled object in the authored map");
 }
+
+void TransformedCellarJunctions(const char* databasePath, const char* resourcePath)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database, CStructureSaver::READ);
+    NGScene::AddResourceDir(resourcePath);
+    CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+    SMapInfo map;
+    Require(BuildMap(4517, {}, network, &map, -1, SRandomSeed(123), 0), "fixture could not build its authored map");
+
+    int farEnds = 0, unmarked = 0, aboveGround = 0;
+    for (const auto& building : map.buildings) {
+        if (!building.pVariant || !building.pGrid || !building.pSWMap) continue;
+        CDGPtr<CPtrFuncBase<NBuilding::CBuildInfo>> loader = NGScene::shareBuildings.Get(building.pVariant->GetRecordID());
+        loader.Refresh();
+        auto* info = loader->GetValue();
+        if (!info || !info->cellar.GetXSize() || !info->cellar.GetYSize()) continue;
+
+        CArray2D<bool> walls;
+        NBuilding::MarkCellarWalls(&walls, info->cellar, building.pSWMap->GetBottom());
+        CObj<NBuilding::CBuildingSchema> schema = new NBuilding::CBuildingSchema;
+        NBuilding::MakeBuildingSchema(schema, building.pGrid, info, building.pSWMap);
+        for (const auto& junction : schema->GetJuncs()) {
+            const auto point = junction.ptJ;
+            if (point.z > 0) {
+                ++aboveGround;
+                Require(!junction.IsCellarWall(), "a transformed above-ground junction became a cellar wall");
+                continue;
+            }
+            if (!junction.IsFilled() && point.x >= 0 && point.x < walls.GetXSize() &&
+                point.y >= 0 && point.y < walls.GetYSize() && walls[point.y][point.x]) {
+                ++farEnds;
+                if (!junction.IsCellarWall()) ++unmarked;
+            }
+        }
+    }
+    Require(farEnds > 0 && aboveGround > 0, "authored fixtures have no distinct cellar rod ends and above-ground junctions");
+    Require(unmarked == 0, "a rod's unfilled end lost the cellar flag after transforming to a cellar boundary");
+}
 }
 
 bool RunBuildingTests(const char* mode, int argc, char** argv)
@@ -104,6 +159,7 @@ bool RunBuildingTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "building-indestructible-hp")) { BuildingIndestructibleHP(); return true; }
     if (!std::strcmp(mode, "building-damage-parts")) { BuildingDamageParts(); return true; }
     if (!std::strcmp(mode, "zero-scale-map-objects") && argc == 4) { ZeroScaleMapObjects(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "transformed-cellar-junctions") && argc == 4) { TransformedCellarJunctions(argv[2], argv[3]); return true; }
     return false;
 }
 }
