@@ -1,18 +1,24 @@
 #include "TestSupport.h"
 #include "../../Main/wMain.h"
 #include "../../Main/wUnitServer.h"
+#include "../../Main/wOSBase.h"
 #include "../../Main/RPGUnit.h"
 #include "../../Main/RPGUnitMission.h"
 #include "../../Main/RPGCritical.h"
 #include "../../Main/RPGItem.h"
 #include "../../Main/RPGItemSet.h"
+#include "../../Main/rpgGlobal.h"
 #include "../../Main/aiActions.h"
+#include "../../Main/aiCommander.h"
+#include "../../Main/aiJob.h"
 #include "../../Main/aiMisc.h"
 #include "../../Main/aiUnit.h"
 #include "../../Main/aiInventory.h"
 #include "../../Main/aiUnitState.h"
 #include "../../Main/aiWeapon.h"
 #include "../../DBFormat/DataRPG.h"
+#include "../../DBFormat/DataMap.h"
+#include "../../DBFormat/DataFormat.h"
 #include <cstring>
 
 namespace UpstreamTests
@@ -65,13 +71,54 @@ void SelfHealingWithBandagedHealth(const char* databasePath, const char* resourc
     Require(!after.bCanDo && after.pFirstAid == before.pFirstAid,
         "the AI still spends first aid when bandaged health exceeds its threshold");
 }
+
+class SequenceDeploymentWorld : public NWorld::CWorld
+{
+    OBJECT_NOCOPY_METHODS(SequenceDeploymentWorld);
+public:
+    SequenceDeploymentWorld() = default;
+    explicit SequenceDeploymentWorld(NRPG::CGlobalGame* game) : CWorld(game)
+    {
+        auto* variant = NDb::GetTemplVariant(810);
+        Require(variant && !variant->pUnits.empty() && variant->pUnits.front(), "map has no authored units");
+        CObj<NRPG::CGlobalPlayer> campaign = new NRPG::CGlobalPlayer;
+        game->players.push_back(campaign);
+        const int side = variant->pUnits.front()->nPlayer;
+        auto* player = new NWorld::CPlayer(L"Sequence side", game, campaign, side);
+        RegisterPlayer(player);
+        CObj<NAI::CSequenceCommander> commander = new NAI::CSequenceCommander(this);
+        commander->SetPlayer(player);
+        player->SetCommander(commander);
+    }
+};
+
+void MapDeploymentReactions(const char* databasePath, const char* resourcePath, bool sequence)
+{
+    NWorld::CWorld* (*sequenceFactory)(NRPG::CGlobalGame*) = [](NRPG::CGlobalGame* game) -> NWorld::CWorld* {
+        return new SequenceDeploymentWorld(game);
+    };
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, false, &game, 810, sequence ? sequenceFactory : nullptr);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    size_t checked = 0;
+    for (const auto& unit : units) {
+        if (!unit || !unit->CanFight() || unit->IsEmptyPK() || unit->IsAIUnit() == sequence) continue;
+        auto* brain = NAI::GetAIUnit(unit);
+        Require(brain, "authored unit has no world-owned control object");
+        Require(bool(brain->GetReaction()) == !sequence,
+            sequence ? "map deployment installed an AI reaction on a sequence-controlled unit"
+                     : "map deployment omitted the reaction of an AI-controlled unit");
+        ++checked;
+    }
+    Require(checked != 0, "map has no eligible unit on the requested side");
+}
 }
 
 bool RunAITests(const char* mode, int argc, char** argv)
 {
-    if (std::strcmp(mode, "ai-self-healing-bandaged-health") != 0 || argc != 4)
-        return false;
-    SelfHealingWithBandagedHealth(argv[2], argv[3]);
-    return true;
+    if (!std::strcmp(mode, "ai-self-healing-bandaged-health") && argc == 4) { SelfHealingWithBandagedHealth(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "map-deployment-reactions") && argc == 5) { MapDeploymentReactions(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
+    return false;
 }
 }
