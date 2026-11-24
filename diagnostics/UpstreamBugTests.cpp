@@ -37557,6 +37557,24 @@ static void HideWithEmptyRosterSlot(const char* databasePath, const char* resour
     Require(false, "hide fixture lacks an opposing roster");
 }
 
+static void NormalStateCommandLifetime(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* actor = MovementPolicyActor(world);
+    const auto initial = actor->GetWishPose();
+    const auto wanted = initial == NAI::CROUCH ? NAI::WALK : NAI::CROUCH;
+    const auto position = actor->GetPosition();
+    const int ap = actor->GetAP();
+    NWorld::EUnitCommandResult result = NWorld::UCR_UNAVAILABLE;
+    CObj<NWorld::CCommandExecute> executor = actor->CreateExecutor(new NWorld::CCmdWishPose(wanted), &result);
+    Require(executor && result == NWorld::UCR_OK, "normal-state validation released a newly issued native command");
+    Require(actor->GetWishPose() == initial && actor->GetAP() == ap && actor->GetPosition() == position,
+        "creating a pose executor changed unit state");
+    executor->Run();
+    Require(actor->GetWishPose() == wanted, "the retained command lost its requested pose");
+}
+
 static void FrozenItemArmorResistance(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -37698,6 +37716,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "inventory-transfer-validation") && argc == 5) { InventoryTransferValidation(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "wish-pose-strafe") && argc == 4) { WishPoseStrafe(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "hide-empty-roster-slot") && argc == 4) { HideWithEmptyRosterSlot(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "normal-state-command-lifetime") && argc == 4) { NormalStateCommandLifetime(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "frozen-item-armor-resistance") && argc == 4) { FrozenItemArmorResistance(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "flying-grenade-lifetime") && argc == 4) { FlyingGrenadeLifetime(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "bloody-death-sound-position") && argc == 4) { BloodyDeathSoundPosition(argv[2], argv[3]); return true; }

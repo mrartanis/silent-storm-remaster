@@ -134,6 +134,7 @@ const NDb::CPanzerklein *CUnitStateNormal::GetPK() const // returns 0 if no PK p
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CCommandExecute* CUnitStateNormal::CreateExecutor( CCmd *pCmd, EUnitCommandResult *pResult )
 {
+	CObj<CCmd> pHold = pCmd;
 	*pResult = UCR_UNAVAILABLE;
 
 	if ( IsCriticalsFailCommand( pCmd, pResult ) )
