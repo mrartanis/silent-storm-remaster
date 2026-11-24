@@ -14281,8 +14281,14 @@ static void BulletNearestTarget(const char* databasePath,const char* resourcePat
     Require(first->GetUnitRPG()->GetTotalVP()==firstVP && second->GetUnitRPG()->GetTotalVP()==secondVP && shooter->GetAP()==shooterAP && shooter->GetPosition()==shooterPosition && world->IsAction()==action,
         "zero-damage bullet metadata fixture changed HP, shooter AP/position or retained an action");
     Require(cached.GetPtr()==expected && event.pTarget.GetPtr()==expected,"native bullet perception omitted its first impacted unit or replaced a retained nearest target");
-    Require(fabs2(event.ray.ptDir-direction)<0.00001f && fabs2(event.ray.ptOrigin-origin)<0.00001f && fabs(event.fDistance-(kind==1?3.f:kind==4?1.f:2.f))<0.00001f,
-        "nearest-target update changed the existing native bullet ray or distance");
+    const auto attackOrigin = shooter->GetAttackOrigin(shooterPosition);
+    Require(fabs2(attackOrigin - origin) > 0.00001f, "bullet perception fixture needs distinct attack and trail origins");
+    auto expectedDirection = trail.back().vPosition - attackOrigin;
+    const float expectedDistance = fabs(expectedDirection);
+    Normalize(&expectedDirection);
+    Require(fabs2(event.ray.ptOrigin - attackOrigin) < 0.00001f &&
+        fabs2(event.ray.ptDir - expectedDirection) < 0.00001f && fabs(event.fDistance - expectedDistance) < 0.00001f,
+        "bullet perception used the stored trail origin instead of the shooter's attack origin");
 }
 
 static void EmptyBulletConstruction(const char* databasePath, const char* resourcePath, bool checkRetirement = false)
