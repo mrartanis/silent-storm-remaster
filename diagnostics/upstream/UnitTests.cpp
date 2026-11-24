@@ -264,45 +264,97 @@ static void HolsteredEquipment(const char* databasePath, const char* resourcePat
     executor->AnimationFinished();
 }
 
+struct ReloadFixture
+{
+    CObj<NWorld::CWorld> world;
+    NWorld::CUnitServer* actor;
+    NRPG::IInventory* inventory;
+    CObj<NRPG::CWeaponItem> weapon;
+    NRPG::CClipItem* installed;
+
+    ReloadFixture(const char* databasePath, const char* resourcePath)
+        : world(FixtureWorld(databasePath, resourcePath, true)), actor(MovementPolicyActor(world)),
+          inventory(actor->GetUnitRPG()->GetInventory())
+    {
+        auto* record = NDb::GetWeapon(65);
+        Require(record && record->pInnerClip, "the reload fixture requires an authored firearm and magazine");
+        CObj<NRPG::IInventoryItem> previous = inventory->TakeOff(NDb::SLOT_1);
+        weapon = new NRPG::CWeaponItem(record);
+        Require(inventory->Equip(NDb::SLOT_1, weapon) && inventory->Activate(NDb::SLOT_1),
+            "the reload fixture could not equip the firearm");
+        installed = dynamic_cast<NRPG::CClipItem*>(weapon->GetInnerClip());
+        Require(installed && installed->GetItem() && installed->GetDBAmmo() && installed->GetMaxIncQuantity() >= 5,
+            "the firearm lacks an initialized magazine with enough capacity");
+    }
+
+    CObj<NRPG::CClipItem> StockClip(int rounds)
+    {
+        CObj<NRPG::IInventoryItem> item = NRPG::CreateClipItem(installed->GetDBClip(), installed->GetDBAmmo(), rounds);
+        CObj<NRPG::CClipItem> clip = dynamic_cast<NRPG::CClipItem*>(item.GetPtr());
+        CTPoint<int> cell;
+        Require(clip && clip->GetIncQuantity() == rounds && inventory->FindPlace(clip, &cell) &&
+            inventory->Place(cell, clip), "the reload fixture could not stock the matching ammunition");
+        return clip;
+    }
+};
+
 void MatchingAmmoTransfer(const char* databasePath, const char* resourcePath, bool topUp)
 {
     using namespace NWorld;
-    auto world = FixtureWorld(databasePath, resourcePath, true);
-    auto* actor = MovementPolicyActor(world);
-    auto* inventory = actor->GetUnitRPG()->GetInventory();
-    auto* record = NDb::GetWeapon(65);
-    Require(record && record->pInnerClip, "the reload fixture requires an authored firearm and magazine");
-    CObj<NRPG::IInventoryItem> previous = inventory->TakeOff(NDb::SLOT_1);
-    CObj<NRPG::CWeaponItem> weapon = new NRPG::CWeaponItem(record);
-    Require(inventory->Equip(NDb::SLOT_1, weapon) && inventory->Activate(NDb::SLOT_1),
-        "the reload fixture could not equip the firearm");
-    auto* installed = dynamic_cast<NRPG::CClipItem*>(weapon->GetInnerClip());
-    Require(installed && installed->GetItem() && installed->GetDBAmmo() && installed->GetMaxIncQuantity() >= 5,
-        "the firearm lacks an initialized magazine with enough capacity");
-    const int capacity = installed->GetMaxIncQuantity();
-    installed->GetItem()->nQuantity = topUp ? capacity - 2 : 0;
-    CObj<NRPG::IInventoryItem> supply = NRPG::CreateClipItem(
-        installed->GetDBClip(), installed->GetDBAmmo(), topUp ? 4 : 2);
-    auto* clip = dynamic_cast<NRPG::CClipItem*>(supply.GetPtr());
-    Require(clip && clip->GetIncQuantity() == (topUp ? 4 : 2), "the fixture could not create the matching ammunition");
-    if (!topUp)
-        clip->nQuantity = 1;
-    CTPoint<int> cell;
-    Require(inventory->FindPlace(supply, &cell) && inventory->Place(cell, supply),
-        "the reload fixture could not stock the matching ammunition");
+    ReloadFixture fixture(databasePath, resourcePath);
+    auto* inventory = fixture.inventory;
+    const int capacity = fixture.installed->GetMaxIncQuantity();
+    fixture.installed->GetItem()->nQuantity = topUp ? capacity - 2 : 0;
+    auto supply = fixture.StockClip(topUp ? 4 : 2);
+    if (!topUp) supply->nQuantity = 1;
     const auto count = inventory->GetItems().size();
-    const SItem source(actor, SItem::BACKPACK, cell, supply);
-    CObj<CExecLoadWeapon> executor = new CExecLoadWeapon(actor, weapon, source);
+    const SItem source(fixture.actor, SItem::BACKPACK, supply);
+    CObj<CExecLoadWeapon> executor = new CExecLoadWeapon(fixture.actor, fixture.weapon, source);
     Require(executor->CanDoIt() == UCR_OK, "the actual reload executor rejected matching ammunition");
     executor->TimeLabelReached();
-    Require(weapon->GetAmmoQuantity() == (topUp ? capacity : 2),
+    Require(fixture.weapon->GetAmmoQuantity() == (topUp ? capacity : 2),
         "matching ammunition replaced the installed rounds instead of topping up");
     const auto& backpack = inventory->GetItems();
     const bool kept = std::any_of(backpack.begin(), backpack.end(),
         [&](const auto& entry) { return entry.pItem == supply; });
     Require(kept == topUp && backpack.size() == (topUp ? count : count - 1) &&
-        clip->GetIncQuantity() == (topUp ? 2 : 0),
+        supply->GetIncQuantity() == (topUp ? 2 : 0),
         "the reload lost a partial magazine or left a spent magazine in the backpack");
+}
+
+void QueuedReloadMagazine(const char* databasePath, const char* resourcePath, bool removed)
+{
+    using namespace NWorld;
+    ReloadFixture fixture(databasePath, resourcePath);
+    auto* inventory = fixture.inventory;
+    while (!inventory->GetItems().empty())
+        inventory->Take(inventory->GetItems().front().pItem);
+    const int capacity = fixture.installed->GetMaxIncQuantity();
+    fixture.installed->GetItem()->nQuantity = capacity - 2;
+    auto selected = fixture.StockClip(2);
+    auto alternative = fixture.StockClip(2);
+    NRPG::SFindClipResult found;
+    Require(fixture.weapon->FindProperClip(inventory, &found, true) && found.pItem == selected,
+        "the reload fixture failed to select its first available magazine");
+    CObj<CExecReload> command = new CExecReload(fixture.actor, -1);
+    Require(command->CanDoIt() == UCR_OK, "the selected magazine is unavailable before queueing");
+
+    inventory->Take(selected);
+    if (!removed) {
+        CTPoint<int> place;
+        Require(inventory->FindPlace(selected, &place) && inventory->Place(place, selected),
+            "the reload fixture could not move the selected magazine");
+    }
+    Require(fixture.weapon->FindProperClip(inventory, &found, true) && found.pItem == alternative,
+        "a new magazine lookup must prefer the other magazine after rearranging");
+    if (removed)
+        Require(command->CanDoIt() == UCR_NO_EQUIPMENT, "a queued reload accepted a removed magazine");
+    else
+        Require(command->CanDoIt() == UCR_OK, "a queued reload rejected a magazine moved within its own backpack");
+    command->TimeLabelReached();
+    Require(fixture.weapon->GetAmmoQuantity() == (removed ? capacity - 2 : capacity) &&
+        selected->GetIncQuantity() == (removed ? 2 : 0) && alternative->GetIncQuantity() == 2,
+        "a queued reload replaced its selected magazine or consumed detached ammunition");
 }
 }
 
@@ -320,6 +372,8 @@ bool RunUnitTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "holstered-equipment-transfer") && argc == 4) { HolsteredEquipment(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "matching-ammo-top-up") && argc == 4) { MatchingAmmoTransfer(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "spent-magazine-cleanup") && argc == 4) { MatchingAmmoTransfer(argv[2], argv[3], false); return true; }
+    if (!std::strcmp(mode, "queued-reload-magazine") && argc == 4) { QueuedReloadMagazine(argv[2], argv[3], false); return true; }
+    if (!std::strcmp(mode, "queued-reload-removed-magazine") && argc == 4) { QueuedReloadMagazine(argv[2], argv[3], true); return true; }
     return false;
 }
 }

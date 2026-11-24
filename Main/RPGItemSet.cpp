@@ -310,7 +310,7 @@ bool CWeaponItem::FindProperClip( IInventoryInfo *pInventory,
 		CDynamicCast<CClipItem> pClip(pInventory->Get(NDb::ESlot(i)));
 		if (pClip)
 		{
-			if ( pInnerClip->IsCompatible( pClip, bSameColor ) )
+			if ( pClip->GetIncQuantity() > 0 && pInnerClip->IsCompatible( pClip, bSameColor ) )
 			{
 				pResult->eSource = SFindClipResult::SLOT;
 				pResult->eSlot = NDb::ESlot(i);
@@ -326,7 +326,7 @@ bool CWeaponItem::FindProperClip( IInventoryInfo *pInventory,
 		CDynamicCast<CClipItem> pClip(items[i].pItem);
 		if (pClip)
 		{
-			if ( pInnerClip->IsCompatible( pClip, bSameColor ) )
+			if ( pClip->GetIncQuantity() > 0 && pInnerClip->IsCompatible( pClip, bSameColor ) )
 			{
 				pResult->eSource = SFindClipResult::BACKPACK;
 				pResult->pItem = pClip;
