@@ -14,6 +14,7 @@
 #include "../../Main/rpgGlobal.h"
 #include "../../DBFormat/DataRPG.h"
 #include "../../MiscDll/LogStream.h"
+#include "../../Misc/RandomGen.h"
 #include <cstring>
 
 namespace UpstreamTests
@@ -340,6 +341,52 @@ void ForcedActionReplacement(const char* databasePath, const char* resourcePath,
         "the forced-action flag blocked or outlived the next ordinary command");
 }
 
+void FallDamageMinimum(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* actor = MovementPolicyActor(world);
+    auto* mission = actor->GetUnitRPG();
+    auto expectedRandom = GlobalGameRandom();
+    int expected = 0;
+    for (int n = 0; n < 3; ++n)
+        expected += expectedRandom.Get(0, 25);
+    Require(mission->GetFallDamage(4.8f) == Max(2, expected), "the ordinary fall changed its three damage rolls");
+    auto actualRandom = GlobalGameRandom();
+    Require(actualRandom.Get() == expectedRandom.Get(), "the ordinary fall changed the shared RNG consumption");
+
+    const int health = mission->GetTotalVP();
+    actor->FallFromHigh(2.8f);
+    Require(mission->GetTotalVP() == health, "a nonqualifying fall inflicted damage");
+    expectedRandom = GlobalGameRandom();
+    Require(mission->GetFallDamage(2.81f) == 2, "a qualifying fall did not impose the minimum damage");
+    actualRandom = GlobalGameRandom();
+    Require(actualRandom.Get() == expectedRandom.Get(), "a zero-range damage roll advanced the RNG");
+    actor->FallFromHigh(2.81f);
+    Require(mission->GetTotalVP() < health, "the minimum fall did not reach normal unit damage");
+}
+
+void RealTimeTurnReset(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* actor = MovementPolicyActor(world);
+    auto* mission = actor->GetUnitRPG();
+    actor->OnTBSEvent(NWorld::TBS_START_NEW_TURN);
+    actor->OnTBSEvent(NWorld::TBS_START_NEW_TURN);
+    Require(!mission->IsFirstTurn(), "fixture did not advance the unit turn counter");
+    const int ap = actor->GetAP();
+    mission->SpendAP(1);
+    Require(actor->GetAP() == ap - 1, "fixture could not exercise the usual AP reset");
+    actor->OnTBSEvent(NWorld::TBS_START_REAL_TIME);
+    Require(actor->GetAP() == ap, "entering real time failed to reset ordinary AP accounting");
+    Require(mission->IsFirstTurn(), "entering real time kept the previous encounter's turn counter");
+    actor->OnTBSEvent(NWorld::TBS_START_NEW_TURN);
+    Require(mission->IsFirstTurn(), "the new encounter did not get its first turn");
+    actor->OnTBSEvent(NWorld::TBS_START_NEW_TURN);
+    Require(!mission->IsFirstTurn(), "the new encounter did not advance the normal turn counter");
+}
+
 static void WishPoseStrafe(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -589,6 +636,8 @@ bool RunUnitTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "inventory-transfer-validation") && argc == 5) { InventoryTransferValidation(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "inventory-transfer-inactive-pose") && argc == 4) { InventoryTransferInactivePose(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "forced-action-replacement") && argc == 5) { ForcedActionReplacement(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
+    if (!std::strcmp(mode, "fall-damage-minimum") && argc == 4) { FallDamageMinimum(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "realtime-turn-reset") && argc == 4) { RealTimeTurnReset(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "wish-pose-strafe") && argc == 4) { WishPoseStrafe(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "hide-empty-roster-slot") && argc == 4) { HideWithEmptyRosterSlot(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "normal-state-command-lifetime") && argc == 4) { NormalStateCommandLifetime(argv[2], argv[3]); return true; }

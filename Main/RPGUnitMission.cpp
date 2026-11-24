@@ -559,12 +559,13 @@ void CUnitMission::RegisterAction( EAction action )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitMission::GetFallDamage( float fHDiff ) 
 {
-	// crap
-	int nHit = ( fHDiff - 2.8f ) * 50;
+	const int nHit = int( ( fHDiff - 2.8f ) * 50 );
+	const int nRange = nHit / 4;
 	int nRet = 0;
-	for ( int i = 0; i < 3; ++i )
-		nRet += MissionRandom().Get( 0, nHit / 4 );
-	return nRet;
+	if ( nRange > 0 )
+		for ( int i = 0; i < 3; ++i )
+			nRet += MissionRandom().Get( 0, nRange );
+	return Max( nRet, 2 );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitMission::SpendAP( int nAP )
@@ -621,6 +622,7 @@ void CUnitMission::StartNewTurn( const CVec3 &ptCP )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitMission::StartRealTime()
 {
+	nTurnCounter = 0;
 	ResetUnitParameters();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
