@@ -162,6 +162,7 @@ add_test(NAME ObjectivesLegacyRows COMMAND UpstreamBugTests objectives-row-compa
 add_test(NAME UpstreamBuildingIndestructibleHP COMMAND UpstreamBugTests building-indestructible-hp)
 add_test(NAME UpstreamBuildingDamageParts COMMAND UpstreamBugTests building-damage-parts)
 add_test(NAME UpstreamPackedParticleColor COMMAND UpstreamBugTests packed-particle-color)
+add_test(NAME UpstreamUITextureFallbackDimensions COMMAND UpstreamBugTests ui-texture-fallback-dimensions)
 if(S2_GAME_DB_PATH)
   add_test(NAME UpstreamPicklockItemImport COMMAND UpstreamBugTests picklock-item-import "${S2_GAME_DB_PATH}")
   add_test(NAME UpstreamRetailAmmoSubtypes COMMAND UpstreamBugTests retail-ammo-subtypes "${S2_GAME_DB_PATH}")

@@ -37178,6 +37178,61 @@ static void PackedParticleColor()
     }
 }
 
+static void UITextureFallbackDimensions()
+{
+    auto storage = [](vector<string> fields, vector<vector<int>> rows) {
+        CObj<CObjectBase> table = pSSClasses->CreateObject(int(0xa1843130u));
+        Require(IsValid(table), "columnar database storage is missing");
+        vector<NativeContextColumn> columns;
+        for (const auto& field : fields) columns.push_back({field, 0});
+        vector<vector<float>> floats;
+        vector<vector<wstring>> strings;
+        vector<string> emptyNames;
+        CMemoryStream serialized;
+        {
+            CStructureSaver writer(serialized, CStructureSaver::WRITE);
+            writer.Add(2, &rows);
+            writer.Add(3, &floats);
+            writer.Add(4, &strings);
+            writer.Add(5, &columns);
+            writer.Add(6, &fields);
+            writer.Add(7, &emptyNames);
+            writer.Add(8, &emptyNames);
+        }
+        serialized.Seek(0);
+        CStructureSaver reader(serialized, CStructureSaver::READ);
+        table->operator&(reader);
+        return table;
+    };
+    unordered_map<int, CObj<CObjectBase>> tables;
+    tables[2] = storage({"ID"}, {});
+    tables[3] = storage({"ID", "Width", "Height"}, {{1, 100, 100}, {2, 240, 180}});
+    tables[49] = storage({"ID", "R_800x600", "R_1024x768", "R_1280x960", "R_1600x1200"},
+        {{1, 0, 0, 2, 0}, {2, 0, 1, 2, 0}});
+    list<NativeContextEmptyRelation> relations;
+    CMemoryStream database;
+    {
+        CStructureSaver writer(database, CStructureSaver::WRITE);
+        writer.Add(1, &tables);
+        writer.Add(2, &relations);
+    }
+    database.Seek(0);
+    try {
+        NDatabase::Serialize(database, CStructureSaver::READ, false, false);
+    } catch (const SFileIOError& error) {
+        throw std::runtime_error(error.szError);
+    }
+    const auto* preferred = NDb::GetUITexture(2);
+    Require(preferred && preferred->nWidth == 100 && preferred->nHeight == 100,
+        "the 1024x768 texture did not retain priority and its authored size");
+    const auto* fallback = NDb::GetUITexture(1);
+    Require(fallback && fallback->pTextures[NDb::UIM_1280x1024] &&
+        fallback->pTextures[NDb::UIM_1280x1024]->nHeight == 180,
+        "the database did not link the 1280x960 texture");
+    Require(fallback->nWidth == 192 && fallback->nHeight == 144,
+        "the UI texture fallback calculated logical dimensions from the wrong resolution");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "building-indestructible-hp")) { BuildingIndestructibleHP(); return true; }
@@ -37186,6 +37241,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "critical-tables-follow-mods") && argc == 3) { CriticalTablesFollowMods(argv[2]); return true; }
     if (!std::strcmp(mode, "retail-ammo-subtypes") && argc == 3) { RetailAmmoSubtypes(argv[2]); return true; }
     if (!std::strcmp(mode, "packed-particle-color")) { PackedParticleColor(); return true; }
+    if (!std::strcmp(mode, "ui-texture-fallback-dimensions")) { UITextureFallbackDimensions(); return true; }
     if(!std::strcmp(mode,"legacy-directional-ambient")) {LegacyDirectionalAmbient();return true;}
     if(!std::strcmp(mode,"convenience-tooltip-ui")) {Require(argc==4,"tooltip requires db/res");ConvenienceTooltipUI(argv[2],argv[3]);return true;}
     if(!std::strcmp(mode,"convenience-mission-clock")) {Require(argc==4,"clock requires db/res");ConvenienceMissionClock(argv[2],argv[3]);return true;}
