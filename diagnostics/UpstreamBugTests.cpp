@@ -25183,13 +25183,47 @@ static void MovementLayerMerge(int mode)
     if(mode==6)b.nHeight=1+NAI::GetIHeight(0.05f)+1;
     if(mode==7)b.nDisplacement=1;
     if(mode==8)a.nPassable=0;
+    if (a.nPassable && a.nMoveCrouch) {
+        a.nPassable |= NAI::CP_LAY;
+        a.nMoveLay = 1 << NAI::CD_L;
+    }
     const auto beforeA=a,beforeB=b;auto random=GlobalGameRandom();CObj<LayerMergeMapProbe> map=new LayerMergeMapProbe;CObj<NAI::CCollider> collider=new NAI::CCollider;SBound bound;bound.BoxInit(CVec3(-8,-8,-8),CVec3(8,8,8));collider->SetBoundAndResolution(bound,2.f);
     NAI::CMovesCalcer calcer(current,map,region,buffers,0,1,collider);calcer.Calc();auto afterRandom=GlobalGameRandom();
     const bool mergedA=(a.nFlags&NAI::TF_HAS_SAME)!=0,mergedB=(b.nFlags&NAI::TF_HAS_SAME)!=0,expected=mode==3 || mode==4;
     auto expectedA=beforeA,expectedB=beforeB;if(expected){expectedA.nFlags|=NAI::TF_HAS_SAME|NAI::TF_STAND_PASSABLE;expectedB.nFlags|=NAI::TF_HAS_SAME|NAI::TF_STAND_PASSABLE;expectedB.nHeight=expectedA.nHeight;}
+    if (mode == 1) expectedA.nPassable = 0;
     bool unchanged=std::memcmp(&a,&expectedA,sizeof(a))==0 && std::memcmp(&b,&expectedB,sizeof(b))==0 && random.Get()==afterRandom.Get() && first->transitions.empty() && current->transitions.empty() && map->traces.empty();
     std::printf("native layer merge: mode=%d currentPass=%d otherPass=%d currentCrouch=%d otherCrouch=%d currentHC=%d otherHC=%d currentHeight=%d otherHeight=%d->%d flags=%d/%d merged=%d/%d expected=%d exact=%d locks=%d,%d/%d,%d\n",mode,int(beforeA.nPassable),int(beforeB.nPassable),int(beforeA.nMoveCrouch),int(beforeB.nMoveCrouch),int(beforeA.nMoveHC),int(beforeB.nMoveHC),int(a.nHeight),int(beforeB.nHeight),int(b.nHeight),int(a.nFlags),int(b.nFlags),int(mergedA),int(mergedB),int(expected),int(unchanged),int(a.nLocks),int(a.nDynLocks),int(b.nLocks),int(b.nDynLocks));std::fflush(stdout);
     Require(mergedA==expected && mergedB==expected && unchanged,"native movement calculation merged an ineligible surface or changed the original merge eligibility/metadata");
+}
+
+static void IsolatedMovementCell()
+{
+    for (int exit : {0, 1, 2}) {
+        CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+        network->CreateLayer(8, 8, VNULL2, 0.f, 0);
+        network->Freeze(true);
+        auto* layer = network->GetLayer(0);
+        const CTRect<int> region(3, 3, 4, 4);
+        NAI::STempArrayGroup<NAI::STile> buffers;
+        buffers.region = region;
+        auto& cell = (*buffers.GetArray(0, 0))[0][0];
+        cell = NAI::STile{};
+        cell.nPassable = NAI::CP_STAND | NAI::CP_CROUCH | NAI::CP_LAY;
+        cell.nMoveLay = exit == 1 ? 1 << NAI::CD_L : 0;
+        cell.nMoveHC = exit == 2 ? 1 << NAI::CD_L : 0;
+        cell.nHeight = 1;
+
+        CObj<LayerMergeMapProbe> map = new LayerMergeMapProbe;
+        CObj<NAI::CCollider> collider = new NAI::CCollider;
+        SBound bound;
+        bound.BoxInit(CVec3(-8, -8, -8), CVec3(8, 8, 8));
+        collider->SetBoundAndResolution(bound, 2.f);
+        NAI::CMovesCalcer calcer(layer, map, region, buffers, 0, 0, collider);
+        calcer.Calc();
+        Require((cell.nPassable != 0) == (exit != 0),
+            exit ? "a crawling or high-climb exit lost passability" : "a movement cell with no exit remained passable");
+    }
 }
 
 static void NavigationAliasDestinations(bool arrayOutput, bool isolatedSource = false)
@@ -38377,6 +38411,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "layer-merge-height")) { MovementLayerMerge(6); return true; }
     if (!std::strcmp(mode, "layer-merge-displacement")) { MovementLayerMerge(7); return true; }
     if (!std::strcmp(mode, "layer-merge-empty-current")) { MovementLayerMerge(8); return true; }
+    if (!std::strcmp(mode, "isolated-movement-cell")) { IsolatedMovementCell(); return true; }
     if (!std::strcmp(mode, "navigation-alias-vector")) { NavigationAliasDestinations(false); return true; }
     if (!std::strcmp(mode, "navigation-alias-array")) { NavigationAliasDestinations(true); return true; }
     if (!std::strcmp(mode, "flying-shoot-direction")) { FlyingShootDirection(); return true; }

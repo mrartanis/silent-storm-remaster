@@ -522,6 +522,14 @@ void CMovesCalcer::Calc()
 		F_NORMAL_HEIGHT_DIFF_LIMIT, 1<<CD_R,  1<<CD_L );
 	TestHCMoves( &collider, &temp, CTPoint<int>(0,1), region, 
 		F_NORMAL_HEIGHT_DIFF_LIMIT, 1<<CD_U,  1<<CD_D );
+	// Retail 1.2 marks cells with no crawl or high-climb exit impassable.
+	for ( int y = 0; y < temp.GetYSize(); ++y )
+		for ( int x = 0; x < temp.GetXSize(); ++x )
+		{
+			STile &tile = temp[y][x];
+			if ( tile.nMoveLay == 0 && tile.nMoveHC == 0 )
+				tile.nPassable = 0;
+		}
 	// calc intergrid transitions
 	vector<SSphere> spheres;
 	vector<CVec3> moves;
