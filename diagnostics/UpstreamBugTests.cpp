@@ -19195,21 +19195,76 @@ static void IdleAI(const char* databasePath, const char* resourcePath)
     auto original = actor->GetPosition();
     auto inactive = original;
     inactive.pos.p.SetPose(NAI::CM_INACTIVE);
-    for (int routine = 0; routine < 3; ++routine) {
+    for (int routine = 0; routine < 4; ++routine) {
         CObj<NAI::CAIRouteLogic> route = new NAI::CAIRouteLogic(ai);
         route->SetCircled(true);
         if (routine == 1) route->AddCommand(new NAI::CTaskCommandChangePose(NAI::WALK));
         if (routine == 2) route->AddCommand(new NAI::CTaskCommandGoto(original.pos));
+        if (routine == 3) route->AddCommand(new NAI::CTaskCommandRoaming(original.pos.p, 1));
         route->AddCommand(new NAI::CTaskCommandWait(100));
         route->AddCommand(new NAI::CTaskCommandChangeDirection(0));
         ai->SetLogic(route);
         actor->SetTemporaryPosition(original);
         Require(!commander->IsEndOfTurn(), "normal AI route was incorrectly skipped");
         actor->SetTemporaryPosition(inactive);
+        if (routine == 3) {
+            vector<NAI::SPathPlace> reachable;
+            NAI::GetNearestPlaces(actor, inactive.pos.p, 1, NAI::WALK, &reachable);
+            Require(reachable.empty(), "inactive roaming fixture unexpectedly has a legal move");
+        }
         Require(commander->IsEndOfTurn() == (routine != 2),
-            routine == 2 ? "a route with movement was incorrectly skipped" : "inactive stationary AI route blocks the end of turn");
+            routine == 2 ? "a route with movement was incorrectly skipped"
+            : routine == 3 ? "inactive roaming with no legal move blocks the AI turn"
+            : "inactive stationary AI route blocks the end of turn");
     }
     actor->SetTemporaryPosition(original);
+}
+
+static void RoamingUsesCurrentPosition(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    auto* network = world->GetPathNetwork();
+    const int radius = 10;
+    for (auto actor : units) {
+        if (!IsValid(actor) || !actor->CanFight()) continue;
+        auto* owner = actor->GetTBSPlayer();
+        if (!owner || !dynamic_cast<NAI::CAICommander*>(owner->GetCommander())) continue;
+        world->GivePlayerTurn(owner);
+        auto current = actor->GetPosition();
+        vector<NAI::SPathPlace> nearby;
+        NAI::GetNearestPlaces(actor, current.pos.p, radius, NAI::WALK, &nearby);
+        std::printf("roaming fixture actor=%d pose=%d AP=%d nearby=%zu\n",
+            actor->GetUnitRPG()->GetRPGPersID(), int(current.pos.p.GetPose()), actor->GetAP(), nearby.size());
+        if (nearby.empty()) continue;
+        vector<NAI::SPathPlace> distant;
+        network->GetNearPlaces(SSphere(current.GetCP(), 20.f), &distant);
+        for (auto stored : distant) {
+            if (!stored.IsIntegral() || stored.IsFinal()) continue;
+            stored.SetPose(NAI::CM_STAND);
+            stored.SetMoving(0);
+            if (!network->IsPassable(stored) || fabs2(NAI::SPosition(stored, network).GetCP() - current.GetCP()) < 16.f)
+                continue;
+
+            CObj<NAI::CTaskCommandRoaming> step = new NAI::CTaskCommandRoaming(stored, radius);
+            step->SetUnitServer(actor);
+            const auto wishPose = actor->GetWishPose();
+            const auto ap = actor->GetAP();
+            auto random = GlobalGameRandom();
+            auto destination = nearby[random.Get(static_cast<unsigned>(nearby.size()))];
+            destination.SetPose(NAI::CM_STAND);
+            step->Do();
+            CObj<NWorld::CCmd> command = step->GetCommand();
+            auto* path = dynamic_cast<NWorld::CCmdPath*>(command.GetPtr());
+            Require(path && path->ptDst.p == destination, "AI roaming searched around the saved origin instead of the current position");
+            auto used = GlobalGameRandom();
+            Require(actor->GetPosition() == current && actor->GetAP() == ap && actor->GetWishPose() == wishPose &&
+                used.Get() == random.Get(), "planning a roaming step changed the actor or consumed extra random draws");
+            return;
+        }
+    }
+    Require(false, "roaming fixture lacks a moving actor with two valid, disjoint origins");
 }
 
 class WeaponIconMission: public NGame::CMissionBase
@@ -38314,6 +38369,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "authored-hint-placement") && argc == 4) { AuthoredHintPlacement(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "thrown-knife-orientation") && argc == 4) { ThrownKnifeOrientation(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-idle") && argc == 4) { IdleAI(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "ai-roaming-current-position") && argc == 4) { RoamingUsesCurrentPosition(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "mixed-hide-button") && argc == 4) { MixedActionButton(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "mixed-strafe-button") && argc == 4) { MixedActionButton(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "mounted-mode-button") && argc == 4) { EffectiveWeaponMode(argv[2], argv[3], 3); return true; }

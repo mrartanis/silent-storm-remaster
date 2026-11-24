@@ -4330,6 +4330,9 @@ endif()
 if(S2_GAME_DIR)
   add_test(NAME UpstreamAIIdle COMMAND UpstreamBugTests ai-idle
     "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
+  add_test(NAME UpstreamAIRoamingCurrentPosition COMMAND UpstreamBugTests ai-roaming-current-position
+    "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
+  set_tests_properties(UpstreamAIRoamingCurrentPosition PROPERTIES WORKING_DIRECTORY "${S2_GAME_DIR}" TIMEOUT 60)
   set_tests_properties(UpstreamAIIdle PROPERTIES WORKING_DIRECTORY "${S2_GAME_DIR}" TIMEOUT 60)
   set_target_properties(Game PROPERTIES
     VS_DEBUGGER_WORKING_DIRECTORY "${S2_GAME_DIR}"

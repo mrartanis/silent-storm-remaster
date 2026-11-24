@@ -19,7 +19,7 @@
 #include "aiCommander.h"
 #include "aiControl.h"
 #include "aiRoute.h"
-#include "aiMultiMoves.h"
+#include "aiRouteMisc.h"
 #include "aiPosition.h"
 
 #include "../DBFormat/DataMap.h"
@@ -211,27 +211,18 @@ void CTaskCommandGoto::Do()
 void CTaskCommandRoaming::Do()
 {
 	ASSERT( IsValid( pUnitServer ) );
-	if ( IsValid( pUnitServer ) )
-	{
-		// get all possible places
-		NAI::CMultiMovesTable movesTable;
-		list<NAI::SPathPlace> places;
-		CPtr<NWorld::CWorld> pWorld = pUnitServer->GetWorld();
-		NWorld::PrepareAllPaths( pWorld->GetPathNetwork(), &movesTable, &places, pUnitServer, p, nAPRadius, pUnitServer, true );
-		if ( !places.empty() )
-		{
-			// get random place for path command
-			int n = TaskRandom().Get( 0, places.size() );
-			list<NAI::SPathPlace>::const_iterator i = places.begin();
-			for ( ; n > 0; --n, ++i );
-			// do path command
-			NAI::SPosition pos;
-			pos.p = *i;
-			pos.SetNetwork( pWorld->GetPathNetwork() );
-			pos.p.SetPose( NAI::CM_STAND );
-			DoCommand( new NWorld::CCmdPath( pos ) );
-		}
-	}
+	if ( !IsValid( pUnitServer ) )
+		return;
+
+	vector<SPathPlace> places;
+	GetNearestPlaces( pUnitServer, pUnitServer->GetPosition().pos.p, nAPRadius, WALK, &places );
+	if ( places.empty() )
+		return;
+
+	SPosition destination( places[TaskRandom().Get( static_cast<unsigned>( places.size() ) )],
+		pUnitServer->GetWorld()->GetPathNetwork() );
+	destination.p.SetPose( CM_STAND );
+	DoCommand( new NWorld::CCmdPath( destination ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CTaskCommandChangePose

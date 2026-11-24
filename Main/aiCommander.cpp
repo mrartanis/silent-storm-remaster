@@ -588,12 +588,12 @@ bool CAICommander::ShouldYieldInactiveUnit( IAIUnit *pUnit )
 	// CM_INACTIVE alone does not prohibit every action (knives can still be
 	// thrown). Only bypass the stationary idle route that spins in this pose;
 	// combat decisions and routes with real work must reach their normal checks.
-	CDynamicCast<CAIRouteLogic> pRoute( pUnit->GetLogic() );
-	if ( !IsValid( pRoute ) || !pRoute->IsStationaryIdleRoutine() )
+	const SPathPlace position = pUS->GetPosition().pos.p;
+	if ( position.IsFinal() || position.GetPose() != CM_INACTIVE ||
+		pUS->HasCommand() || pUS->IsPerformingAction() )
 		return false;
-	return !pUS->GetPosition().pos.p.IsFinal() &&
-		pUS->GetPosition().pos.p.GetPose() == CM_INACTIVE &&
-		!pUS->HasCommand() && !pUS->IsPerformingAction();
+	CDynamicCast<CAIRouteLogic> pRoute( pUnit->GetLogic() );
+	return IsValid( pRoute ) && pRoute->IsStationaryIdleRoutine();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAICommander::IsEndOfTurn()
