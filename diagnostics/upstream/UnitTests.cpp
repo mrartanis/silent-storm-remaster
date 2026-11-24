@@ -167,6 +167,41 @@ static void NormalStateCommandLifetime(const char* databasePath, const char* res
     executor->Run();
     Require(actor->GetWishPose() == wanted, "the retained command lost its requested pose");
 }
+
+static void CarriedClueTransfer(const char* databasePath, const char* resourcePath, bool automatic)
+{
+    using namespace NWorld;
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* actor = MovementPolicyActor(world);
+    auto* inventory = actor->GetUnitRPG()->GetInventory();
+    CObj<NRPG::IInventoryItem> previous1 = inventory->TakeOff(NDb::SLOT_1);
+    CObj<NRPG::IInventoryItem> previous2 = inventory->TakeOff(NDb::SLOT_2);
+    CObj<NDb::CRPGItem> record = new NDb::CRPGItem;
+    record->sSize = CTPoint<int>(1, 1);
+    CObj<NRPG::IInventoryItem> clue = NRPG::CreateClueItem(record);
+    CTPoint<int> place;
+    Require(inventory->FindPlace(clue, &place) && inventory->Place(place, clue),
+        "could not place a carried clue into the source backpack");
+    Require(inventory->CanEquip(NDb::SLOT_1, clue),
+        "the fixture does not reach the world transfer's clue policy");
+    const SItem source(actor, SItem::BACKPACK, place, clue);
+    const SItem target = automatic ? SItem(actor, SItem::UNIT_ANYPLACE) : SItem(actor, SItem::SLOT, NDb::SLOT_1);
+    CObj<CCmdMoveInventoryItem> command = new CCmdMoveInventoryItem(source, target);
+    CObj<CExecMoveInventoryItem> executor = new CExecMoveInventoryItem(actor, command);
+    const auto result = executor->CanDoIt(actor->GetPosition());
+    if (!automatic) {
+        Require(result == UCR_GENERAL_FAILURE, "a carried clue can be moved into an equipped slot");
+        return;
+    }
+    Require(result == UCR_OK, "automatic transfer rejected a carried clue despite backpack space");
+    executor->Run();
+    const auto& backpack = inventory->GetItems();
+    const auto copies = std::count_if(backpack.begin(), backpack.end(),
+        [&](const auto& entry) { return entry.pItem == clue; });
+    Require(copies == 1 && !inventory->Get(NDb::SLOT_1) && !inventory->Get(NDb::SLOT_2),
+        "automatic transfer equipped a carried clue instead of storing it in the backpack");
+}
 }
 
 bool RunUnitTests(const char* mode, int argc, char** argv)
@@ -176,6 +211,8 @@ bool RunUnitTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "wish-pose-strafe") && argc == 4) { WishPoseStrafe(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "hide-empty-roster-slot") && argc == 4) { HideWithEmptyRosterSlot(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "normal-state-command-lifetime") && argc == 4) { NormalStateCommandLifetime(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "carried-clue-slot") && argc == 4) { CarriedClueTransfer(argv[2], argv[3], false); return true; }
+    if (!std::strcmp(mode, "carried-clue-auto-placement") && argc == 4) { CarriedClueTransfer(argv[2], argv[3], true); return true; }
     return false;
 }
 }

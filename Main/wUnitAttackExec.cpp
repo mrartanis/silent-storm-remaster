@@ -669,6 +669,7 @@ static EUnitCommandResult CanMoveInventoryItem( CUnitServer *pUS, CCmdMoveInvent
 	if ( IsInstantClue( pItem, pUS ) )
 		return UCR_OK;
 
+	const bool bClue = dynamic_cast<NRPG::IClueItem*>( pItem.GetPtr() ) != 0;
 	switch( sTarget.eType )
 	{
 	case SItem::HAND:
@@ -686,7 +687,7 @@ static EUnitCommandResult CanMoveInventoryItem( CUnitServer *pUS, CCmdMoveInvent
 				return UCR_GENERAL_FAILURE;
 
 			NRPG::IInventory *pInventory = pUSTarget->GetUnitRPG()->GetInventory();
-			if ( !pInventory->CanEquip( (NDb::ESlot)sTarget.nSlot, pItem ) )
+			if ( bClue || !pInventory->CanEquip( (NDb::ESlot)sTarget.nSlot, pItem ) )
 				return UCR_GENERAL_FAILURE;
 
 			break;
@@ -750,7 +751,7 @@ static EUnitCommandResult CanMoveInventoryItem( CUnitServer *pUS, CCmdMoveInvent
 				return UCR_CRITICALS_BAN;
 
 			NRPG::IInventory *pInventory = pUSTarget->GetUnitRPG()->GetInventory();
-			for ( int nTemp = 0; nTemp < NDb::N_SLOTS; nTemp++ )
+			for ( int nTemp = 0; !bClue && nTemp < NDb::N_SLOTS; nTemp++ )
 			{
 				if ( !IsValid( pInventory->Get( (NDb::ESlot)nTemp ) ) && pInventory->CanEquip( (NDb::ESlot)nTemp, pItem ) )
 					return UCR_OK;
@@ -1053,7 +1054,7 @@ static void MoveInventoryItem( CUnitServer *pUS, CCmdMoveInventoryItem *pMoveIte
 			int pValidSlots[] = { NDb::SLOT_1, NDb::SLOT_2 };
 
 			bool bComplete = false;
-			for ( int nTemp = 0; nTemp < ARRAY_SIZE( pValidSlots ); nTemp++ )
+			for ( int nTemp = 0; !bClue && nTemp < ARRAY_SIZE( pValidSlots ); nTemp++ )
 			{
 				NDb::ESlot eSlot = (NDb::ESlot)pValidSlots[nTemp];
 				if ( !IsValid( pInventory->Get( eSlot ) ) && pInventory->CanEquip( eSlot, pItem ) )
