@@ -87,11 +87,21 @@ void Interpolate( const float &v1, const float &v2, float fAlpha, float *pRes )
 }
 void Interpolate( const DWORD &v1, const DWORD &v2, float fAlpha, DWORD *pRes )
 {
-	DWORD b = DWORD( (v1 & 0x000000FF) * (1 - fAlpha) + (v2 & 0x000000FF) * fAlpha );
-	DWORD g = DWORD( (v1 & 0x0000FF00) * (1 - fAlpha) + (v2 & 0x0000FF00) * fAlpha );
-	DWORD r = DWORD( (v1 & 0x00FF0000) * (1 - fAlpha) + (v2 & 0x00FF0000) * fAlpha );
-	DWORD a = DWORD( (v1 & 0xFF000000) * (1 - fAlpha) + (v2 & 0xFF000000) * fAlpha );
-	*pRes = b | (g & 0x0000FF00) | (r & 0x00FF0000) | (a & 0xFF000000);
+	// The stock effect interpolator shifts each product before adding the channels.
+	const WORD weight = static_cast<WORD>( Float2Int( fAlpha * 16384.f ) );
+	const auto firstWeight = static_cast<std::int16_t>( static_cast<WORD>( 16384 - weight ) );
+	const auto secondWeight = static_cast<std::int16_t>( weight );
+	DWORD result = 0;
+	for ( int shift = 0; shift < 32; shift += 8 )
+	{
+		const int first = ( ( ( v1 >> shift ) & 0xff ) * 257 ) >> 2;
+		const int second = ( ( ( v2 >> shift ) & 0xff ) * 257 ) >> 2;
+		const unsigned highFirst = static_cast<std::uint32_t>( first * firstWeight ) >> 16;
+		const unsigned highSecond = static_cast<std::uint32_t>( second * secondWeight ) >> 16;
+		const unsigned channel = static_cast<WORD>( highFirst + highSecond ) >> 4;
+		result |= static_cast<DWORD>( Min( channel, 255u ) ) << shift;
+	}
+	*pRes = result;
 }
 void Interpolate( const short &v1, const short &v2, float fAlpha, short *pRes )
 {

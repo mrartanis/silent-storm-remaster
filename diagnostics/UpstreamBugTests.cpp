@@ -23,6 +23,7 @@
 #endif
 #include "../Main/GSceneInternal.h"
 #include "../Main/GParticles.h"
+#include "../Main/GParticleFormat.h"
 #include "../Main/wUnitGroup.h"
 #include "../Main/iCommonUI.h"
 #include "../Main/iTeamMngMenu.h"
@@ -37107,6 +37108,21 @@ static void RetailAmmoSubtypes(const char* databasePath)
     Require(matches > 0, "database has no authored ammunition subtype to check");
 }
 
+static void PackedParticleColor()
+{
+    NGScene::TParticleKey<DWORD> keys[] = {{0, 0xfe012ba7u}, {8, 0x1fa2f4dbu}};
+    const NGScene::TKeyTrack<DWORD> track{2, keys};
+    const std::pair<float, DWORD> expected[] = {
+        {0.f, 0xfe012ba7u}, {1.f, 0xe21544aeu}, {2.f, 0xc6295db4u},
+        {4.f, 0x8e5190c1u}, {6.f, 0x577ac2ceu}, {7.f, 0x3b8edbd5u}, {8.f, 0x1fa2f4dbu},
+    };
+    for (const auto& sample : expected) {
+        DWORD actual = 0;
+        track.GetValue(sample.first, &actual);
+        Require(actual == sample.second, "particle color sampling did not match the packed channel interpolation");
+    }
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "building-indestructible-hp")) { BuildingIndestructibleHP(); return true; }
@@ -37114,6 +37130,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "picklock-item-import") && argc == 3) { PicklockItemImport(argv[2]); return true; }
     if (!std::strcmp(mode, "critical-tables-follow-mods") && argc == 3) { CriticalTablesFollowMods(argv[2]); return true; }
     if (!std::strcmp(mode, "retail-ammo-subtypes") && argc == 3) { RetailAmmoSubtypes(argv[2]); return true; }
+    if (!std::strcmp(mode, "packed-particle-color")) { PackedParticleColor(); return true; }
     if(!std::strcmp(mode,"legacy-directional-ambient")) {LegacyDirectionalAmbient();return true;}
     if(!std::strcmp(mode,"convenience-tooltip-ui")) {Require(argc==4,"tooltip requires db/res");ConvenienceTooltipUI(argv[2],argv[3]);return true;}
     if(!std::strcmp(mode,"convenience-mission-clock")) {Require(argc==4,"clock requires db/res");ConvenienceMissionClock(argv[2],argv[3]);return true;}

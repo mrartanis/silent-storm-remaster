@@ -886,6 +886,7 @@ add_test(NAME ConvenienceDefaultsInput COMMAND UpstreamBugTests convenience-defa
 add_test(NAME ObjectivesLegacyRows COMMAND UpstreamBugTests objectives-row-compatibility)
 add_test(NAME UpstreamBuildingIndestructibleHP COMMAND UpstreamBugTests building-indestructible-hp)
 add_test(NAME UpstreamBuildingDamageParts COMMAND UpstreamBugTests building-damage-parts)
+add_test(NAME UpstreamPackedParticleColor COMMAND UpstreamBugTests packed-particle-color)
 if(S2_GAME_DIR)
   add_test(NAME DefaultMeleeLifetime COMMAND UpstreamBugTests default-melee-lifetime "${S2_GAME_DIR}/game.db")
   add_test(NAME ObjectivesValueRoundTrip COMMAND UpstreamBugTests objectives-value-roundtrip "${S2_GAME_DIR}/game.db")
