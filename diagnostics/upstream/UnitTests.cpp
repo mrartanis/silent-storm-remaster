@@ -3,6 +3,7 @@
 #include "../../Main/wUnitServer.h"
 #include "../../Main/wUnitCommands.h"
 #include "../../Main/wUnitExec.h"
+#include "../../Main/RPGUnit.h"
 #include "../../Main/RPGUnitMission.h"
 #include "../../Main/RPGItem.h"
 #include "../../Main/RPGItemMap.h"
@@ -16,6 +17,19 @@ namespace UpstreamTests
 {
 namespace
 {
+void DifficultySkillScaling()
+{
+    CObj<NRPG::CDynamicSkill> reduced = new NRPG::CDynamicSkill(27, 20);
+    reduced->ScaleForDifficulty(0.8f);
+    Require(int(*reduced) == 21 && reduced->GetMaxValue() == 21 && reduced->GetXPPart() == 7,
+        "AI difficulty rounded up a fractional skill cap");
+
+    CObj<NRPG::CDynamicSkill> increased = new NRPG::CDynamicSkill(27, 20);
+    increased->ScaleForDifficulty(1.25f);
+    Require(int(*increased) == 27 && increased->GetMaxValue() == 33 && increased->GetXPPart() == 7,
+        "raising the difficulty cap rounded up or increased the unit's current value");
+}
+
 static void LookActionPointCost(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -253,6 +267,7 @@ static void HolsteredEquipment(const char* databasePath, const char* resourcePat
 
 bool RunUnitTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "difficulty-skill-scaling") && argc == 2) { DifficultySkillScaling(); return true; }
     if (!std::strcmp(mode, "look-action-point-cost") && argc == 4) { LookActionPointCost(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "inventory-transfer-validation") && argc == 5) { InventoryTransferValidation(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "wish-pose-strafe") && argc == 4) { WishPoseStrafe(argv[2], argv[3]); return true; }
