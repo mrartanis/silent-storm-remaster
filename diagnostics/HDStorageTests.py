@@ -229,7 +229,7 @@ class HDSourceReleaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             index, archive = self.fixture(root)
-            (root / 'sources.zip').write_text('version https://git-lfs.github.com/spec/v1\n')
+            (root / 'sources.zip').write_bytes(b'version https://git-lfs.github.com/spec/v1\n')
 
             def download(url, destination, digest, **options):
                 destination.write_bytes(archive)
