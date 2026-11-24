@@ -13,6 +13,7 @@
 #include "../../Main/rpgPerk.h"
 #include "../../Main/rpgGlobal.h"
 #include "../../DBFormat/DataRPG.h"
+#include "../../MiscDll/LogStream.h"
 #include <cstring>
 
 namespace UpstreamTests
@@ -83,6 +84,48 @@ void TakePerkDuringTreatment(const char* databasePath, const char* resourcePath)
         "purchasing a perk did not spend precisely one point or interrupted the treatment");
     order = actor->CreateExecutor(purchase, &result);
     Require(!order && result == UCR_GENERAL_FAILURE, "treatment bypassed ordinary perk eligibility");
+}
+
+void SelectedCriticalTreatmentLog(const char* databasePath)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database, CStructureSaver::READ);
+    auto* persona = NDb::GetPers(103);
+    Require(IsValid(persona), "treatment log fixture lacks an authored patient");
+    CObj<NRPG::IUnitMission> patient = NRPG::CreateUnit(persona);
+    CObj<NRPG::IUnitMission> control = NRPG::CreateUnit(persona);
+    NRPG::SCritical injury(NDb::CL_HEAD, NDb::C_BLEEDING, -1, 2.f, 3);
+    NRPG::SCritical separate(NDb::CL_LEGS, NDb::C_BLEEDING, -1, 4.f, 5);
+    patient->ApplyCritical(injury);
+    patient->ApplyCritical(separate);
+    control->ApplyCritical(injury);
+
+    class Capture : public ILogNotify {
+        OBJECT_NOCOPY_METHODS(Capture);
+    public:
+        vector<wstring> cured;
+        void OnAddConsoleLine(const SConsoleLine& line) override {
+            if (line.eType == STREAM_RPG && line.szText.find(L"Cured:") != wstring::npos)
+                cured.push_back(line.szText);
+        }
+    };
+    CObj<Capture> log = new Capture;
+    SetLogNotify(log);
+    struct RestoreNotify { ~RestoreNotify() { SetLogNotify(nullptr); } } restore;
+    Require(control->HealCriticals(3, true) == 3 && log->cured.size() == 1,
+        "the ordinary critical treatment control did not log its cure");
+    const auto expected = log->cured.front();
+    log->cured.clear();
+    const auto choice = patient->TryHealCritical(3, true);
+    Require(choice.eCritical == NDb::C_BLEEDING && choice.eCl == NDb::CL_HEAD && choice.nDC == 3,
+        "treatment did not select the intended head injury");
+    Require(patient->HealCritical(choice) == 3 && patient->TryHealCritical(5, true).eCl == NDb::CL_LEGS,
+        "treatment changed the result or removed the separate leg injury");
+    Require(log->cured.size() == 1 && log->cured.front() == expected,
+        "targeted treatment did not log the cured injury with its location and difficulty");
+    Require(patient->HealCritical(choice) == 0 && log->cured.size() == 1,
+        "targeted treatment logged a cure when the requested injury was absent");
 }
 
 static void LookActionPointCost(const char* databasePath, const char* resourcePath)
@@ -417,6 +460,7 @@ bool RunUnitTests(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "difficulty-skill-scaling") && argc == 2) { DifficultySkillScaling(); return true; }
     if (!std::strcmp(mode, "take-perk-during-treatment") && argc == 4) { TakePerkDuringTreatment(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "selected-critical-treatment-log") && argc == 3) { SelectedCriticalTreatmentLog(argv[2]); return true; }
     if (!std::strcmp(mode, "look-action-point-cost") && argc == 4) { LookActionPointCost(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "inventory-transfer-validation") && argc == 5) { InventoryTransferValidation(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "wish-pose-strafe") && argc == 4) { WishPoseStrafe(argv[2], argv[3]); return true; }
