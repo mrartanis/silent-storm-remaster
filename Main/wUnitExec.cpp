@@ -669,6 +669,8 @@ public:
 	{
 		pUS->SetWishPose( pose );
 		pUS->SetRunning( pose == NAI::RUN );
+		if ( pose == NAI::RUN || pose == NAI::CRAWL )
+			pUS->SetStrafe( false );
 		Finished();
 	}
 };

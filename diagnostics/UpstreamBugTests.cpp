@@ -37356,6 +37356,29 @@ static void LookActionPointCost(const char* databasePath, const char* resourcePa
     Require(actor->GetAP() == ap && actor->GetPosition() == original, "querying look cost changed the actor");
 }
 
+static void WishPoseStrafe(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* actor = MovementPolicyActor(world);
+    world->GivePlayerTurn(actor->GetTBSPlayer());
+    const auto position = actor->GetPosition();
+    for (auto pose : {NAI::WALK, NAI::CROUCH, NAI::RUN, NAI::CRAWL}) {
+        actor->SetStrafe(true);
+        CObj<NWorld::CCmdWishPose> cmd = new NWorld::CCmdWishPose(pose);
+        NWorld::EUnitCommandResult result = NWorld::UCR_UNAVAILABLE;
+        CObj<NWorld::CCommandExecute> order = actor->CreateExecutor(cmd, &result);
+        Require(order && result == NWorld::UCR_OK, "the ordinary wish-pose command was unavailable");
+        order->Run();
+        auto expectedPosition = position;
+        expectedPosition.bRun = pose == NAI::RUN;
+        Require(actor->GetWishPose() == pose && actor->GetPosition() == expectedPosition,
+            "a wish-pose order failed to update the desired movement mode");
+        Require(actor->IsStrafing() == (pose == NAI::WALK || pose == NAI::CROUCH),
+            "the wish-pose executor applied the wrong strafe policy");
+    }
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "building-indestructible-hp")) { BuildingIndestructibleHP(); return true; }
@@ -37368,6 +37391,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "firearm-attack-creation") && argc == 3) { FirearmAttackCreationResult(argv[2]); return true; }
     if (!std::strcmp(mode, "zero-scale-map-objects") && argc == 4) { ZeroScaleMapObjects(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "look-action-point-cost") && argc == 4) { LookActionPointCost(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "wish-pose-strafe") && argc == 4) { WishPoseStrafe(argv[2], argv[3]); return true; }
     if(!std::strcmp(mode,"legacy-directional-ambient")) {LegacyDirectionalAmbient();return true;}
     if(!std::strcmp(mode,"convenience-tooltip-ui")) {Require(argc==4,"tooltip requires db/res");ConvenienceTooltipUI(argv[2],argv[3]);return true;}
     if(!std::strcmp(mode,"convenience-mission-clock")) {Require(argc==4,"clock requires db/res");ConvenienceMissionClock(argv[2],argv[3]);return true;}

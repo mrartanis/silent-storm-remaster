@@ -3050,6 +3050,7 @@ if(S2_GAME_DB_PATH AND S2_RESOURCE_PACKAGE_PATH)
   add_test(NAME UpstreamZeroScaleMapObjects COMMAND UpstreamBugTests zero-scale-map-objects
     "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
   add_test(NAME UpstreamLookActionPointCost COMMAND UpstreamBugTests look-action-point-cost "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
+  add_test(NAME UpstreamWishPoseStrafe COMMAND UpstreamBugTests wish-pose-strafe "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
   set_tests_properties(UpstreamAIRoamingCurrentPosition PROPERTIES WORKING_DIRECTORY "${_s2_upstream_game_dir}" TIMEOUT 60)
   set_tests_properties(UpstreamAIIdle PROPERTIES WORKING_DIRECTORY "${_s2_upstream_game_dir}" TIMEOUT 60)
   add_test(NAME UpstreamConclusions COMMAND UpstreamBugTests conclusions
