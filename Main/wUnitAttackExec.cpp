@@ -602,10 +602,15 @@ static EUnitCommandResult CanMoveInventoryItem( CUnitServer *pUS, CCmdMoveInvent
 		}
 	case SItem::BACKPACK:
 		{
-			ASSERT( IsValid( sSource.pUnit ) );
 			CDynamicCast<CUnitServer> pUSSource( sSource.pUnit );
-			ASSERT( IsValid( pUSSource ) );
-			ASSERT( !pUSSource->IsDead() );
+			if ( !IsValid( pUSSource ) || pUSSource->IsDead() )
+				return UCR_INVALID_COMMAND;
+			const auto &items = pUSSource->GetUnitRPG()->GetInventory()->GetItems();
+			const auto entry = find_if( items.begin(), items.end(), [&]( const NRPG::SBackPackItem &backpackItem ) {
+				return backpackItem.pItem == sSource.pItem;
+			} );
+			if ( entry == items.end() )
+				return UCR_INVALID_COMMAND;
 			pItem = sSource.pItem;
 			break;
 		}
@@ -650,7 +655,10 @@ static EUnitCommandResult CanMoveInventoryItem( CUnitServer *pUS, CCmdMoveInvent
 		return UCR_INVALID_COMMAND;
 	}
 
-	ASSERT( IsValid( pItem ) );
+	if ( !IsValid( pItem ) )
+		return UCR_INVALID_COMMAND;
+	if ( pItem->IsLocked( pUS ) )
+		return UCR_GENERAL_FAILURE;
 
 	// retail v1.1 @0x7aa1c0: hints do not need a free destination because MoveInventoryItem
 	// consumes them instead of placing them in the inventory.
@@ -726,6 +734,8 @@ static EUnitCommandResult CanMoveInventoryItem( CUnitServer *pUS, CCmdMoveInvent
 		}
 	case SItem::STORAGE:
 		{
+			if ( !IsValid( sTarget.pPlayer ) )
+				return UCR_INVALID_COMMAND;
 			break;
 		}
 	case SItem::UNIT_ANYPLACE:
@@ -3737,7 +3747,11 @@ EUnitCommandResult CExecMoveInventoryItem::CanDoIt( const NAI::SUnitPosition &fr
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExecMoveInventoryItem::Run()
 {
-	ASSERT( CanDoIt( pUS->GetPosition() ) == UCR_OK );
+	if ( CanDoIt( pUS->GetPosition() ) != UCR_OK )
+	{
+		Failed();
+		return;
+	}
 
 	// @0x3abc90 -- retail opens Run by registering the classified reach action (and
 	// spending its AP) BEFORE touching the inventory (disasm: DoAction(GetActionType())).

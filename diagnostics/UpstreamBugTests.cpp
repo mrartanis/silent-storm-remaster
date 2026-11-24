@@ -37446,6 +37446,71 @@ static void LookActionPointCost(const char* databasePath, const char* resourcePa
     Require(actor->GetAP() == ap && actor->GetPosition() == original, "querying look cost changed the actor");
 }
 
+static void InventoryTransferValidation(const char* databasePath, const char* resourcePath, int mode)
+{
+    using namespace NWorld;
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* actor = MovementPolicyActor(world);
+    auto* inventory = actor->GetUnitRPG()->GetInventory();
+    CObj<NDb::CRPGItem> record = new NDb::CRPGItem;
+    record->sSize = CTPoint<int>(1, 1);
+    CObj<NRPG::IInventoryItem> item = NRPG::CreateDummyItem(record);
+    CTPoint<int> place;
+    Require(inventory->FindPlace(item, &place), "transfer fixture has no backpack space");
+    inventory->Place(place, item);
+    const auto position = actor->GetPosition();
+    const SItem source(actor, SItem::BACKPACK, place, item);
+    const SItem target(nullptr, SItem::STORAGE, nullptr, actor->GetTBSPlayer());
+    CObj<CCmdMoveInventoryItem> command = new CCmdMoveInventoryItem(source, target);
+    CObj<CExecMoveInventoryItem> executor = new CExecMoveInventoryItem(actor, command);
+    Require(executor->CanDoIt(position) == UCR_OK, "ordinary backpack-to-store transfer is unavailable");
+    const auto rejected = [&](CExecMoveInventoryItem* transfer) {
+        const int ap = actor->GetAP();
+        const auto count = actor->GetTBSPlayer()->GetStoreItems()->size();
+        transfer->Run();
+        Require(transfer->GetState() == CCommandExecute::FAILED && actor->GetAP() == ap &&
+            actor->GetTBSPlayer()->GetStoreItems()->size() == count,
+            "a rejected transfer still ran or changed AP or store contents");
+    };
+
+    if (mode == 0) {
+        inventory->Take(item);
+        const auto& backpack = inventory->GetItems();
+        Require(std::none_of(backpack.begin(), backpack.end(), [&](const auto& entry) { return entry.pItem == item; }),
+            "failed to remove the item between queuing and validation");
+        Require(executor->CanDoIt(position) == UCR_INVALID_COMMAND,
+            "a stale command accepted an item no longer in the source backpack");
+        rejected(executor);
+        CObj<CCmdMoveInventoryItem> ownerless = new CCmdMoveInventoryItem(
+            SItem(nullptr, SItem::BACKPACK, place, item), target);
+        CObj<CExecMoveInventoryItem> ownerlessExec = new CExecMoveInventoryItem(actor, ownerless);
+        Require(ownerlessExec->CanDoIt(position) == UCR_INVALID_COMMAND,
+            "a backpack transfer accepted a missing source unit");
+    } else if (mode == 1) {
+        CObj<CCmdMoveInventoryItem> ownerless = new CCmdMoveInventoryItem(
+            source, SItem(nullptr, SItem::STORAGE));
+        CObj<CExecMoveInventoryItem> ownerlessExec = new CExecMoveInventoryItem(actor, ownerless);
+        Require(ownerlessExec->CanDoIt(position) == UCR_INVALID_COMMAND,
+            "a transfer accepted storage without an owner");
+        rejected(ownerlessExec);
+    } else {
+        CObj<CObjectBase> foreign = item->Lock(actor->GetTBSPlayer());
+        Require(foreign && item->IsLocked(actor), "failed to establish a foreign item reservation");
+        Require(executor->CanDoIt(position) == UCR_GENERAL_FAILURE,
+            "a transfer disregarded another actor's existing reservation");
+        rejected(executor);
+        Require(item->IsLocked(actor), "validating the transfer cleared a foreign reservation");
+        foreign = nullptr;
+        Require(executor->CanDoIt(position) == UCR_OK && !item->IsLocked(actor->GetTBSPlayer()),
+            "an unreserved transfer query took ownership of the item");
+        command->Lock(actor);
+        Require(executor->CanDoIt(position) == UCR_OK && item->IsLocked(actor->GetTBSPlayer()),
+            "the issuing actor's own reservation blocked validation or was lost");
+        command->Unlock();
+    }
+}
+
 static void WishPoseStrafe(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -37534,6 +37599,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "firearm-attack-creation") && argc == 3) { FirearmAttackCreationResult(argv[2]); return true; }
     if (!std::strcmp(mode, "zero-scale-map-objects") && argc == 4) { ZeroScaleMapObjects(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "look-action-point-cost") && argc == 4) { LookActionPointCost(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "inventory-transfer-validation") && argc == 5) { InventoryTransferValidation(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "wish-pose-strafe") && argc == 4) { WishPoseStrafe(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "hide-empty-roster-slot") && argc == 4) { HideWithEmptyRosterSlot(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "frozen-item-armor-resistance") && argc == 4) { FrozenItemArmorResistance(argv[2], argv[3]); return true; }
