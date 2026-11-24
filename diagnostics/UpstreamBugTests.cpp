@@ -37321,6 +37321,41 @@ static void ZeroScaleMapObjects(const char* databasePath, const char* resourcePa
     Require(false, "zero-scale fixture could not identify a modeled object in the authored map");
 }
 
+static NWorld::CUnitServer* MovementPolicyActor(NWorld::CWorld* world)
+{
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    for (auto actor : units)
+        if (IsValid(actor) && !actor->IsAIUnit() && actor->CanFight() &&
+            actor->GetUnitRPG()->CanMove() && actor->GetPosition().pos.p.GetPose() == NAI::CM_STAND)
+            return actor;
+    throw std::runtime_error("fixture lacks a standing, mobile party member");
+}
+
+static void LookActionPointCost(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* actor = MovementPolicyActor(world);
+    world->GivePlayerTurn(actor->GetTBSPlayer());
+    const auto original = actor->GetPosition();
+    const int ap = actor->GetAP();
+    const int rotatePrice = actor->GetActionAP(NRPG::AC_ROTATE);
+    Require(rotatePrice > 0 && ap >= rotatePrice, "look test requires a priced turn and sufficient AP");
+    auto turned = original.pos;
+    turned.p.SetDirection((turned.p.GetDirection() + 2) & 7);
+    int start = -1, total = -1;
+    CObj<NWorld::CCmdLook> change = new NWorld::CCmdLook(turned);
+    Require(actor->CanDo(change, &start, &total) == NWorld::UCR_OK && total >= rotatePrice,
+        "a real change of facing must have a rotation cost");
+
+    CObj<NWorld::CCmdLook> same = new NWorld::CCmdLook(original.pos);
+    Require(actor->CanDo(same, &start, &total) == NWorld::UCR_OK,
+        "the fixture did not prepare a valid unchanged-facing look order");
+    Require(total == 0, "an unchanged-facing look order charges AP");
+    Require(actor->GetAP() == ap && actor->GetPosition() == original, "querying look cost changed the actor");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "building-indestructible-hp")) { BuildingIndestructibleHP(); return true; }
@@ -37332,6 +37367,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ui-texture-fallback-dimensions")) { UITextureFallbackDimensions(); return true; }
     if (!std::strcmp(mode, "firearm-attack-creation") && argc == 3) { FirearmAttackCreationResult(argv[2]); return true; }
     if (!std::strcmp(mode, "zero-scale-map-objects") && argc == 4) { ZeroScaleMapObjects(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "look-action-point-cost") && argc == 4) { LookActionPointCost(argv[2], argv[3]); return true; }
     if(!std::strcmp(mode,"legacy-directional-ambient")) {LegacyDirectionalAmbient();return true;}
     if(!std::strcmp(mode,"convenience-tooltip-ui")) {Require(argc==4,"tooltip requires db/res");ConvenienceTooltipUI(argv[2],argv[3]);return true;}
     if(!std::strcmp(mode,"convenience-mission-clock")) {Require(argc==4,"clock requires db/res");ConvenienceMissionClock(argv[2],argv[3]);return true;}

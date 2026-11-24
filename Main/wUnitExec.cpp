@@ -928,7 +928,7 @@ CCommandExecute* CreateExecutor( CUnitServer *pUS, CCmd *pCmd, EUnitCommandResul
 			{
 				CCommandExecute* pRet = CreateMoveExecutor(pUS, pPath, NAI::PF_USE_DIR, ITEM_NO_MATTER, pError, false);
 				CDynamicCast<CExecQueue> pQueue(pRet);
-				if (pQueue)
+				if ( pQueue && position.pos.p.GetDirection() != pCmdLook->ptDst.p.GetDirection() )
 					pQueue->AddFrontExecutor(new CExecSpendAPAndRegister(pUS, NRPG::AC_ROTATE));
 				return pRet;
 			}
