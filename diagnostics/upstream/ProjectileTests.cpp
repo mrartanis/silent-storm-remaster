@@ -3,8 +3,13 @@
 #include "../../Main/wExplTracker.h"
 #include "../../Main/wUnitServer.h"
 #include "../../Main/wDebris.h"
+#include "../../Main/wOSBase.h"
 #include "../../Main/wMisc.h"
+#include "../../Main/wTSFlags.h"
+#include "../../Main/aiMap.h"
+#include "../../Main/aiInterval.h"
 #include "../../Main/RPGAttackMech.h"
+#include "../../Main/RPGBullet.h"
 #include "../../Main/RPGUnit.h"
 #include "../../Main/RPGUnitMission.h"
 #include "../../Main/RPGItem.h"
@@ -194,6 +199,68 @@ void InvalidProjectileResources(const char* databasePath, const char* resourcePa
     }
     Require(world->GetMiscObjects()->size() == before + 1, "the rejected launch changed the world projectile list");
 }
+
+void StuckKnifeFloor(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, false, nullptr, 4517);
+    auto* map = world->GetAIMap();
+    map->Sync();
+    int floor = 0;
+    float distance = 0.f;
+    CRay shot;
+    for (const auto& object : world->GetObjectsForHarness()) {
+        SBound bounds;
+        if (!map->GetObjectBound(&bounds, object)) continue;
+        for (int heading = 0; heading < 16 && !floor; ++heading) {
+            const float angle = heading * FP_2PI / 16;
+            CRay ray;
+            ray.ptDir = CVec3(std::cos(angle), std::sin(angle), 0);
+            ray.ptOrigin = bounds.s.ptCenter - ray.ptDir * (bounds.s.fRadius + 0.4f);
+            vector<NAI::SInterval> hits;
+            map->Trace(ray, &hits, NWorld::TS_FRAGMENTED | NWorld::TS_ITEM_BLOCKER);
+            const NAI::SInterval* first = nullptr;
+            for (const auto& hit : hits)
+                if (hit.enter.fT > 0.f && (!first || hit.enter.fT < first->enter.fT))
+                    first = &hit;
+            if (!first || first->pSrc->pUserData != object.GetPtr() || !first->pSrc->nFloor ||
+                (first->pSrc->nTSFlags & (NWorld::TS_STATE_OPEN | NWorld::TS_STATE_CLOSED)) ||
+                !first->pSrc->pArmor || !first->pSrc->pArmor->pMaterial)
+                continue;
+            const int resistance = first->pSrc->pArmor->pMaterial->nDR;
+            if (resistance != 1 && resistance != 2) continue;
+            floor = first->pSrc->nFloor;
+            distance = first->enter.fT;
+            shot = ray;
+        }
+        if (floor) break;
+    }
+    Require(floor != 0, "the authored world has no clear knife ray to a non-ground wood surface");
+    NDb::CRPGMeleeWeapon* record = nullptr;
+    CDBIterator<NDb::CRPGMeleeWeapon> blades(*NDatabase::GetTable<NDb::CRPGMeleeWeapon>());
+    while (blades.MoveNext()) {
+        if (blades.Get()->bThrowing && IsValid(blades.Get()->pItem) && IsValid(blades.Get()->pItem->pModel)) {
+            record = blades.Get();
+            break;
+        }
+    }
+    Require(record, "the fixture has no authored throwing knife");
+    SRand random;
+    CObj<NDb::CModel> model = record->pItem->pModel->CreateModel(&random);
+    CObj<NRPG::CMeleeWeaponItem> item = new NRPG::CMeleeWeaponItem(record);
+    item->nQuantity = 1;
+    NRPG::CAttackPortion hit(100000, 0, 0.f, 0, 0, 0);
+    NRPG::SAttackRayInfo ray(hit, shot.ptOrigin, shot.ptDir, false, 0.f, distance + 1.f, nullptr);
+    const auto start = world->GetTime()->GetValue();
+    CObj<NWorld::IDynamicObject> knife = dynamic_cast<NWorld::IDynamicObject*>(
+        world->ThrowKnife(ray, 10.f, start, distance + 1.f, model, item));
+    Require(knife && !knife->Segment() && !world->GetFrozenItem(item),
+        "the knife fixture hit before the projectile advanced");
+    world->GetTime()->Set(start + STime(std::ceil((distance + 0.05f) * 100)));
+    MarkNewDGFrame();
+    Require(knife->Segment(), "the knife did not retire on the wood surface");
+    const auto* frozen = world->GetFrozenItem(item);
+    Require(frozen && frozen->GetFloor() == floor, "the stuck knife lost the floor of the surface it hit");
+}
 }
 
 bool RunProjectileTests(const char* mode, int argc, char** argv)
@@ -203,6 +270,7 @@ bool RunProjectileTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "bloody-death-sound-position") && argc == 4) { BloodyDeathSoundPosition(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "explosion-voxel-budget") && argc == 4) { ExplosionVoxelBudget(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "invalid-projectile-resources") && argc == 5) { InvalidProjectileResources(argv[2], argv[3], std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "stuck-knife-floor") && argc == 4) { StuckKnifeFloor(argv[2], argv[3]); return true; }
     return false;
 }
 }

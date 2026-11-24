@@ -3081,6 +3081,7 @@ if(S2_GAME_DB_PATH AND S2_RESOURCE_PACKAGE_PATH)
   add_test(NAME UpstreamGrenadeWithoutGeometry COMMAND UpstreamBugTests invalid-projectile-resources "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}" 0)
   add_test(NAME UpstreamRocketWithoutGeometry COMMAND UpstreamBugTests invalid-projectile-resources "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}" 1)
   add_test(NAME UpstreamRocketWithoutAmmunition COMMAND UpstreamBugTests invalid-projectile-resources "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}" 2)
+  add_test(NAME UpstreamStuckKnifeFloor COMMAND UpstreamBugTests stuck-knife-floor "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
   set_tests_properties(UpstreamAIRoamingCurrentPosition PROPERTIES WORKING_DIRECTORY "${_s2_upstream_game_dir}" TIMEOUT 60)
   set_tests_properties(UpstreamAIIdle PROPERTIES WORKING_DIRECTORY "${_s2_upstream_game_dir}" TIMEOUT 60)
   add_test(NAME UpstreamConclusions COMMAND UpstreamBugTests conclusions
