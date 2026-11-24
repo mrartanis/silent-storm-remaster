@@ -4339,6 +4339,7 @@ if(S2_GAME_DIR)
     "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   add_test(NAME UpstreamAIRoamingCurrentPosition COMMAND UpstreamBugTests ai-roaming-current-position
     "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
+  add_test(NAME UpstreamAISelfHealingBandagedHealth COMMAND UpstreamBugTests ai-self-healing-bandaged-health "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   add_test(NAME UpstreamZeroScaleMapObjects COMMAND UpstreamBugTests zero-scale-map-objects
     "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   add_test(NAME UpstreamLookActionPointCost COMMAND UpstreamBugTests look-action-point-cost "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
