@@ -869,9 +869,7 @@ int CUnitMission::GetUnconsciousProbability( IUnitMissionInfo *pAttacker,
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail @0x2c2100: returns whether an attack was created (melee branch: always true). The Jan03
-// "burst not finished -> false" ShootMode switch is GONE in retail -- burst pacing lives entirely
-// in the shoot exec's timed-bullet schedule (nBulletGone / tNextBullet*), and no live caller reads
-// the return on the shoot path.
+// The shoot executor tracks burst timing separately from attack creation.
 bool CUnitMission::CreateAttack( vector<CAttackPortion> *pRes, bool bSpendAmmo,
 	bool bAnonymous, IUnitMissionInfo *pTarget, bool bBackStab, bool bAdaptWeapon )
 {
@@ -891,7 +889,7 @@ bool CUnitMission::CreateAttack( vector<CAttackPortion> *pRes, bool bSpendAmmo,
 		if ( pWeapon->GetDBWeapon()->pWeaponType->bTwoHanded && !CanUseTwoHanded() )
 		{
 			// we currently cannot use a two-handed weapon
-			return true;
+			return false;
 		}
 		// retail @0x6c21cc/@0x6c221b (weapon-branch head): "+ N Ranged Dmg" (perk 26, flat add applied
 		// below when damage lands) and "Better critical chance" (perk 36, nCrtical x(Param1+1)).
@@ -904,8 +902,11 @@ bool CUnitMission::CreateAttack( vector<CAttackPortion> *pRes, bool bSpendAmmo,
 		if ( HasPerk( N_PERK_BETTER_CRIT_CHANCE, &fPerkCrit ) )
 			fCritChanceMult = fPerkCrit + 1.f;
 		//
+		const auto firstPortion = pRes->size();
 		pWeapon->CreateNewAttackPortion( pRes, bSpendAmmo );
-		for ( int i = 0; i < pRes->size(); ++i )
+		if ( pRes->size() == firstPortion )
+			return false;
+		for ( auto i = firstPortion; i < pRes->size(); ++i )
 		{
 			int nSnipeSkill = pRPGUnit->Skills( NDb::ST_SNIPE );
 			CAttackPortion &a = (*pRes)[i];

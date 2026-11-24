@@ -37233,6 +37233,50 @@ static void UITextureFallbackDimensions()
         "the UI texture fallback calculated logical dimensions from the wrong resolution");
 }
 
+static void FirearmAttackCreationResult(const char* databasePath)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database, CStructureSaver::READ);
+    auto* persona = NDb::GetPers(103);
+    Require(IsValid(persona), "attack creation fixture lacks its persona");
+    CObj<NRPG::IUnitMission> actor = NRPG::CreateUnit(persona);
+    auto* inventory = actor->GetInventory();
+    CObj<NRPG::IInventoryItem> previous = inventory->TakeOff(NDb::SLOT_1);
+    NDb::CRPGWeapon* rifle = nullptr;
+    CDBIterator<NDb::CRPGWeapon> weapons(*NDatabase::GetTable<NDb::CRPGWeapon>());
+    while (weapons.MoveNext()) {
+        auto* record = weapons.Get();
+        if (record->pItem && record->pWeaponType && record->pWeaponType->bTwoHanded &&
+            record->pInnerClip && record->shootModes[NDb::SM_Snap]) {
+            rifle = record;
+            break;
+        }
+    }
+    Require(rifle != nullptr, "attack creation fixture lacks an authored two-handed firearm");
+    CObj<NRPG::CWeaponItem> weapon = new NRPG::CWeaponItem(rifle);
+    weapon->nQuantity = 1;
+    Require(inventory->Equip(NDb::SLOT_1, weapon) && inventory->Activate(NDb::SLOT_1) &&
+        weapon->SetShootMode(NDb::SM_Snap) && weapon->GetAmmoQuantity() > 0,
+        "attack creation fixture cannot equip a loaded firearm");
+    const int ammo = weapon->GetAmmoQuantity();
+
+    vector<NRPG::CAttackPortion> portions;
+    actor->UseTwoHanded(false);
+    Require(!actor->CreateAttack(&portions, false) && portions.empty(),
+        "a disabled two-handed firearm reported a successful attack without a portion");
+    actor->UseTwoHanded(true);
+    Require(actor->CreateAttack(&portions, false) && portions.size() == 1,
+        "a working two-handed firearm failed to create a preview portion");
+    portions.front().nCrtical = 7;
+    portions.front().nCrticalDifficulty = 11;
+    Require(actor->CreateAttack(&portions, false) && portions.size() == 2,
+        "creating a second firearm portion failed");
+    Require(portions.front().nCrtical == 7 && portions.front().nCrticalDifficulty == 11,
+        "creating a second firearm portion modified the caller's existing portion");
+    Require(weapon->GetAmmoQuantity() == ammo, "firearm previews spent ammunition");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "building-indestructible-hp")) { BuildingIndestructibleHP(); return true; }
@@ -37242,6 +37286,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "retail-ammo-subtypes") && argc == 3) { RetailAmmoSubtypes(argv[2]); return true; }
     if (!std::strcmp(mode, "packed-particle-color")) { PackedParticleColor(); return true; }
     if (!std::strcmp(mode, "ui-texture-fallback-dimensions")) { UITextureFallbackDimensions(); return true; }
+    if (!std::strcmp(mode, "firearm-attack-creation") && argc == 3) { FirearmAttackCreationResult(argv[2]); return true; }
     if(!std::strcmp(mode,"legacy-directional-ambient")) {LegacyDirectionalAmbient();return true;}
     if(!std::strcmp(mode,"convenience-tooltip-ui")) {Require(argc==4,"tooltip requires db/res");ConvenienceTooltipUI(argv[2],argv[3]);return true;}
     if(!std::strcmp(mode,"convenience-mission-clock")) {Require(argc==4,"clock requires db/res");ConvenienceMissionClock(argv[2],argv[3]);return true;}
