@@ -81,6 +81,8 @@ void CRPGPicklock::Import()
 	NDatabase::ImportField( "NeededPerkID", &pNeededPerk );
 	NDatabase::ImportField( "AddToEngSkill", &nAddToEngSkill );
 	NDatabase::ImportField( "Quantity", &nQuantity );
+	if ( IsValid( pItem ) )
+		pItem->pSuccessor = this;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CRPGPicklock::operator&( CStructureSaver &f )

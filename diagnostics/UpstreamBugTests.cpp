@@ -36988,10 +36988,35 @@ static void BuildingDamageParts()
     }
 }
 
+static void PicklockItemImport(const char* databasePath)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database, CStructureSaver::READ);
+
+    auto* table = NDatabase::GetTable<NDb::CRPGPicklock>();
+    Require(table != nullptr, "the database has no picklock table");
+    CDBIterator<NDb::CRPGPicklock> records(*table);
+    int checked = 0;
+    while (records.MoveNext()) {
+        auto* record = records.Get();
+        if (!IsValid(record->pItem)) continue;
+        Require(record->pItem->pSuccessor == record, "the imported base item does not link to its picklock record");
+        CObj<NRPG::IInventoryItem> item = NRPG::CreateItem(record->pItem->pSuccessor);
+        auto* picklock = dynamic_cast<NRPG::CPicklockItem*>(item.GetPtr());
+        Require(picklock && picklock->GetDBPicklock() == record && picklock->GetDBItem() == record->pItem,
+            "the inventory item factory failed to create the imported picklock");
+        Require(picklock->GetIncQuantity() == record->nQuantity, "the imported picklock lost its authored charges");
+        ++checked;
+    }
+    Require(checked > 0, "the database has no picklock with an authored item link");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "building-indestructible-hp")) { BuildingIndestructibleHP(); return true; }
     if (!std::strcmp(mode, "building-damage-parts")) { BuildingDamageParts(); return true; }
+    if (!std::strcmp(mode, "picklock-item-import") && argc == 3) { PicklockItemImport(argv[2]); return true; }
     if(!std::strcmp(mode,"legacy-directional-ambient")) {LegacyDirectionalAmbient();return true;}
     if(!std::strcmp(mode,"convenience-tooltip-ui")) {Require(argc==4,"tooltip requires db/res");ConvenienceTooltipUI(argv[2],argv[3]);return true;}
     if(!std::strcmp(mode,"convenience-mission-clock")) {Require(argc==4,"clock requires db/res");ConvenienceMissionClock(argv[2],argv[3]);return true;}
