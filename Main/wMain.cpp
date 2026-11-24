@@ -3175,6 +3175,9 @@ CObjectBase *CWorld::ThrowGrenade( const CVec3 &vFrom, const CVec3 &vSpeed, STim
 	float fTFly, NDb::CModel *pModel, NDb::CRPGGrenade *pRPGGrenade, CUnitServer *pUnitServer,
 	NDb::CRPGEngGrenade *pRPGEngGrenade )
 {
+	if ( !IsValid( pModel ) || !IsValid( pModel->pGeometry ) )
+		return 0;
+
 	// retail @0x764140: a valid regular record flies as the timed grenade; otherwise a valid
 	// engineer record flies as the contact-fused eng grenade, carrying the thrower's
 	// ENGINEERING skill for the explosion (read here, at throw time).
@@ -3218,6 +3221,9 @@ CObjectBase *CWorld::LaunchRocket( const CVec3 &vFrom, const CVec3 &vSpeed,
 		STime tThrow, float fDistance, NDb::CModel *pModel, NRPG::CAttackPortion &attack, 
 		NRPG::IClipItem *pRocket, CUnitServer *pIgnored, NDb::CEffect *pEffect   )
 {
+	if ( !IsValid( pRocket ) || !IsValid( pModel ) || !IsValid( pModel->pGeometry ) )
+		return 0;
+
 	IDynamicObject *pBullet = CreateRocketServer( this, vFrom, vSpeed, tThrow,
 		fDistance, pModel, attack, pRocket, pIgnored, pEffect );
 	miscObjects.push_back( pBullet );

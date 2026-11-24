@@ -8,6 +8,7 @@
 #include "../../Main/RPGUnit.h"
 #include "../../Main/RPGUnitMission.h"
 #include "../../Main/RPGItem.h"
+#include "../../Main/RPGItemSet.h"
 #include "../../DBFormat/DataRPG.h"
 #include "../../DBFormat/DataFormat.h"
 #include "../../DBFormat/DataSound.h"
@@ -51,11 +52,8 @@ static void FrozenItemArmorResistance(const char* databasePath, const char* reso
         "a positive-resistance material stopped applying damage");
 }
 
-static void FlyingGrenadeLifetime(const char* databasePath, const char* resourcePath)
+NDb::CRPGGrenade* FindModelledGrenade()
 {
-    CObj<NRPG::CGlobalGame> game;
-    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
-    auto* actor = MovementPolicyActor(world);
     NDb::CRPGGrenade* authored = nullptr;
     CDBIterator<NDb::CRPGGrenade> grenades(*NDatabase::GetTable<NDb::CRPGGrenade>());
     while (grenades.MoveNext()) {
@@ -64,9 +62,16 @@ static void FlyingGrenadeLifetime(const char* databasePath, const char* resource
             (!authored || candidate->GetRecordID() < authored->GetRecordID()))
             authored = candidate;
     }
-    Require(authored, "grenade lifetime fixture needs a modelled grenade");
+    Require(authored, "the fixture needs a modelled grenade");
+    return authored;
+}
+
+static void FlyingGrenadeLifetime(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
     SRand random;
-    CObj<NDb::CModel> model = authored->pItem->pModel->CreateModel(&random);
+    CObj<NDb::CModel> model = FindModelledGrenade()->pItem->pModel->CreateModel(&random);
     Require(IsValid(model) && IsValid(model->pGeometry), "grenade lifetime fixture needs valid projectile geometry");
     CObj<NDb::CRPGGrenade> testGrenade = new NDb::CRPGGrenade;
     testGrenade->nMaxDelay = 20;
@@ -146,6 +151,49 @@ static void ExplosionVoxelBudget(const char* databasePath, const char* resourceP
     Require(budgets[0] == 4, "single-voxel-radius control changed its budget");
     Require(budgets[1] == 33, "a blast rounded its fractional voxel budget upward");
 }
+
+void InvalidProjectileResources(const char* databasePath, const char* resourcePath, int mode)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    const auto start = actor->GetPosition().GetEyePosition();
+    const auto when = world->GetTime()->GetValue();
+    const CVec3 velocity(1, 0, 1);
+    auto* grenade = FindModelledGrenade();
+    SRand random;
+    CObj<NDb::CModel> model = grenade->pItem->pModel->CreateModel(&random);
+    CObj<NDb::CModel> noGeometry = new NDb::CModel;
+    Require(IsValid(model) && IsValid(model->pGeometry) && !noGeometry->pGeometry,
+        "the projectile fixture did not supply contrasting geometries");
+    const auto before = world->GetMiscObjects()->size();
+    if (mode == 0) {
+        Require(world->ThrowGrenade(start, velocity, when, 0.f, model, grenade, actor) &&
+            world->GetMiscObjects()->size() == before + 1, "the fixture cannot launch a valid grenade");
+        Require(!world->ThrowGrenade(start, velocity, when, 0.f, noGeometry, grenade, actor),
+            "the world accepted a grenade without geometry");
+    } else {
+        CObj<NRPG::IInventoryItem> ammunition;
+        CDBIterator<NDb::CRPGAmmo> ammo(*NDatabase::GetTable<NDb::CRPGAmmo>());
+        while (!ammunition && ammo.MoveNext()) {
+            if (!IsValid(ammo.Get()->pExplosiveBullet)) continue;
+            CDBIterator<NDb::CRPGClip> clips(*NDatabase::GetTable<NDb::CRPGClip>());
+            while (clips.MoveNext()) {
+                if (IsValid(clips.Get()->pItem) && clips.Get()->nAmmoGroup == ammo.Get()->nAmmoGroup) {
+                    ammunition = NRPG::CreateClipItem(clips.Get(), ammo.Get(), 1);
+                    break;
+                }
+            }
+        }
+        auto* rocket = dynamic_cast<NRPG::IClipItem*>(ammunition.GetPtr());
+        Require(rocket && rocket->GetIncQuantity() == 1, "the fixture needs a live rocket ammunition record");
+        NRPG::CAttackPortion hit(100000, 0, 0.f, 5, 5, 0);
+        Require(world->LaunchRocket(start, velocity, when, 3.f, model, hit, rocket, actor, nullptr) &&
+            world->GetMiscObjects()->size() == before + 1, "the fixture cannot launch a valid rocket");
+        Require(!world->LaunchRocket(start, velocity, when, 3.f, mode == 1 ? noGeometry.GetPtr() : model.GetPtr(),
+            hit, mode == 2 ? nullptr : rocket, actor, nullptr), "the world accepted a rocket with missing resources");
+    }
+    Require(world->GetMiscObjects()->size() == before + 1, "the rejected launch changed the world projectile list");
+}
 }
 
 bool RunProjectileTests(const char* mode, int argc, char** argv)
@@ -154,6 +202,7 @@ bool RunProjectileTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "flying-grenade-lifetime") && argc == 4) { FlyingGrenadeLifetime(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "bloody-death-sound-position") && argc == 4) { BloodyDeathSoundPosition(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "explosion-voxel-budget") && argc == 4) { ExplosionVoxelBudget(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "invalid-projectile-resources") && argc == 5) { InvalidProjectileResources(argv[2], argv[3], std::atoi(argv[4])); return true; }
     return false;
 }
 }
