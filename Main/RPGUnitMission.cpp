@@ -34,6 +34,7 @@
 
 #include "RPGUnitMission.h"
 #include "RPGAttackSession.h"
+#include "ModManager.h"
 
 #if defined(_WIN32)
 static CRandomGenerator &MissionRandom() { return random; }
@@ -55,7 +56,7 @@ struct SCriticalType
 };
 typedef vector<SCriticalType> TCriticalSet;
 static vector<TCriticalSet> criticalBar( NDb::N_CL ); //[NDb::N_CL];
-static bool bCBarInitialized = false;
+static int nCriticalBarVersion = -1;
 int Round( float f ) { return int( f + 0.5f ); }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // EToHitType moved to RPGUnitMission.h -- the composite tile to-hit / cover entry points
@@ -2022,10 +2023,13 @@ float CUnitMission::GetCriticalDmgModifier( NWorld::IWorld *pWorld, NAI::EHitLoc
 	static SRand rand;
 	float fRet = 0;
 
-	if ( !bCBarInitialized )
+	const int nDatabaseVersion = CModManager::GetBaseVersion();
+	if ( nCriticalBarVersion != nDatabaseVersion )
 	{
+		for ( TCriticalSet &criticalSet : criticalBar )
+			criticalSet.clear();
 		InitializeCriticals();
-		bCBarInitialized = true;
+		nCriticalBarVersion = nDatabaseVersion;
 	}
 
 	int nRand = rand.Get( 100 );

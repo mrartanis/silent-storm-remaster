@@ -37012,11 +37012,70 @@ static void PicklockItemImport(const char* databasePath)
     Require(checked > 0, "the database has no picklock with an authored item link");
 }
 
+static void CriticalTablesFollowMods(const char* databasePath)
+{
+    const char* userData = std::getenv("S2_USER_DATA_DIR");
+    Require(userData && *userData, "critical table test requires an isolated user directory");
+    const auto root = std::filesystem::absolute(userData) / "critical-db-reload";
+    const auto modPath = root / "mod";
+    std::filesystem::create_directories(modPath);
+    std::filesystem::copy_file(databasePath, root / "game.db", std::filesystem::copy_options::overwrite_existing);
+    {
+        std::ofstream description(modPath / "description.txt");
+        description << "Critical table reload fixture";
+        Require(bool(description), "could not write mod description");
+    }
+    struct WorkingDirectory {
+        std::filesystem::path original = std::filesystem::current_path();
+        ~WorkingDirectory() { std::error_code error; std::filesystem::current_path(original, error); }
+    } directory;
+    std::filesystem::current_path(root);
+    {
+        CFileStream database;
+        database.OpenRead("game.db");
+        NDatabase::Serialize(database, CStructureSaver::READ);
+    }
+
+    auto applyHit = [] {
+        auto* persona = NDb::GetPers(103);
+        auto* armor = NDb::GetArmor(NDb::N_HUMAN_BODY_ARMOR);
+        Require(persona && armor && armor->pMaterial, "critical reload fixture lacks a persona or body armor");
+        int damageType = -1;
+        CDBIterator<NDb::CRPGDmgToArmor> damage(*NDatabase::GetTable<NDb::CRPGDmgToArmor>());
+        while (damage.MoveNext()) {
+            if (damage.Get()->armors[armor->pMaterial->nDR] > 0) {
+                damageType = damage.Get()->GetRecordID();
+                break;
+            }
+        }
+        Require(damageType >= 0, "critical reload fixture lacks a body damage type");
+        CObj<NRPG::IUnitMission> target = NRPG::CreateUnit(persona);
+        for (int type = 0; type < NDb::N_CRIT_TYPES; ++type)
+            if (type != NDb::C_AP_REDUCTION)
+                target->DisableCritical(static_cast<NDb::ECritical>(type), NRPG::CS_DISABLED);
+        NRPG::CAttackPortion hit(100000, damageType, 0.f, 2, 2, 100, 100, nullptr, target, 1.f, -1);
+        GlobalGameRandom().SeedForHarness(813);
+        const auto result = target->ProcessAttack(nullptr, NAI::HL_BODY, &hit, armor);
+        Require(result.nDmg > 0, "critical reload fixture did not apply a body hit");
+        return target->HasCritical(NDb::C_AP_REDUCTION);
+    };
+
+    Require(applyHit(), "base database did not produce the authored torso AP critical");
+    SModInfo mod;
+    mod.szDirectory = "mod";
+    mod.szName = "Critical table reload fixture";
+    Require(CModManager::Activate(vector<SModInfo>{mod}), "activating the mod did not reload the real database");
+    Require(applyHit(), "mod activation left the critical selector pointing to the old database");
+    Require(CModManager::Activate(vector<SModInfo>{}), "removing the mod did not reload the real database");
+    Require(applyHit(), "mod removal left the critical selector pointing to the old database");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "building-indestructible-hp")) { BuildingIndestructibleHP(); return true; }
     if (!std::strcmp(mode, "building-damage-parts")) { BuildingDamageParts(); return true; }
     if (!std::strcmp(mode, "picklock-item-import") && argc == 3) { PicklockItemImport(argv[2]); return true; }
+    if (!std::strcmp(mode, "critical-tables-follow-mods") && argc == 3) { CriticalTablesFollowMods(argv[2]); return true; }
     if(!std::strcmp(mode,"legacy-directional-ambient")) {LegacyDirectionalAmbient();return true;}
     if(!std::strcmp(mode,"convenience-tooltip-ui")) {Require(argc==4,"tooltip requires db/res");ConvenienceTooltipUI(argv[2],argv[3]);return true;}
     if(!std::strcmp(mode,"convenience-mission-clock")) {Require(argc==4,"clock requires db/res");ConvenienceMissionClock(argv[2],argv[3]);return true;}

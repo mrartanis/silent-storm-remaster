@@ -163,6 +163,8 @@ add_test(NAME UpstreamBuildingIndestructibleHP COMMAND UpstreamBugTests building
 add_test(NAME UpstreamBuildingDamageParts COMMAND UpstreamBugTests building-damage-parts)
 if(S2_GAME_DB_PATH)
   add_test(NAME UpstreamPicklockItemImport COMMAND UpstreamBugTests picklock-item-import "${S2_GAME_DB_PATH}")
+  add_test(NAME UpstreamCriticalTablesFollowMods COMMAND UpstreamBugTests critical-tables-follow-mods "${S2_GAME_DB_PATH}")
+  set_tests_properties(UpstreamCriticalTablesFollowMods PROPERTIES ENVIRONMENT "S2_USER_DATA_DIR=${CMAKE_BINARY_DIR}/critical-tables-follow-mods-user")
 endif()
 if(S2_GAME_DIR)
   add_test(NAME DefaultMeleeLifetime COMMAND UpstreamBugTests default-melee-lifetime "${S2_GAME_DIR}/game.db")
