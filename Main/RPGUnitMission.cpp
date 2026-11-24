@@ -2443,7 +2443,7 @@ void CUnitMission::DoRegenerations( NWorld::IWorld *pWorld, int *pnBleed )
 	fa.fdVP = pPanzerklein->fRegenerationValue;
 	fa.nMaxVP = N_MAX_VP;
 	HealVP( fa );
-	HealCriticals( N_MAX_DC );
+	HealCriticals( N_MAX_DC, false );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CUnitMission::IsHero() const

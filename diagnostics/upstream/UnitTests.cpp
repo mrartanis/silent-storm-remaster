@@ -128,6 +128,39 @@ void SelectedCriticalTreatmentLog(const char* databasePath)
         "targeted treatment logged a cure when the requested injury was absent");
 }
 
+void PanzerkleinRegenerationBleeding(const char* databasePath)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database, CStructureSaver::READ);
+    auto* persona = NDb::GetPers(103);
+    Require(IsValid(persona), "PK regeneration fixture lacks an authored pilot");
+    CObj<NRPG::IUnitMission> mission = NRPG::CreateUnit(persona);
+    auto& hp = mission->GetRPGUnit()->Skills(NDb::ST_VP);
+    hp.SetValue(hp.GetMaxValue() - 10);
+
+    CObj<NDb::CPanzerklein> suit = new NDb::CPanzerklein;
+    suit->fRegenerationValue = 4.f;
+    suit->bSingleSlot = false;
+    CObj<NRPG::CDynamicSkill> shell = new NRPG::CDynamicSkill(100, 100);
+    mission->SetPanzerklein(suit, shell, nullptr);
+    mission->ApplyCritical(NRPG::SCritical(NDb::CL_HEAD, NDb::C_BLEEDING, -1, 2.f, NRPG::N_MAX_DC));
+    mission->ApplyCritical(NRPG::SCritical(NDb::CL_LEGS, NDb::C_BLEEDING, -1, 2.f, NRPG::N_MAX_DC + 1));
+    const auto first = mission->TryHealCritical(NRPG::N_MAX_DC, false);
+    Require(first.eCl == NDb::CL_HEAD && first.nDC == NRPG::N_MAX_DC,
+        "fixture did not retain bleeding at the normal difficulty limit");
+
+    int bleeding = -1;
+    mission->DoRegenerations(nullptr, &bleeding);
+    Require(mission->GetHealedVP() == 4 && int(*shell) == 100 && bleeding > 0,
+        "regeneration did not calculate bleeding and heal the pilot as before");
+    Require(mission->TryHealCritical(NRPG::N_MAX_DC, false).eCritical == NDb::C_NONE,
+        "regeneration did not cure bleeding at the normal difficulty limit");
+    const auto remaining = mission->TryHealCritical(NRPG::N_MAX_DC + 1, false);
+    Require(remaining.eCritical == NDb::C_BLEEDING && remaining.eCl == NDb::CL_LEGS && remaining.nDC == NRPG::N_MAX_DC + 1,
+        "regeneration bypassed the critical difficulty limit for bleeding");
+}
+
 static void LookActionPointCost(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -461,6 +494,7 @@ bool RunUnitTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "difficulty-skill-scaling") && argc == 2) { DifficultySkillScaling(); return true; }
     if (!std::strcmp(mode, "take-perk-during-treatment") && argc == 4) { TakePerkDuringTreatment(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "selected-critical-treatment-log") && argc == 3) { SelectedCriticalTreatmentLog(argv[2]); return true; }
+    if (!std::strcmp(mode, "panzerklein-regeneration-bleeding") && argc == 3) { PanzerkleinRegenerationBleeding(argv[2]); return true; }
     if (!std::strcmp(mode, "look-action-point-cost") && argc == 4) { LookActionPointCost(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "inventory-transfer-validation") && argc == 5) { InventoryTransferValidation(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "wish-pose-strafe") && argc == 4) { WishPoseStrafe(argv[2], argv[3]); return true; }
