@@ -36966,9 +36966,32 @@ static void BuildingIndestructibleHP()
     Require(!grid->DamageSpot(protectedCell), "a protected building cell was destroyed after adding HP");
 }
 
+static void BuildingDamageParts()
+{
+    for (int z : {-2, 1, -3}) {
+        CObj<NBuilding::CBuildingGrid> grid = new NBuilding::CBuildingGrid;
+        grid->Setup(3, 3, -2, 1, CVec2(0, 0));
+        const NBuilding::SPoint3 cell(2, 2, z);
+        grid->AddHP(cell, 1);
+        Require(grid->DamageSpot(cell), "the building voxel must be destroyed before refreshing parts");
+
+        vector<NBuilding::SPart> parts;
+        grid->GetUpdatedParts(&parts);
+        const vector<int> floors = z == -2 ? vector<int>{-1}
+            : z == 1 ? vector<int>{-1, 0} : vector<int>{-2, -1};
+        Require(parts.size() == floors.size() * 4, "voxel damage refreshed the wrong number of building parts");
+        for (int floor : floors)
+            for (int x : {0, 1})
+                for (int y : {0, 1})
+                    Require(std::find(parts.begin(), parts.end(), NBuilding::SPart(floor, x, y)) != parts.end(),
+                        "voxel damage missed a neighboring building part");
+    }
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "building-indestructible-hp")) { BuildingIndestructibleHP(); return true; }
+    if (!std::strcmp(mode, "building-damage-parts")) { BuildingDamageParts(); return true; }
     if(!std::strcmp(mode,"legacy-directional-ambient")) {LegacyDirectionalAmbient();return true;}
     if(!std::strcmp(mode,"convenience-tooltip-ui")) {Require(argc==4,"tooltip requires db/res");ConvenienceTooltipUI(argv[2],argv[3]);return true;}
     if(!std::strcmp(mode,"convenience-mission-clock")) {Require(argc==4,"clock requires db/res");ConvenienceMissionClock(argv[2],argv[3]);return true;}
