@@ -36,6 +36,8 @@ public:
 class CUnitState: public CObjectBase
 {
 protected:
+	CCommandExecute* CreateInventoryAwareExecutor( CCmd *pCmd, EUnitCommandResult *pResult );
+
 	ZDATA
 	CPtr<CUnitServer> pUS;
 public:

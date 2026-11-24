@@ -624,6 +624,45 @@ void QueuedReloadMagazine(const char* databasePath, const char* resourcePath, bo
         selected->GetIncQuantity() == (removed ? 2 : 0) && alternative->GetIncQuantity() == 2,
         "a queued reload replaced its selected magazine or consumed detached ammunition");
 }
+
+void InventoryCursorCommands(const char* databasePath, const char* resourcePath)
+{
+    using namespace NWorld;
+    ReloadFixture fixture(databasePath, resourcePath);
+    auto* actor = fixture.actor;
+    fixture.world->GivePlayerTurn(actor->GetTBSPlayer());
+    fixture.installed->GetItem()->nQuantity = 0;
+    auto held = fixture.StockClip(2);
+    fixture.StockClip(3);
+    const SItem hand(actor, SItem::HAND, held);
+    const auto pose = actor->GetPosition();
+    CObj<CCmdLook> look = new CCmdLook(pose.pos);
+    EUnitCommandResult result = UCR_UNAVAILABLE;
+    CObj<CCommandExecute> order = actor->CreateExecutor(look, &result);
+    Require(order && result == UCR_OK, "normally valid look command did not pass its control query");
+
+    fixture.inventory->Take(held);
+    actor->GetTBSPlayer()->SetInHandItem(hand);
+    CObj<CCmdLoadWeapon> load = new CCmdLoadWeapon(fixture.weapon, hand);
+    CObj<CCmdReload> reload = new CCmdReload;
+    order = actor->CreateExecutor(load, &result);
+    Require(order && result == UCR_OK, "the occupied cursor made its own ammunition unavailable to load");
+    order = actor->CreateExecutor(reload, &result);
+    Require(order && result == UCR_OK, "the occupied cursor blocked reloading from the backpack");
+    order = actor->CreateExecutor(look, &result);
+    Require(!order && result == UCR_UNAVAILABLE, "a unit accepted an unrelated order while an item was on the cursor");
+
+    CTPoint<int> cell;
+    Require(fixture.inventory->FindPlace(held, &cell), "fixture has no slot to place the held magazine");
+    CObj<CCmdMoveInventoryItem> place = new CCmdMoveInventoryItem(hand, SItem(actor, SItem::BACKPACK, cell, nullptr));
+    order = actor->CreateExecutor(place, &result);
+    Require(order && result == UCR_OK, "the held item could not be returned to the backpack");
+    order->Run();
+    SItem after;
+    Require(!actor->GetTBSPlayer()->GetInHandItem(&after), "placing the item did not clear the cursor");
+    order = actor->CreateExecutor(look, &result);
+    Require(order && result == UCR_OK, "the unit ignored a valid order after releasing its cursor item");
+}
 }
 
 bool RunUnitTests(const char* mode, int argc, char** argv)
@@ -649,6 +688,7 @@ bool RunUnitTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "spent-magazine-cleanup") && argc == 4) { MatchingAmmoTransfer(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "queued-reload-magazine") && argc == 4) { QueuedReloadMagazine(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "queued-reload-removed-magazine") && argc == 4) { QueuedReloadMagazine(argv[2], argv[3], true); return true; }
+    if (!std::strcmp(mode, "inventory-cursor-commands") && argc == 4) { InventoryCursorCommands(argv[2], argv[3]); return true; }
     return false;
 }
 }
