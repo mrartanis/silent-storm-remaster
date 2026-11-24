@@ -15,6 +15,7 @@
 #include "wTSFlags.h"
 #include "Bound.h"
 #include "wInterface.h"
+#include "wMineGrid.h"
 #include "../MiscDll/LogStream.h"
 #if !defined(_WIN32)
 template<std::size_t N, class... Args>
@@ -1995,6 +1996,8 @@ void CPathNetwork::DisableLocks( CObjectBase *pUnit )
 			if ( k->second.bLocked && IsLockerUnit( k->first ) )
 				for ( unsigned int n = 0; n < k->second.places.size(); ++n )
 					LockUnlockPoint( k->second.places[n], true );
+		for ( const auto &place : mineTempLocks )
+			LockUnlockPoint( place, true );
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2087,25 +2090,28 @@ void CPathNetwork::LockSelected( const list<CObjectBase*> &selected )
 				SFlipper *pFlipper = GetFlipper( pLocker );
 				pFlipper->nFixedFlags |= F_VISIBLE_TRAP;
 			}
-			else
+			else if ( CDynamicCast<NWorld::IMine> pMine{pLocker} )
 			{
-				CDynamicCast<NWorld::IMine> pMine(pLocker);
-				if (pMine)
-				{
-					//mineTempLocks.push_back( pMine->GetPlace().p );
-					//LockUnlockPoint( pMine->GetPlace().p, true );
-				}
-				else
-				{
-					//ASSERT(0);
-				}
+				const SSphere area( pMine->GetMinePos(), 0.5f );
+				vector<SPathPlace> candidates;
+				for ( const auto &layer : layers )
+					layer->AddNearPoints( area, &candidates, false );
+				for ( const auto &place : candidates )
+					if ( NWorld::IsMineTriggerPoint( area.ptCenter, GetCP( place ) ) )
+						mineTempLocks.push_back( place );
 			}
 		}
 	}
+	for ( const auto &place : mineTempLocks )
+		LockUnlockPoint( place, true );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CPathNetwork::UnlockSelected()
 {
+	// Tile locks are booleans. Remove temporary locks before restoring unit footprints.
+	for ( const auto &place : mineTempLocks )
+		LockUnlockPoint( place, false );
+	mineTempLocks.clear();
 	for ( CLocksHash::iterator i = lockedPlaces.begin(); i != lockedPlaces.end(); )
 	{
 		// Restoring a stale owner's footprint may erase its record.
@@ -2114,9 +2120,6 @@ void CPathNetwork::UnlockSelected()
 	}
 	for ( vector<SFlipper>::iterator it = flippers.begin(); it != flippers.end(); ++it )
 		it->nFixedFlags &= ~F_VISIBLE_TRAP;
-	for ( vector<SPathPlace>::iterator it = mineTempLocks.begin(); it != mineTempLocks.end(); ++it )
-		LockUnlockPoint( *it, false );
-	mineTempLocks.clear();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CObjectBase* CPathNetwork::GetWhoLocksThisPlace( const SPathPlace &p ) const

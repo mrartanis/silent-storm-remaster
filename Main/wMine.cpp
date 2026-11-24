@@ -6,6 +6,7 @@
 #include "../Misc/Geom.h"
 #endif
 #include "wMine.h"
+#include "wMineGrid.h"
 #include "../Misc/RandomGen.h"
 #include "../DBFormat/DataRPG.h"
 #include "../DBFormat/DataFormat.h"
@@ -112,23 +113,9 @@ void GoBoom( IMine *pMine )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CMineTracker
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-/*static NAI::SPathPlace GetNormalized( const NAI::SPathPlace &_place )
-{
-	NAI::SPathPlace place( _place.GetX(), _place.GetY(), _place.GetLayer() );
-	return place;
-}*/
-const float F_DISCR_STEP = 0.25f;
-static CVec3 GetNormalized( const CVec3 &_v )
-{
-	return CVec3( 
-		Float2Int( _v.x / F_DISCR_STEP ) * F_DISCR_STEP,
-		Float2Int( _v.y / F_DISCR_STEP ) * F_DISCR_STEP,
-		Float2Int( _v.z / F_DISCR_STEP ) * F_DISCR_STEP );
-}
-////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMineTracker::AddMine( CMine *p, const CVec3 &_vPlace )
 {
-	CVec3 vPlace( GetNormalized( _vPlace ) );
+	const CVec3 vPlace = QuantizeMinePosition( _vPlace );
 	for ( int nZ = -1; nZ <= 1; ++nZ )
 	{
 		for ( int nY = -1; nY <= 1; ++nY )
@@ -136,9 +123,9 @@ void CMineTracker::AddMine( CMine *p, const CVec3 &_vPlace )
 			for ( int nX = -1; nX <= 1; ++nX )
 			{
 				CVec3 vPos( vPlace );
-				vPos.x += nX * F_DISCR_STEP;
-				vPos.y += nY * F_DISCR_STEP;
-				vPos.z += nZ * F_DISCR_STEP;
+				vPos.x += nX * F_MINE_GRID_STEP;
+				vPos.y += nY * F_MINE_GRID_STEP;
+				vPos.z += nZ * F_MINE_GRID_STEP;
 				CMineSet &ms = mines[ vPos ];
 				if ( !IsInSet( ms, p ) )
 					ms.push_back( p );
@@ -167,7 +154,7 @@ bool CMineTracker::GetMines( const vector<CVec3> &places, vector<CPtr<CMine> > *
 	pRes->resize(0);
 	for ( int k = 0; k < places.size(); ++k )
 	{
-		CVec3 v( GetNormalized( places[k] ) );
+		const CVec3 v = QuantizeMinePosition( places[k] );
 		CPlaceMinesHash::const_iterator i = mines.find( v );
 		if ( i != mines.end() )
 		{
