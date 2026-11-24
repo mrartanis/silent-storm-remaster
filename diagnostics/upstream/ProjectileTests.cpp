@@ -10,6 +10,7 @@
 #include "../../Main/aiInterval.h"
 #include "../../Main/RPGAttackMech.h"
 #include "../../Main/RPGBullet.h"
+#include "../../Main/RPGGame.h"
 #include "../../Main/RPGUnit.h"
 #include "../../Main/RPGUnitMission.h"
 #include "../../Main/RPGItem.h"
@@ -261,6 +262,32 @@ void StuckKnifeFloor(const char* databasePath, const char* resourcePath)
     const auto* frozen = world->GetFrozenItem(item);
     Require(frozen && frozen->GetFloor() == floor, "the stuck knife lost the floor of the surface it hit");
 }
+
+void ShotRayWithoutCoverCandidates(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    auto* map = world->GetAIMap();
+    map->Sync();
+    const CVec3 source = actor->GetAttackOrigin(actor->GetPosition());
+    const CVec3 target = source - CVec3(0.3f, 0.2f, 10.f);
+    NRPG::CAttackPortion attack(100000, 0, 0.f, 5, 5, 0);
+    const int mask = NWorld::TS_COVER | NWorld::TS_ITEM_BLOCKER | NWorld::TS_FRAGMENTED;
+
+    CObj<NRPG::CCoverInfo> unrestricted = world->GetGame()->CalcCoversForTile(source, attack, actor, target, 0.f, mask);
+    Require(NRPG::CanShoot(unrestricted), "fixture has no usable rays without the muzzle clearance gate");
+    NRPG::SAttackRayInfo ray(attack, VNULL3, VNULL3, false, 0.f, 30.f, nullptr);
+    Require(NRPG::PrepareAttackRay(map, unrestricted, &ray, 1.f) && fabs2(ray.vDir - V3_AXIS_Z) > 1.f,
+        "control shot did not select a real trajectory toward the target");
+
+    CObj<NRPG::CCoverInfo> blocked = world->GetGame()->CalcCoversForTile(source, attack, actor, target, 4.f, mask);
+    Require(!NRPG::CanShoot(blocked), "nearby terrain did not block the entire muzzle cone");
+    ray.vOrigin = VNULL3;
+    Require(!NRPG::PrepareAttackRay(map, blocked, &ray, 1.f) && !ray.bTargetIsHit && ray.trailPoints.empty(),
+        "a blocked muzzle yielded a selected ray, a hit or a stale hit trail");
+    Require(ray.vOrigin == source && ray.vDir == V3_AXIS_Z,
+        "a blocked muzzle did not return the finite upward miss from the attack origin");
+}
 }
 
 bool RunProjectileTests(const char* mode, int argc, char** argv)
@@ -271,6 +298,7 @@ bool RunProjectileTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "explosion-voxel-budget") && argc == 4) { ExplosionVoxelBudget(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "invalid-projectile-resources") && argc == 5) { InvalidProjectileResources(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "stuck-knife-floor") && argc == 4) { StuckKnifeFloor(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "shot-ray-without-cover-candidates") && argc == 4) { ShotRayWithoutCoverCandidates(argv[2], argv[3]); return true; }
     return false;
 }
 }
