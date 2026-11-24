@@ -4346,6 +4346,7 @@ if(S2_GAME_DIR)
   add_test(NAME UpstreamWishPoseStrafe COMMAND UpstreamBugTests wish-pose-strafe "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   add_test(NAME UpstreamHideEmptyRosterSlot COMMAND UpstreamBugTests hide-empty-roster-slot "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   add_test(NAME UpstreamFrozenItemArmorResistance COMMAND UpstreamBugTests frozen-item-armor-resistance "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
+  add_test(NAME UpstreamFlyingGrenadeLifetime COMMAND UpstreamBugTests flying-grenade-lifetime "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   set_tests_properties(UpstreamAIRoamingCurrentPosition PROPERTIES WORKING_DIRECTORY "${S2_GAME_DIR}" TIMEOUT 60)
   set_tests_properties(UpstreamAIIdle PROPERTIES WORKING_DIRECTORY "${S2_GAME_DIR}" TIMEOUT 60)
   set_target_properties(Game PROPERTIES

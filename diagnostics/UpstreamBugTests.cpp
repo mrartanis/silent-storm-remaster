@@ -37587,6 +37587,42 @@ static void FrozenItemArmorResistance(const char* databasePath, const char* reso
         "a positive-resistance material stopped applying damage");
 }
 
+static void FlyingGrenadeLifetime(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* actor = MovementPolicyActor(world);
+    NDb::CRPGGrenade* authored = nullptr;
+    CDBIterator<NDb::CRPGGrenade> grenades(*NDatabase::GetTable<NDb::CRPGGrenade>());
+    while (grenades.MoveNext()) {
+        auto* candidate = grenades.Get();
+        if (IsValid(candidate->pItem) && IsValid(candidate->pItem->pModel) &&
+            (!authored || candidate->GetRecordID() < authored->GetRecordID()))
+            authored = candidate;
+    }
+    Require(authored, "grenade lifetime fixture needs a modelled grenade");
+    SRand random;
+    CObj<NDb::CModel> model = authored->pItem->pModel->CreateModel(&random);
+    Require(IsValid(model) && IsValid(model->pGeometry), "grenade lifetime fixture needs valid projectile geometry");
+    CObj<NDb::CRPGGrenade> testGrenade = new NDb::CRPGGrenade;
+    testGrenade->nMaxDelay = 20;
+    const auto release = world->GetTime()->GetValue();
+    const size_t beforeLaunch = world->GetMiscObjects()->size();
+    CObj<NWorld::IDynamicObject> grenade = dynamic_cast<NWorld::IDynamicObject*>(
+        world->ThrowGrenade(actor->GetPosition().GetEyePosition(), CVec3(1, 0, 1), release,
+            0.f, model, testGrenade, actor));
+    Require(grenade && world->GetMiscObjects()->size() == beforeLaunch + 1,
+        "the real world did not create a flying grenade");
+    world->GetTime()->Set(release + 15000);
+    MarkNewDGFrame();
+    Require(!grenade->Segment(), "a flying grenade expired before the lifetime boundary");
+    world->GetTime()->Set(release + 15001);
+    MarkNewDGFrame();
+    Require(grenade->Segment(), "the flying grenade's expiry still depends on its fuse");
+    Require(world->GetMiscObjects()->size() == beforeLaunch + 1,
+        "the expired grenade emitted a new world object before its fuse");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "building-indestructible-hp")) { BuildingIndestructibleHP(); return true; }
@@ -37603,6 +37639,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "wish-pose-strafe") && argc == 4) { WishPoseStrafe(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "hide-empty-roster-slot") && argc == 4) { HideWithEmptyRosterSlot(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "frozen-item-armor-resistance") && argc == 4) { FrozenItemArmorResistance(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "flying-grenade-lifetime") && argc == 4) { FlyingGrenadeLifetime(argv[2], argv[3]); return true; }
     if(!std::strcmp(mode,"legacy-directional-ambient")) {LegacyDirectionalAmbient();return true;}
     if(!std::strcmp(mode,"convenience-tooltip-ui")) {Require(argc==4,"tooltip requires db/res");ConvenienceTooltipUI(argv[2],argv[3]);return true;}
     if(!std::strcmp(mode,"convenience-mission-clock")) {Require(argc==4,"clock requires db/res");ConvenienceMissionClock(argv[2],argv[3]);return true;}
