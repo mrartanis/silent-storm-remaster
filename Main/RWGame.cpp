@@ -1375,12 +1375,17 @@ void CRenderGame::ResetTiming()
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail @0x2cb1c0
-void CRenderGame::UpdateSound( bool bAdvanceTime, CTransformStack *pTS, STime currentTime )
+void CRenderGame::UpdateSound( bool bAdvanceTime, CTransformStack *pTS, STime )
 {
+	// Use the same simulation time as the world render, including steps taken
+	// before the first audio frame. LAN renders directly against the aim clock.
+	const NWorld::CWorld *network = dynamic_cast<NWorld::CWorld*>( pWorld.GetPtr() );
+	const STime sceneTime = network && network->bNetworkArena
+		? pWorld->GetAimTime()->GetValue() : timer.GetTime()->GetValue();
 	if ( IsValid( pSound ) )
-		pSound->Update( bAdvanceTime, pTS, currentTime );
+		pSound->Update( bAdvanceTime, pTS, sceneTime );
 	if ( IsValid( pUnitSounds ) )
-		pUnitSounds->Update( bAdvanceTime, pTS, currentTime );
+		pUnitSounds->Update( bAdvanceTime, pTS, sceneTime );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail @0x2cb9b0: drive the day's weather lighting + precipitation effect. Called from the

@@ -2699,7 +2699,7 @@ static void DelayedSoundEffectAge(const char* databasePath,bool infiniteLoop = f
     { CStructureSaver reader(saved,CStructureSaver::READ,&references); static_cast<CObjectBase*>(mixer.GetPtr())->operator&(reader); }
     CObj<ICamera> camera = ::CreateCamera(CAMERA_PC);
     CTransformStack transform; camera->GetTransform(&transform,CVec2(1024,768));
-    auto tick = [&](STime time) { MarkNewDGFrame(); mixer->Update(true,&transform,time); };
+    auto tick = [&](STime time) { MarkNewDGFrame(); mixer->Update(true,&transform,9000 + time); };
     auto playingChannel = [&]() {
         int channel = -1;
         // Native handles increase across sequential starts; maxChannels only caps live voices.
@@ -2812,20 +2812,70 @@ static void SoundMixerClockCatchUp()
     saved.Seek(0);
     { CStructureSaver reader(saved,CStructureSaver::READ,&references); static_cast<CObjectBase*>(mixer.GetPtr())->operator&(reader); }
     CTransformStack transform; transform.Init();
-    mixer->Update(true,&transform,1000);
-    Require(clock.GetTime()->GetValue() == 5000, "first mixer update advanced before establishing its restored clock baseline");
-    mixer->Update(true,&transform,1100);
+    mixer->Update(true,&transform,5000);
+    Require(clock.GetTime()->GetValue() == 5000, "the first mixer update changed its matching restored epoch");
+    mixer->Update(true,&transform,5100);
     Require(clock.GetTime()->GetValue() == 5100, "ordinary mixer-frame control did not advance its actual shared clock");
-    mixer->Update(true,&transform,6100);
+    mixer->Update(true,&transform,10100);
     Require(clock.GetTime()->GetValue() == 10100,
         "the native sound mixer lost most of a skipped interval by clamping its clock advance to one 150ms step");
-    mixer->Update(false,&transform,9000);
+    mixer->Update(false,&transform,10100);
     Require(clock.GetTime()->GetValue() == 10100, "a paused mixer advanced while consuming its clock baseline");
-    mixer->Update(true,&transform,9300);
+    mixer->Update(true,&transform,10400);
     Require(clock.GetTime()->GetValue() == 10400, "resuming the mixer replayed paused time or lost the resumed interval");
     mixer->ResetTiming();
-    mixer->Update(true,&transform,20000);
+    mixer->Update(true,&transform,10400);
     Require(clock.GetTime()->GetValue() == 10400, "resetting mixer timing caused a spurious catch-up jump");
+}
+
+static void FirstRenderSoundClock()
+{
+    CObj<NWorld::CWorld> world = new NWorld::CWorld(nullptr);
+    CObj<NGScene::GameViewFixture> view = new NGScene::GameViewFixture;
+    CObj<NSound::ISoundScene> sound = NSound::CreateSoundScene(nullptr, nullptr, world->GetAimTime());
+    CObj<NRender::IRenderGame> renderer = NRender::CreateRenderGame(world, view, sound);
+
+    CPtr<NRender::IRenderSound> worldMixer, unitMixer;
+    CStructureNetworkContext renderRefs;
+    auto renderFields = BorrowedObjectFields(renderer, &renderRefs);
+    {
+        CStructureSaver reader(renderFields, CStructureSaver::READ, &renderRefs);
+        reader.Add(15, &worldMixer);
+        reader.Add(16, &unitMixer);
+    }
+    Require(IsValid(worldMixer) && IsValid(unitMixer), "the renderer did not construct its two real mixers");
+    auto getClock = [](NRender::IRenderSound* mixer) {
+        CTimeCounter clock;
+        CStructureNetworkContext refs;
+        auto fields = BorrowedObjectFields(mixer, &refs);
+        CStructureSaver reader(fields, CStructureSaver::READ, &refs);
+        reader.Add(3, &clock);
+        return CObj<CCTime>(clock.GetTime());
+    };
+    auto worldClock = getClock(worldMixer);
+    auto unitClock = getClock(unitMixer);
+    Require(worldClock->GetValue() == 0 && unitClock->GetValue() == 0,
+        "the render mixers did not start on the world's initial epoch");
+
+    renderer->FastUpdate(1000);
+    for (STime time = 1100; time <= 6000; time += 100)
+        renderer->FastUpdate(time);
+    const auto afterSkip = renderer->GetTime()->GetValue();
+    Require(afterSkip == 5000, "the simulation did not advance before its first sound frame");
+    unitClock->Set(9000);
+    CTransformStack transform;
+    transform.Init();
+    renderer->UpdateSound(true, &transform, 6000);
+    Require(worldClock->GetValue() == afterSkip && unitClock->GetValue() == afterSkip,
+        "the first rendered sound frame lost simulated time or retained a stale saved clock");
+    renderer->UpdateSound(false, &transform, 7000);
+    Require(worldClock->GetValue() == afterSkip && unitClock->GetValue() == afterSkip,
+        "a paused sound frame used elapsed wall time");
+    world->bNetworkArena = true;
+    world->GetAimTime()->Set(9050);
+    renderer->UpdateSound(true, &transform, 10000);
+    Require(worldClock->GetValue() == 9050 && unitClock->GetValue() == 9050,
+        "LAN sound did not follow the aim clock used by world rendering");
 }
 
 
@@ -38240,6 +38290,7 @@ static bool RunRegressionMode(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "forced-tool-targeting-entry") && argc == 3) { ForcedToolTargetingEntry(argv[2]); return true; }
     if (!std::strcmp(mode, "tool-targeting-cursor-refresh") && argc == 3) { ToolTargetingCursorRefresh(argv[2]); return true; }
     if (!std::strcmp(mode, "sound-mixer-clock-catchup")) { SoundMixerClockCatchUp(); return true; }
+    if (!std::strcmp(mode, "first-render-sound-clock")) { FirstRenderSoundClock(); return true; }
     if (!std::strcmp(mode, "hotseat-opponent-visibility")) { HotseatOpponentVisibility(); return true; }
     if (!std::strcmp(mode, "restored-clue-close-notification")) { RestoredClueCloseNotification(); return true; }
     if (!std::strcmp(mode, "hit-label-colour-human") && argc==4) { RejectedHitLabelText(argv[2],argv[3],0); return true; }

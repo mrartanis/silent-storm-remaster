@@ -88,18 +88,11 @@ void CRenderSound::Add2DSound( STime tStart, NDb::CSound *pSound )
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CRenderSound::Update( bool bAdvanceTime, CTransformStack *pTS, STime currentTime )
+void CRenderSound::Update( bool, CTransformStack *pTS, STime currentTime )
 {
-	// Consume the complete supplied delta before Sync while retaining the
-	// counter's original 150ms increment. Pause and reset still set the baseline.
-	STime t = timer.GetPrevTime();
-	if ( t == 0 )
-		t = currentTime;
-	do
-	{
-		t = t < currentTime ? t + Min( (STime)150, currentTime - t ) : currentTime;
-		timer.Advance( bAdvanceTime, t );
-	} while ( t < currentTime );
+	// Sync can introduce old sounds. Determine their age against the render
+	// clock even on the first frame or just after restoring a saved mixer.
+	timer.SetCurrent( currentTime );
 	Sync();
 	pScene->Draw( pTS );
 }

@@ -667,7 +667,7 @@ void CMissionBase::SetLightMode( int _nLightMode )
 // retail CMissionBase::RenderFrame @0x1a19f0 (was the dev CMission::RenderFrame -- the body only
 // touches base members, so it lands here per the retail placement; CMission no longer overrides it).
 // Param 2 is the ADVANCE flag (retail PDB: (int,bool,ICamera*,bool)) -- the old dev `const STime&`
-// was a mis-decode. Sound uses GetGameTime (including skipped intervals); UI uses GetUITime().
+// was a mis-decode. The renderer synchronizes sound to its simulation clock. UI uses GetUITime().
 void CMissionBase::RenderFrame( int nMode, bool bAdvanceTime, ICamera *pCamera, bool bShowUnits )
 {
 	if ( nMode & N_RENDERMODE_3D )
@@ -675,7 +675,6 @@ void CMissionBase::RenderFrame( int nMode, bool bAdvanceTime, ICamera *pCamera, 
 		CTransformStack ts;
 		pCamera->GetTransform( &ts, pScene->GetScreenRect() );
 
-		// Include skipped game intervals on the same clock used by sound events.
 		pRender->UpdateSound( bAdvanceTime, &ts, GetGameTime() );
 
 		const CTRect<float> &rScreen = pCamera->GetScreenRect();

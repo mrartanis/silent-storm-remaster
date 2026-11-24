@@ -1066,6 +1066,8 @@ add_test(NAME UpstreamLadderPassabilityFacing COMMAND UpstreamBugTests ladder-pa
 add_test(NAME UpstreamAnchorPassability COMMAND UpstreamBugTests anchor-passability)
 add_test(NAME UpstreamSimpleCrossLayerPoseEntry COMMAND UpstreamBugTests simple-cross-layer-pose-entry)
 add_test(NAME UpstreamSoundMixerClockCatchUp COMMAND UpstreamBugTests sound-mixer-clock-catchup)
+add_test(NAME UpstreamFirstRenderSoundClock COMMAND UpstreamBugTests first-render-sound-clock)
+set_tests_properties(UpstreamFirstRenderSoundClock PROPERTIES ENVIRONMENT "S2_AUDIO_HEADLESS=1")
 add_test(NAME UpstreamHotseatOpponentVisibility COMMAND UpstreamBugTests hotseat-opponent-visibility)
 add_test(NAME UpstreamRestoredClueCloseNotification COMMAND UpstreamBugTests restored-clue-close-notification)
 add_test(NAME UpstreamScaledEditTextLayout COMMAND UpstreamBugTests scaled-edit-text-layout)

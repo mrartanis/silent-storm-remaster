@@ -26,8 +26,8 @@ namespace NRender
 class IRenderSound: public CObjectBase
 {
 public:
-	// retail @0x2d5740 shape: (bool bAdvanceTime, ...) -- the flag freezes the mixer clock while paused
-	virtual void Update( bool bAdvanceTime, CTransformStack *pTS, STime currentTime ) = 0;
+	// The renderer supplies its already-paused or simulated clock.
+	virtual void Update( bool bAdvanceTime, CTransformStack *pTS, STime sceneTime ) = 0;
 	virtual void ResetTiming() = 0;
 	// retail IRenderSound vtbl+0x18: CRenderGame::UpdateVisible re-points the unit-sound mixer at the
 	// same visibility-filtered source it hands rUnits (voice fog-of-war gate).
