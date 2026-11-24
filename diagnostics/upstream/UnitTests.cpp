@@ -5,10 +5,12 @@
 #include "../../Main/wUnitExec.h"
 #include "../../Main/RPGUnit.h"
 #include "../../Main/RPGUnitMission.h"
+#include "../../Main/RPGCritical.h"
 #include "../../Main/RPGItem.h"
 #include "../../Main/RPGItemMap.h"
 #include "../../Main/RPGItemSet.h"
 #include "../../Main/wUnitAttackExec.h"
+#include "../../Main/rpgPerk.h"
 #include "../../Main/rpgGlobal.h"
 #include "../../DBFormat/DataRPG.h"
 #include <cstring>
@@ -28,6 +30,59 @@ void DifficultySkillScaling()
     increased->ScaleForDifficulty(1.25f);
     Require(int(*increased) == 27 && increased->GetMaxValue() == 33 && increased->GetXPPart() == 7,
         "raising the difficulty cap rounded up or increased the unit's current value");
+}
+
+void TakePerkDuringTreatment(const char* databasePath, const char* resourcePath)
+{
+    using namespace NWorld;
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* actor = MovementPolicyActor(world);
+    world->GivePlayerTurn(actor->GetTBSPlayer());
+    auto* mission = actor->GetUnitRPG();
+    auto* unit = mission->GetRPGUnit();
+    auto* inventory = mission->GetInventory();
+    auto* record = NDatabase::GetTable<NDb::CRPGFirstAid>()->GetRecord(1);
+    Require(record && record->effect == NDb::FAE_NORMAL, "fixture lacks the ordinary first-aid kit");
+    CObj<NRPG::CFirstAidItem> kit = new NRPG::CFirstAidItem(record);
+    if (inventory->Get(NDb::SLOT_1))
+        inventory->TakeOff(NDb::SLOT_1);
+    Require(inventory->Equip(NDb::SLOT_1, kit) && inventory->Activate(NDb::SLOT_1),
+        "fixture could not ready the first-aid kit");
+    actor->animator.SetActiveItem(true);
+    actor->animator.SetWeaponAnimation(mission->GetWeaponType());
+    auto& hp = unit->Skills(NDb::ST_VP);
+    hp.SetValue(hp.GetMaxValue() / 2);
+    mission->ApplyCritical(NRPG::SCritical(NDb::CL_ANY, NDb::C_VP));
+    world->GetAIMap()->Sync();
+
+    auto* perks = unit->GetPerksTree();
+    perks->AddPerkPoints(1);
+    vector<CPtr<NRPG::CPerk>> available;
+    perks->GetAvailablePerks(&available);
+    Require(!available.empty(), "fixture has no purchasable perk");
+    const int id = available.front()->GetDBPerk()->GetRecordID();
+    const int points = perks->GetPerkPoints();
+    CObj<CCmdTakePerk> purchase = new CCmdTakePerk(id);
+    EUnitCommandResult result = UCR_UNAVAILABLE;
+    CObj<CCommandExecute> order = actor->CreateExecutor(purchase, &result);
+    Require(order && result == UCR_OK && !unit->HasPerk(id), "idle unit cannot validate its available perk");
+
+    CObj<CExecHeal> treatment = new CExecHeal(actor, actor);
+    Require(treatment->CanDoIt(actor->GetPosition()) == UCR_OK, "fixture cannot begin treating its wound");
+    treatment->Run();
+    treatment->AnimationFinished();
+    Require(mission->HasCritical(NDb::C_PATIENT), "fixture did not remain in the treatment state");
+    const int ap = actor->GetAP();
+    const int doses = kit->GetIncQuantity();
+    order = actor->CreateExecutor(purchase, &result);
+    Require(order && result == UCR_OK, "active treatment blocked an available perk purchase");
+    order->Run();
+    Require(unit->HasPerk(id) && perks->GetPerkPoints() == points - 1 && actor->GetAP() == ap &&
+        kit->GetIncQuantity() == doses && mission->HasCritical(NDb::C_PATIENT),
+        "purchasing a perk did not spend precisely one point or interrupted the treatment");
+    order = actor->CreateExecutor(purchase, &result);
+    Require(!order && result == UCR_GENERAL_FAILURE, "treatment bypassed ordinary perk eligibility");
 }
 
 static void LookActionPointCost(const char* databasePath, const char* resourcePath)
@@ -361,6 +416,7 @@ void QueuedReloadMagazine(const char* databasePath, const char* resourcePath, bo
 bool RunUnitTests(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "difficulty-skill-scaling") && argc == 2) { DifficultySkillScaling(); return true; }
+    if (!std::strcmp(mode, "take-perk-during-treatment") && argc == 4) { TakePerkDuringTreatment(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "look-action-point-cost") && argc == 4) { LookActionPointCost(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "inventory-transfer-validation") && argc == 5) { InventoryTransferValidation(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "wish-pose-strafe") && argc == 4) { WishPoseStrafe(argv[2], argv[3]); return true; }

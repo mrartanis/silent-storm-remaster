@@ -755,10 +755,12 @@ void CUnitStateHealer::OnUnitDied( CUnitServer *pUnit )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CCommandExecute* CUnitStateHealer::CreateExecutor( CCmd *pCmd, EUnitCommandResult *pResult ) 
 {
+	CObj<CCmd> pHold = pCmd;
 	if ( !IsCriticalsFailCommand( pCmd, pResult ) )
 	{
 		CDynamicCast<CCmdCancel> pCancel(pCmd);
-		if (pCancel)
+		CDynamicCast<CCmdTakePerk> pTakePerk(pCmd);
+		if ( pCancel || pTakePerk )
 			return NWorld::CreateExecutor( pUS, pCmd, pResult );
 	}
 	//
