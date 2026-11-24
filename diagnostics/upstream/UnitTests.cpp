@@ -250,6 +250,47 @@ static void InventoryTransferValidation(const char* databasePath, const char* re
     }
 }
 
+void InventoryTransferInactivePose(const char* databasePath, const char* resourcePath)
+{
+    using namespace NWorld;
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* actor = MovementPolicyActor(world);
+    CObj<CUnitServer> recipient = world->AddUnitInGame(actor->GetPosition().pos.p,
+        NRPG::CreateUnit(NDb::GetPers(103)), actor->GetTBSPlayer());
+    Require(recipient && recipient->CanFight() && recipient->GetTBSPlayer() == actor->GetTBSPlayer(),
+        "inactive transfer fixture could not deploy its recipient");
+    world->GivePlayerTurn(actor->GetTBSPlayer());
+    auto* sourceInventory = actor->GetUnitRPG()->GetInventory();
+    auto* targetInventory = recipient->GetUnitRPG()->GetInventory();
+    CObj<NDb::CRPGItem> record = new NDb::CRPGItem;
+    record->sSize = CTPoint<int>(1, 1);
+    CObj<NRPG::IInventoryItem> item = NRPG::CreateDummyItem(record);
+    CTPoint<int> sourceCell, recipientCell;
+    Require(sourceInventory->FindPlace(item, &sourceCell) && sourceInventory->Place(sourceCell, item) &&
+        targetInventory->FindPlace(item, &recipientCell), "inactive transfer fixture lacks backpack space");
+    const SItem source(actor, SItem::BACKPACK, sourceCell, item);
+    const auto original = actor->GetPosition();
+    CObj<CCmdMoveInventoryItem> transfer = new CCmdMoveInventoryItem(
+        source, SItem(recipient, SItem::BACKPACK, recipientCell, nullptr));
+    CObj<CCmdMoveInventoryItem> rearrange = new CCmdMoveInventoryItem(
+        source, SItem(actor, SItem::BACKPACK, sourceCell, nullptr));
+    EUnitCommandResult result = UCR_UNAVAILABLE;
+    CObj<CCommandExecute> order = actor->CreateExecutor(transfer, &result);
+    Require(order && result == UCR_OK, "standing unit could not pass an item to its nearby ally");
+    order = actor->CreateExecutor(rearrange, &result);
+    Require(order && result == UCR_OK, "standing unit could not access its own backpack");
+
+    auto inactive = original;
+    inactive.pos.p.SetPose(NAI::CM_INACTIVE);
+    actor->SetPosition(inactive);
+    Require(actor->GetPosition().pos.p.GetPose() == NAI::CM_INACTIVE, "fixture did not enter the inactive pose");
+    order = actor->CreateExecutor(rearrange, &result);
+    Require(!order && result == UCR_UNAVAILABLE, "inactive pose allowed the unit's own backpack command");
+    order = actor->CreateExecutor(transfer, &result);
+    Require(order && result == UCR_OK, "inactive pose rejected a valid transfer between allies");
+}
+
 static void WishPoseStrafe(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -497,6 +538,7 @@ bool RunUnitTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "panzerklein-regeneration-bleeding") && argc == 3) { PanzerkleinRegenerationBleeding(argv[2]); return true; }
     if (!std::strcmp(mode, "look-action-point-cost") && argc == 4) { LookActionPointCost(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "inventory-transfer-validation") && argc == 5) { InventoryTransferValidation(argv[2], argv[3], std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "inventory-transfer-inactive-pose") && argc == 4) { InventoryTransferInactivePose(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "wish-pose-strafe") && argc == 4) { WishPoseStrafe(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "hide-empty-roster-slot") && argc == 4) { HideWithEmptyRosterSlot(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "normal-state-command-lifetime") && argc == 4) { NormalStateCommandLifetime(argv[2], argv[3]); return true; }
