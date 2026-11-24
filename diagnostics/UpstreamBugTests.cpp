@@ -37070,12 +37070,50 @@ static void CriticalTablesFollowMods(const char* databasePath)
     Require(applyHit(), "mod removal left the critical selector pointing to the old database");
 }
 
+static void RetailAmmoSubtypes(const char* databasePath)
+{
+    S2FileIO::PortableGameDatabase source;
+    string error;
+    Require(S2FileIO::LoadPortableGameDatabase(databasePath, &source, &error), "could not decode native item columns");
+    const auto tableID = NDatabase::GetRecordTypes().GetTypeID(static_cast<NDb::CRPGItem*>(nullptr));
+    const auto table = std::find_if(source.tables.begin(), source.tables.end(),
+        [tableID](const auto& value) { return value.tableId == tableID; });
+    Require(table != source.tables.end(), "database does not contain the item table");
+    const auto id = std::find(table->intNames.begin(), table->intNames.end(), "ID");
+    const auto subtype = std::find(table->stringNames.begin(), table->stringNames.end(), "SubType");
+    Require(id != table->intNames.end() && subtype != table->stringNames.end(), "item table lacks ID or SubType");
+
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database, CStructureSaver::READ);
+    auto* items = NDatabase::GetTable<NDb::CRPGItem>();
+    Require(items != nullptr, "item table did not load");
+    const auto idColumn = id - table->intNames.begin();
+    const auto subtypeColumn = subtype - table->stringNames.begin();
+    const std::pair<const wchar_t*, int> expected[] = {
+        {L"SMGAmmoAllies", 15}, {L"SMGAmmoAxis", 16}, {L"RifleAmmoAllies", 17}, {L"RifleAmmoAxis", 18},
+        {L"MGAmmo", NDb::SUBTYPE_AMMO_MG}, {L"RifleAmmo", NDb::SUBTYPE_AMMO_RIFLE},
+    };
+    int matches = 0;
+    for (std::size_t row = 0; row < table->intRows.size(); ++row) {
+        const auto& name = table->stringRows[row][subtypeColumn];
+        for (const auto& entry : expected) {
+            if (name != entry.first) continue;
+            const auto* item = items->GetRecord(table->intRows[row][idColumn]);
+            Require(item && int(item->subType) == entry.second, "item import did not retain the authored ammunition subtype");
+            ++matches;
+        }
+    }
+    Require(matches > 0, "database has no authored ammunition subtype to check");
+}
+
 static bool RunRegressionMode(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "building-indestructible-hp")) { BuildingIndestructibleHP(); return true; }
     if (!std::strcmp(mode, "building-damage-parts")) { BuildingDamageParts(); return true; }
     if (!std::strcmp(mode, "picklock-item-import") && argc == 3) { PicklockItemImport(argv[2]); return true; }
     if (!std::strcmp(mode, "critical-tables-follow-mods") && argc == 3) { CriticalTablesFollowMods(argv[2]); return true; }
+    if (!std::strcmp(mode, "retail-ammo-subtypes") && argc == 3) { RetailAmmoSubtypes(argv[2]); return true; }
     if(!std::strcmp(mode,"legacy-directional-ambient")) {LegacyDirectionalAmbient();return true;}
     if(!std::strcmp(mode,"convenience-tooltip-ui")) {Require(argc==4,"tooltip requires db/res");ConvenienceTooltipUI(argv[2],argv[3]);return true;}
     if(!std::strcmp(mode,"convenience-mission-clock")) {Require(argc==4,"clock requires db/res");ConvenienceMissionClock(argv[2],argv[3]);return true;}

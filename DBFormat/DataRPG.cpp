@@ -32,6 +32,10 @@ const char *pszSubTypes[N_SUBTYPES] =
 	"RifleAmmo",
 	"MGAmmo",
 	"HeavyAmmo",
+	"SMGAmmoAllies",
+	"SMGAmmoAxis",
+	"RifleAmmoAllies",
+	"RifleAmmoAxis",
 };
 const char *pszUniformPlaces[N_ITEM_PLACES] = 
 {
