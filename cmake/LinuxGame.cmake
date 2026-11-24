@@ -156,6 +156,8 @@ foreach(test IN ITEMS BgfxRendererTests SDLPlatformInputTests UpstreamBugTests N
     add_test(NAME ${test} COMMAND ${test})
   endif()
 endforeach()
+include("${root}/cmake/UpstreamTests.cmake")
+s2_add_upstream_test_modules(UpstreamBugTests "${_s2_game_root}")
 target_compile_definitions(UpstreamBugTests PRIVATE S2_UPSTREAM_NATIVE_SFX)
 add_test(NAME ConvenienceDefaultsInput COMMAND UpstreamBugTests convenience-defaults-input)
 add_test(NAME ObjectivesLegacyRows COMMAND UpstreamBugTests objectives-row-compatibility)

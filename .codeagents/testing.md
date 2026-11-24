@@ -9,7 +9,7 @@
 
 | Задача | Инструмент |
 | --- | --- |
-| Поведенческие регрессии | [UpstreamBugTests.cpp](../diagnostics/UpstreamBugTests.cpp) и регистрации в [CMake](../CMakeLists.txt) |
+| Поведенческие регрессии | Тематические модули в [diagnostics/upstream/](../diagnostics/upstream/) и регистрации в [CMake](../CMakeLists.txt) |
 | Повтор ввода, событий и снимков | [Stage6Scenario.py](../diagnostics/Stage6Scenario.py) и [New-LabRun.ps1](../diagnostics/New-LabRun.ps1) |
 | Профиль кадра и сетевые просадки | [ProfileFrames.py](../diagnostics/ProfileFrames.py) и [NetworkFPS.py](../diagnostics/NetworkFPS.py) |
 | Локальный матч | [NetworkMatchTests.cpp](../diagnostics/NetworkMatchTests.cpp) и [сетевой harness](../diagnostics/NETWORK_MODE.md#проверки) |

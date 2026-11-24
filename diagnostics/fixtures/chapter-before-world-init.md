@@ -12,7 +12,7 @@ CChapterMap, созданный настоящим CICBeginChapter. Это те�
   `fb97e31ce2c85bdb041117f96d586c9e9fc4a51d`.
 - Исходная база game.db, SHA-256:
   `314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df`.
-- Генератор: WriteLegacyChapterFixture в UpstreamBugTests.cpp,
+- Генератор: WriteLegacyChapterFixture в [AudioAndMenuInput.inl](../upstream/legacy/AudioAndMenuInput.inl),
   режим `chapter-legacy-fixture-write <game.db> <res> <output>`.
 
 Генератор выбирает первую карту главы с фоном, создаёт игру и игрока с

@@ -870,6 +870,8 @@ target_link_libraries(NativeCommandBridgeTests PRIVATE Main)
 target_compile_features(NativeCommandBridgeTests PRIVATE cxx_std_17)
 add_test(NAME NativeCommandBridgeTests COMMAND NativeCommandBridgeTests)
 add_executable(UpstreamBugTests "${root}/diagnostics/UpstreamBugTests.cpp")
+include("${root}/cmake/UpstreamTests.cmake")
+s2_add_upstream_test_modules(UpstreamBugTests "${root}")
 target_include_directories(UpstreamBugTests PRIVATE "${root}/Main" "${CMAKE_BINARY_DIR}/rc_compat")
 target_precompile_headers(UpstreamBugTests PRIVATE "${root}/Main/StdAfx.h")
 # Match Game's self-registering console commands and saved interface classes.

@@ -9,7 +9,7 @@
 
 | Task | Tool |
 | --- | --- |
-| Behavior regressions | [UpstreamBugTests.cpp](../diagnostics/UpstreamBugTests.cpp) and [CMake test registrations](../CMakeLists.txt) |
+| Behavior regressions | Test modules in [diagnostics/upstream/](../diagnostics/upstream/) and [CMake test registrations](../CMakeLists.txt) |
 | Replay input, events, and captures | [Stage6Scenario.py](../diagnostics/Stage6Scenario.py) and [New-LabRun.ps1](../diagnostics/New-LabRun.ps1) |
 | Frame profiling and network frame drops | [ProfileFrames.py](../diagnostics/ProfileFrames.py) and [NetworkFPS.py](../diagnostics/NetworkFPS.py) |
 | Local match | [NetworkMatchTests.cpp](../diagnostics/NetworkMatchTests.cpp) and [network harness](../diagnostics/NETWORK_MODE.md#проверки) |

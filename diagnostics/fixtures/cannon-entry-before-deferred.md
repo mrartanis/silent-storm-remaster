@@ -9,7 +9,7 @@ CExecCannon::Run до изменения момента оплаты, без и�
 - SHA256: `05c3307daa22fbb9799b1acd68e73a23db82ffb3f6b943ab43bf25e4aca549d1`.
 - Производственные исходники: `de0bccf65151b90f254f29a2f4c51a7d1f76aed4`.
 - База game.db, SHA256: `314d7aa9e6339f0e6826bf2a0c71fdad992aec1d6074a2ed763a6f6fa62d62df`.
-- Генератор: WriteLegacyCannonEntryFixture в UpstreamBugTests.cpp,
+- Генератор: WriteLegacyCannonEntryFixture в [AIAndMovementQueues.inl](../upstream/legacy/AIAndMovementQueues.inl),
   режим `cannon-entry-legacy-write <game.db> <res> <output>`.
 - Корневые теги:1 игра,2 мир,3 персонаж,4 пулемёт,5 исполнитель,
   6 уже оплаченные AP,7 исходная стоимость подхода.
