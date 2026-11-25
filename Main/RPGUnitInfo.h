@@ -118,10 +118,15 @@ public:
 class CUnit;
 class IInventoryInfo;
 class IWeaponItemInfo;
+class IInventoryItem;
 class IUnitMissionInfo: virtual public CObjectBase
 {
 public:
 	virtual int GetActionAP( NAI::EPose pose, EAction action ) const = 0;
+	virtual int GetActionAP( NAI::EPose pose, EAction action, IInventoryItem * ) const
+	{
+		return GetActionAP( pose, action );
+	}
 	virtual bool CanSpendAP( int nAP ) const = 0;
 	virtual int GetMaxExtraAP() const = 0;
 	virtual int GetAP() const = 0;

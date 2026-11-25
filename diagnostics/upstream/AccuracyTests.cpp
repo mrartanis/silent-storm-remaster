@@ -266,10 +266,75 @@ void NativeAIShotInput(const char* databasePath, const char* resourcePath, bool 
     }
     Require(false, "AI shot fixture found no native target with usable cover");
 }
+
+void AIFirearmBudget(const char* databasePath, const char* resourcePath, bool partialBurst)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = EquipAccuracyActor(world);
+    auto* shooter = NAI::GetAIUnit(actor);
+    auto* mission = actor->GetUnitRPG();
+    auto* inventory = mission->GetInventory();
+    auto* held = dynamic_cast<NRPG::CWeaponItem*>(inventory->GetActive());
+    Require(IsValid(held) && IsValid(shooter), "AI budget fixture needs a real active firearm and owner");
+    NDb::CRPGWeapon* candidate = nullptr;
+    CDBIterator<NDb::CRPGWeapon> weapons(*NDatabase::GetTable<NDb::CRPGWeapon>());
+    while (!candidate && weapons.MoveNext()) {
+        auto* weapon = weapons.Get();
+        if (weapon != held->GetDBWeapon() && !weapon->bBazookaLogic && !weapon->nPanzerkleinType &&
+            IsValid(weapon->pItem) && IsValid(weapon->pInnerClip) && IsValid(weapon->pWeaponType) &&
+            weapon->pWeaponType != held->GetDBWeapon()->pWeaponType && weapon->shootModes[NDb::SM_Snap] &&
+            (!partialBurst || (weapon->nRoF >= 18 && weapon->shootModes[NDb::SM_ShortBurst])))
+            candidate = weapon;
+    }
+    Require(IsValid(candidate), "AI budget fixture needs a loaded candidate with a distinct preparation record");
+    candidate->pWeaponType->nPrepareCost = 7;
+    held->GetDBWeapon()->pWeaponType->nPrepareCost = 2;
+    CObj<NRPG::CWeaponItem> item = new NRPG::CWeaponItem(candidate);
+    Require(item->SetShootMode(partialBurst ? NDb::SM_ShortBurst : NDb::SM_Snap) && item->GetAmmoQuantity() >= 3,
+        "AI budget fixture did not load the required fire mode and rounds");
+    CObj<NAI::CAIFireArmsWeapon> weapon = new NAI::CAIFireArmsWeapon(shooter, item);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    const auto target = std::find_if(units.begin(), units.end(), [&](const auto& unit) {
+        return IsValid(unit) && unit != actor && unit->CanFight() && IsValid(NAI::GetAIUnit(unit));
+    });
+    Require(target != units.end(), "AI budget fixture has no native target wrapper");
+    auto* targetAI = NAI::GetAIUnit(*target);
+    const auto position = actor->GetPosition();
+    const int heldPrep = mission->GetActionAP(position.GetPose(), NRPG::AC_PREPARE);
+    CObj<NRPG::IInventoryItem> saved = inventory->TakeOff(NDb::SLOT_1);
+    Require(inventory->Equip(NDb::SLOT_1, item), "AI budget fixture could not equip its reference candidate");
+    const int candidatePrep = mission->GetActionAP(position.GetPose(), NRPG::AC_PREPARE);
+    Require(IsValid(inventory->TakeOff(NDb::SLOT_1)) && inventory->Equip(NDb::SLOT_1, saved),
+        "AI budget fixture could not restore the original active item");
+    const int first = weapon->GetShotAP() + candidatePrep;
+    const int additional = weapon->GetBurstAP();
+    Require(candidatePrep > heldPrep && first > 0 && additional > 0,
+        "AI budget fixture does not distinguish held and candidate preparation costs");
+    if (!partialBurst) {
+        int ap, rounds, damage;
+        bool reload;
+        weapon->GetShotParameters(position, targetAI, 90.f, first - 1, &ap, &rounds, &damage, &reload);
+        Require(ap == 0 && rounds == 0 && !reload, "AI accepted a candidate shot below its actual preparation budget");
+        weapon->GetShotParameters(position, targetAI, 90.f, first, &ap, &rounds, &damage, &reload);
+        Require(ap == first && rounds == 1 && !reload, "AI priced a candidate shot from the weapon currently held");
+    } else {
+        int ap, rounds, damage;
+        bool reload;
+        weapon->GetShotParameters(position, targetAI, 90.f, first + additional, &ap, &rounds, &damage, &reload);
+        Require(ap == first + additional && rounds == 2 && !reload,
+            "AI short burst exceeded its budget instead of firing the two affordable rounds");
+    }
+    Require(inventory->GetActive() == held, "AI budget evaluation equipped the candidate prematurely");
 }
+
 
 bool RunAccuracyTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "ai-firearm-budget") && argc == 5) {
+        AIFirearmBudget(argv[2], argv[3], std::atoi(argv[4]) != 0);
+        return true;
+    }
     if (!std::strcmp(mode, "distant-melee-approach") && argc == 4) {
         DistantMeleeApproach(argv[2], argv[3]);
         return true;

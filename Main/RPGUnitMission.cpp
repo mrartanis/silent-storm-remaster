@@ -238,6 +238,7 @@ public:
 	virtual NDb::EWeaponType GetWeaponType() const;
 	virtual NDb::CAnimWeaponType* GetDBAnimWeapon() const;
 	virtual int  GetActionAP( NAI::EPose pose, EAction action ) const;
+	virtual int  GetActionAP( NAI::EPose pose, EAction action, IInventoryItem *pItem ) const;
 	virtual int GetAP() const;
 	virtual bool CanSpendAP( int nAP ) const;
 	virtual void SpendAP( int nAP );
@@ -648,6 +649,11 @@ static int GetAuthoredActionAP( int nRecordID, int nFallback )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 {
+	return GetActionAP( curPose, action, 0 );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action, IInventoryItem *pItem ) const
+{
 	// actions whose cost does not depend on the pose
 	switch ( action )
 	{
@@ -657,16 +663,21 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 		{
 			// Retail Steam 0x6c0f31: weapon-type price, subtract perk22, clamp to 0..8.
 			int nAP = 0;
-			CWeaponItem *pWeapon = pRPGUnit->GetWeaponItem();
-			if ( IsValid( pWeapon ) )
+			CWeaponItem *pWeapon = pItem ? dynamic_cast<CWeaponItem *>( pItem ) : pRPGUnit->GetWeaponItem();
+			if ( IsValid( pWeapon ) && IsValid( pWeapon->GetDBWeapon()->pWeaponType ) )
 				nAP = pWeapon->GetDBWeapon()->pWeaponType->nPrepareCost;
 			float fParam;
 			if ( HasPerk( N_PERK_CHEAP_SHOOT_PREPARE, &fParam ) )
 				nAP = int( nAP - fParam );
 			return Min( 8, Max( 0, nAP ) );
 		}
-		case AC_SHOOT:   return pRPGUnit->GetWeaponAP();
-		case AC_PREPARE_AND_SHOOT:	return GetActionAP( curPose, AC_PREPARE ) + GetActionAP( curPose, AC_SHOOT );
+		case AC_SHOOT:
+		{
+			CWeaponItem *pWeapon = pItem ? dynamic_cast<CWeaponItem *>( pItem ) : 0;
+			return pItem && !IsValid( pWeapon ) ? 0 : pRPGUnit->GetWeaponAP( pWeapon );
+		}
+		case AC_PREPARE_AND_SHOOT:
+			return GetActionAP( curPose, AC_PREPARE, pItem ) + GetActionAP( curPose, AC_SHOOT, pItem );
 		case AC_EXPLODE: return 2;
 		case AC_THROW_GRENADE:
 		{
@@ -708,7 +719,7 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 		case AC_THROW_KNIFE:
 		case AC_MELEE:
 			{
-				CMeleeWeaponItem *pMelee = pRPGUnit->GetMeleeWeaponItem();
+				CMeleeWeaponItem *pMelee = pItem ? dynamic_cast<CMeleeWeaponItem *>( pItem ) : pRPGUnit->GetMeleeWeaponItem();
 				if ( !pMelee )
 					return 0;
 				NDb::CRPGMeleeWeapon *pW = pMelee->GetDBMeleeWeapon();
