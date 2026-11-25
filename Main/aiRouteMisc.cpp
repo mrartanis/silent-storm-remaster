@@ -164,7 +164,7 @@ bool GetCheckPosition( IAIUnit *pUnit, CUnitArea *pArea, const SPosition &pos, S
 	// keeping our own moves table to read each place's accumulated wave cost.
 	vector<SPathPlace> places;
 	CMultiMovesTable table;
-	GetNearestPlaces( pUS, pUnit->GetUnitPosition().pos.p, pUnit->GetAP(), RUN, &places, &table );
+	GetNearestPlaces( pUS, pUnit->GetUnitPosition().pos.p, pUS->GetAP(), RUN, &places, &table );
 	bool bFound = false;
 	int nBest = 0;   // the binary inits 0x100000, dead before first use (the !bFound term guards it)
 	for ( vector<SPathPlace>::iterator it = places.begin(); it != places.end(); ++it )
@@ -476,9 +476,11 @@ bool GetRoundUpPlaces( NWorld::CUnitServer *pServer, const SUnitPosition &enemyP
 				continue;
 			if ( pServer->GetDiplomacyState( pOther ) != NDb::DS_ALLY )
 				continue;
-			// ELIDED control-point vector (+0x14c posComp CP[0] has no dev accessor) -> the unit centre
-			// approximates CP[0] (sub-metre; only feeds the 4m friend-avoidance IsNear below).
-			points.push_back( pOther->GetPosition().GetCenter() );
+			if ( IsValid( pOther->animator.GetCorpseCarrier() ) )
+				continue;
+			CVec3 ptBody;
+			pOther->GetRealUnitPosition( &ptBody );
+			points.push_back( ptBody );
 		}
 	}
 	if ( fDist < 8.0f )
@@ -637,13 +639,14 @@ void RouteAddRoundUp( NWorld::CUnitServer *pServer, NWorld::CUnitServer *pEnemy,
 		if ( !SamePlaceMasked( stop.p, pServer->GetPosition().pos.p ) )
 		{
 			cmds.push_back( new CTaskCommandChangeWishPose( (EPose)nWish ) );  // retail CreateRCChangeWishPose (@0xa2720)
-			cmds.push_back( new CTaskCommandGoto( stop ) );               // release strafing Goto (prefix elided)
+			cmds.push_back( new CTaskCommandGoto( stop ) );
 		}
 		cmds.push_back( new CTaskCommandChangePose( (EPose)nPoseLow ) );
 		cmds.push_back( new CTaskCommandGoto( flank ) );
 		SPosition restore;
 		restore.p = SPathPlace( (int)0xfdffffff );
 		int nVisible = 0;
+		bool bLooked = false;
 		if ( IsValid( pEnemy ) &&
 			 GetRestoreAPPoint( pServer, pEnemy, flank, attack, &restore, &nVisible ) )
 		{
@@ -654,17 +657,17 @@ void RouteAddRoundUp( NWorld::CUnitServer *pServer, NWorld::CUnitServer *pEnemy,
 				cmds.push_back( new CTaskCommandGoto( restore ) );
 				cmds.push_back( new CTaskCommandWait( 1 ) );
 			}
-			// with NO worn PK, look toward the enemy from the restore spot (release: this also sets the final
-			// Goto's "looked" flag, which is elided with the strafe arg -- the Look command itself is faithful).
+			// Infantry faces the enemy before strafing from cover.
 			if ( !IsValid( pServer->GetWearingDBPK() ) )
 			{
 				IPathNetwork *pNet = pServer->GetWorld()->GetPathNetwork();
 				// byte-faithful: no &7 mask here (GetClosestDir already returns 0..7; unlike GetDirectedPos's sites).
 				cmds.push_back( new CTaskCommandChangeDirection(
 					(int)pNet->GetClosestDir( restore.p, enemyPos.pos.p ) ) );
+				bLooked = true;
 			}
 		}
-		cmds.push_back( new CTaskCommandGoto( attack ) );            // release Goto(attack, bLooked) -- flag elided
+		cmds.push_back( new CTaskCommandGoto( attack, bLooked ) );
 		cmds.push_back( new CTaskCommandLookToPosition( enemyPos.pos.p ) );
 	}
 	// the tail runs even when the plan failed: a short wait, a randomized look-around, settle at WALK.

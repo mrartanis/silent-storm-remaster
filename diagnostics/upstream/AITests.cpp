@@ -1148,6 +1148,113 @@ void AILogicReadiness(const char* databasePath, const char* resourcePath, int mo
 }
 
 
+void AIPlaceSourcePolicy(const char* databasePath, const char* resourcePath, int mode)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* actor = MovementPolicyActor(world);
+    auto* ai = NAI::GetAIUnit(actor);
+    auto* network = world->GetPathNetwork();
+    const auto origin = actor->GetPosition();
+    Require(IsValid(ai) && ai->GetAIUnitState(), "place policy fixture needs a native planning unit");
+    if (mode == 0) {
+        ai->GetAIUnitState()->pEnemy = nullptr;
+        CObj<NAI::IAIActionPlaceSource> source = NAI::CreateAttackPlaceSource(ai, 14, false);
+        vector<NAI::SPlaceWithAP> places;
+        source->Prepare();
+        source->GetPlaces(&places);
+        Require(places.empty(), "attack source offered the current tile without a confirmed target");
+        return;
+    }
+    if (mode == 1) {
+        struct Probe : NAI::CAIActionPlaceSource {
+            OBJECT_NOCOPY_METHODS(Probe)
+        public:
+            Probe() = default;
+            explicit Probe(NAI::IAIUnit* unit) : CAIActionPlaceSource(unit) {}
+            void Prepare() override {}
+            using CAIActionPlaceSource::IsPassable;
+        } probe(ai);
+        Require(probe.IsPassable(network, origin.pos.p), "candidate passability rejected the actor's own position");
+        vector<NAI::SPathPlace> nearby;
+        network->GetNearPlaces(SSphere(origin.GetCP(), 15.f), &nearby);
+        for (auto place : nearby) {
+            for (int direction = 0; direction < 8; ++direction) {
+                place.SetPose(NAI::CM_LAY);
+                place.SetDirection(direction);
+                if (network->GetPassability(place) == NAI::AIP_CANNOT_LAY) {
+                    Require(probe.IsPassable(network, place), "AI discarded a partially passable native candidate");
+                    return;
+                }
+            }
+        }
+        Require(false, "place policy fixture found no restricted prone anchor");
+        return;
+    }
+    if (mode == 2) {
+        CObj<NAI::CTaskCommandGoto> step = new NAI::CTaskCommandGoto(origin.pos, true);
+        step->SetUnitServer(actor);
+        step->Do();
+        auto path = std::find_if(step->Commands.begin(), step->Commands.end(), [](const auto& entry) {
+            return dynamic_cast<NWorld::CCmdPath*>(entry.GetPtr()) != nullptr;
+        });
+        Require(path != step->Commands.end() && static_cast<NWorld::CCmdPath*>(path->GetPtr())->bCanFindNotExact,
+            "native investigation route requires the exact destination tile");
+        return;
+    }
+    if (mode == 4) {
+        auto* ally = world->AddUnitInGame(origin.pos.p, NRPG::CreateUnit(NDb::GetPers(103)), actor->GetTBSPlayer());
+        Require(IsValid(ally) && actor->GetDiplomacyState(ally) == NDb::DS_ALLY,
+            "ally avoidance requires a native friendly corpse");
+        ally->GetUnitRPG()->GetRPGUnit()->Kill();
+        ally->Die(false, false);
+        ally->SetPosition(origin);
+        ally->animator.AlignTime();
+        ally->animator.PlaceUnit(origin);
+        Require(!ally->CanFight(), "ally avoidance fixture still has a combat-capable unit");
+        NAI::SPosition stop, flank, attack;
+        Require(!NAI::GetRoundUpPlaces(actor, origin, &stop, &flank, &attack, true),
+            "native route did not avoid the grounded ally");
+        ally->animator.BeTaken(actor, nullptr, ally);
+        Require(ally->animator.GetCorpseCarrier() == actor, "native body did not retain its carrier");
+        Require(NAI::GetRoundUpPlaces(actor, origin, &stop, &flank, &attack, true),
+            "native route treated the carried body as a ground obstacle");
+        return;
+    }
+    world->GivePlayerTurn(actor->GetTBSPlayer());
+    actor->GetUnitRPG()->StartNewTurn(origin.GetCP());
+    actor->GetUnitRPG()->SpendAP(actor->GetAP() - 3);
+    ai->SetAP(40, 52);
+    Require(actor->GetAP() == 3 && ai->GetMaxAP() == 52, "cover fixture needs distinct live and planning AP");
+    if (mode == 5) {
+        CObj<NAI::CUnitArea> area = new NAI::CUnitArea(actor, origin.pos.p, 26, NAI::RUN);
+        Require(area->Prepare(), "guard fixture could not prepare its native post area");
+        auto investigation = origin.pos.p;
+        ai->SetAP(3, 52);
+        const bool near = NAI::GetCheckPosition(ai, area, origin.pos, &investigation);
+        const auto liveChoice = investigation;
+        ai->SetAP(26, 52);
+        const bool planned = NAI::GetCheckPosition(ai, area, origin.pos, &investigation);
+        Require(near == planned && (!near || investigation == liveChoice),
+            "guard investigation used the speculative AP balance instead of live AP");
+        return;
+    }
+    CObj<NAI::IAIActionPlaceSource> source = NAI::CreateOnePlacePlaceSource(ai, origin.pos.p, true);
+    vector<NAI::SPlaceWithAP> places;
+    NAI::SAIState state;
+    state.pWorld = world.GetPtr();
+    state.pPlayer = actor->GetPlayer();
+    auto* oldState = ai->GetAIState();
+    ai->SetAIState(&state);
+    ai->GetAIUnitState()->pEnemy = nullptr;
+    source->Prepare();
+    source->GetPlaces(&places);
+    ai->SetAIState(oldState);
+    Require(places.size() == 1 && places.front().nUnitAP == 3,
+        "defensive stance priced a native candidate using its maximum AP");
+}
+
+
 static void AIContactMembership(const char* databasePath, const char* resourcePath, int kind, int check)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -1584,6 +1691,7 @@ static void OwnedAIEnemySelection(bool placeSource)
 
 bool RunAITests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "ai-place-source-policy") && argc == 5) { AIPlaceSourcePolicy(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "ai-logic-readiness") && argc == 5) { AILogicReadiness(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "ai-command-log-policy") && argc == 5) { AICommandLogPolicy(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "ai-contact-perception") && argc == 5) { AIContactPerception(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }

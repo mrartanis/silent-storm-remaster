@@ -30,12 +30,6 @@
 namespace NAI
 {
 namespace {
-// Same tile ignoring the direction/pose/moving bits (the route layer's mask 0x1feffff). The dev tree has no
-// shared masked form -- inlined like aiDefenceReaction.cpp.
-inline bool SamePlace( const SPathPlace &a, const SPathPlace &b )
-{
-	return ( ( a.GetData() ^ b.GetData() ) & 0x1feffff ) == 0;
-}
 // NAI::IsGuardLogic @0x44e370 -- the release RTTI predicate (a live CAIGuardLogic). aiCombatLogic.h declares
 // IsAttackLogic/IsDefenceLogic but not IsGuardLogic, so it is reconstructed here over the present concrete
 // CAIGuardLogic (the release form is __RTDynamicCast<CAIGuardLogic>).
@@ -159,13 +153,8 @@ void CAIGuardReaction::Update()
 		}
 		else if ( IsValid( pArea ) )
 		{
-			// (i) all quiet: if the unit has left its post, walk back to it (gated on a real path with AP > 0).
-			// The release gates this on CPathNetwork::GetPassability(initialPos) != AIP_YES (path-net vtbl+0x3c,
-			// the mover AddRef'd around the call); the dev IPathNetwork exposes no per-position EPassable
-			// accessor, so the verified "1 == still on post" semantic is reproduced as "not already on the post
-			// place" (masked SamePlace). The path + GetPathAP gates below still guard the actual move.
 			IPathNetwork *pNet = pUS->GetWorld()->GetPathNetwork();
-			if ( pNet != 0 && !SamePlace( pU->GetUnitPosition().pos.p, initialPos.pos.p ) )
+			if ( pNet != 0 && pNet->GetPassability( initialPos.pos.p ) != AIP_NOT_PASSABLE )
 			{
 				NWorld::CUnit *pComp = static_cast<NWorld::CUnit*>( pUS );
 				vector<SPathPlace> targets;

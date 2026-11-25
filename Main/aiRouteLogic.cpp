@@ -418,16 +418,14 @@ IAILogic* CreateAIAlarmLogic( IAIUnit *pUnit, IAIUnit *pEnemy )
 	IPathNetwork *pNet = pAlly->GetUnitServer()->GetWorld()->GetPathNetwork();
 	if ( pNet == 0 )
 		return 0;
-	SSphere s;
-	s.ptCenter = pAlly->GetPosition().GetCP();
-	s.fRadius = 2.0f;   // a spot beside the ally
 	vector<SPathPlace> places;
-	pNet->GetNearPlaces( s, &places );
+	GetNearestPlaces( pAlly->GetUnitServer(), pAlly->GetUnitPosition().pos.p, 10, WALK, &places, 0 );
 	if ( places.empty() )
 		return 0;
 	SPathPlace place = places[ RouteRandom().Get( places.size() ) ];
 	if ( !HasPath( pUnit, pUnit->GetUnitPosition().pos.p, place, RUN, false ) )   // gate: reachable at a run
 		return 0;
+	place.SetDirection( pNet->GetClosestDir( place, pAlly->GetPosition().p ) );
 	SPosition go = GetPos( place, pNet );
 	vector< CPtr<CTaskCommand> > cmds;
 	cmds.push_back( new CTaskCommandChangePose( RUN ) );          // EPose RUN = 3 (retail CreateRCChangePose here, not wish)
@@ -504,7 +502,7 @@ IAILogic* CreateAIHideLogic( IAIUnit *pUnit )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 IAILogic* CreateAICheckPositionLogic( IAIUnit *pUnit, CUnitArea *pArea, const SPosition &pos, EPose pose )
 {
-	if ( !RouteUnitAndServerAlive( pUnit ) || pArea == 0 )
+	if ( !RouteUnitAndServerAlive( pUnit ) || !IsValid( pArea ) )
 		return 0;
 	NWorld::CUnitServer *pUS = pUnit->GetUnitServer();
 	vector< CPtr<CTaskCommand> > cmds;
@@ -550,17 +548,7 @@ IAILogic* CreateAICheckPositionLogic( IAIUnit *pUnit, CUnitArea *pArea, const SP
 	return CreateAIRouteLogic( pUnit, cmds, false );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// @0x9a710: "go check it out". An optional hide prefix (a hide-probability roll), then the RouteAddRoundUp
-// flanking script against the enemy position -- the round-up is told the enemy is SILENT when it is not
-// currently audible (so it includes the friend-avoidance sweep). A logic is built only if the round-up queued
-// at least one command, then a trailing 6s wait. Not circled. Reconstructed from the matched-release decode
-// (decomp/src/s2_routelogic.h:1010-1035) + disasm_func 0x9a710.
-//
-// Seam resolution (the one open hook): pfnIsAudible @0x49a80c (`add ecx,0x168; call 0x6fd7f0`) is
-// NWorld::CAudibleSet<CUnitServer>::IsAudible(CUnitServer const*) -- a MEMBERSHIP query (is the enemy server in
-// my audibleUnits list, wUnitSounds.h:116), NOT a CanHearSound/hearing-probability roll. CUnitServer inherits
-// CAudibleSet, so it is the direct base call pUS->IsAudible(enemyServer). GetHideProbability (sess19),
-// CTaskCommandHide (sess18), CreateRCWait, CreateAIRouteLogic are all already in-tree.
+// Retail 0x49aade uses current sight to decide whether to avoid fallen allies.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 IAILogic* CreateAICheckForEnemyLogic( IAIUnit *pUnit, const SUnitPosition &enemyPos, EPose pose, IAIUnit *pEnemy )
 {
@@ -572,15 +560,9 @@ IAILogic* CreateAICheckForEnemyLogic( IAIUnit *pUnit, const SUnitPosition &enemy
 	if ( RouteRandom().Get( 0, 99 ) < (unsigned)pUnit->GetHideProbability() )
 		cmds.push_back( new CTaskCommandHide() );
 	int nBefore = (int)cmds.size();
-	bool bAudible = false;
-	NWorld::CUnitServer *pEnemyUS = 0;
-	if ( pEnemy != 0 )
-	{
-		bAudible = pUS->IsAudible( pEnemy->GetUnitServer() );   // CAudibleSet membership query (the enemy's sound)
-		if ( IsValid( pEnemy ) )                                // the decode's pfnIsAlive(pEnemy) before passing the server
-			pEnemyUS = pEnemy->GetUnitServer();
-	}
-	RouteAddRoundUp( pUS, pEnemyUS, enemyPos, pose, cmds, !bAudible );
+	NWorld::CUnitServer *pEnemyUS = IsValid( pEnemy ) ? pEnemy->GetUnitServer() : 0;
+	const bool bVisible = IsValid( pEnemyUS ) && pUS->IsUnitVisible( pEnemyUS );
+	RouteAddRoundUp( pUS, pEnemyUS, enemyPos, pose, cmds, !bVisible );
 	if ( (int)cmds.size() > nBefore )
 	{
 		cmds.push_back( new CTaskCommandWait( 6 ) );
