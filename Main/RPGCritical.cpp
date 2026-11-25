@@ -26,7 +26,8 @@ CCritical::CCritical( const SCritical &crit ): critical(crit), nTurn(0)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CCritical::NextTurn()
 {
-	if ( critical.nDuration >= 0 && ++nTurn > critical.nDuration )
+	// Patch 1 and English Gold expire the effect at the authored turn count.
+	if ( critical.nDuration >= 0 && ++nTurn >= critical.nDuration )
 		return false;
 	return true;
 }
@@ -125,7 +126,7 @@ bool CVPCritical::SetModifiers( CUnit *pRPGUnit, IUnitMission *pRPGMission )
 
 	const int nEff = vp;                                     // frozen -> cap, else min(cap, value)
 	const int nDenom = vp.GetTheoreticalMax();               // nBaseValue + nXPValue
-	int nPercentage = int( float( pRPGUnit->nHealedVP + nEff ) * 100.0f / float( nDenom ) );
+	int nPercentage = int( float( pRPGMission->GetHealedVP() + nEff ) * 100.0f / float( nDenom ) );
 
 	// The survival threshold uses real health; perk 5 changes wound tiers only.
 	const int nHealthPercentage = nPercentage;
@@ -201,7 +202,7 @@ bool CWeaponSkillCritical::SetModifiers( CUnit *pRPGUnit, IUnitMission *pRPGMiss
 bool CDeathCritical::SetModifiers( CUnit *pRPGUnit, IUnitMission *pRPGMission )
 {
 	ASSERT( pRPGUnit );
-	pRPGUnit->Skills(NDb::ST_VP) -= pRPGUnit->Skills(NDb::ST_VP);
+	pRPGMission->MakeDirectDamage( pRPGMission->GetTotalVP() );
 	return false;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

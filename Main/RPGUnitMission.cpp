@@ -2088,6 +2088,12 @@ float CUnitMission::GetCriticalDmgModifier( NWorld::IWorld *pWorld, NAI::EHitLoc
 		case NAI::HL_LLEG:
 			break;
 	}
+	if ( IsValid( pAttacker ) )
+	{
+		IUnitMissionForMedals *pMedals = dynamic_cast<IUnitMissionForMedals*>( pAttacker );
+		if ( pMedals )
+			pMedals->AddAttackToAttackSession( this, true, true );
+	}
 	// Original Gold 0x6bd564 / Steam 0x6c3bae stores float severity then truncates.
 	ApplyCritical( pCritical, int( float( nRand ) ) );
 	return fRet * fCriticalResist;

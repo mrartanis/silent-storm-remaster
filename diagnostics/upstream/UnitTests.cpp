@@ -8,6 +8,8 @@
 #include "../../Main/RPGUnit.h"
 #include "../../Main/RPGUnitMission.h"
 #include "../../Main/RPGCritical.h"
+#include "../../Main/RPGAttackMech.h"
+#include "../../Main/RPGAttackSession.h"
 #include "../../Main/RPGItem.h"
 #include "../../Main/RPGItemMap.h"
 #include "../../Main/RPGItemSet.h"
@@ -24,6 +26,7 @@
 #include "../../Main/scriptPtr.h"
 #include "../../Main/wAckBase.h"
 #include "../../DBFormat/DataRPG.h"
+#include "../../DBFormat/DataMap.h"
 #include "../../MiscDll/LogStream.h"
 #include "../../Misc/RandomGen.h"
 #include <cstring>
@@ -32,6 +35,73 @@ namespace UpstreamTests
 {
 namespace
 {
+void CriticalLifetime()
+{
+    CObj<NRPG::CCritical> timed = NRPG::CreateCritical(NRPG::SCritical(NDb::CL_ANY, NDb::C_MOTIONLESS, 2));
+    CObj<NRPG::CCritical> permanent = NRPG::CreateCritical(NRPG::SCritical(NDb::CL_ANY, NDb::C_MOTIONLESS));
+    Require(timed->NextTurn() && timed->GetRemainingTime() == 1,
+        "duration-two critical did not survive its first turn");
+    Require(!timed->NextTurn() && timed->GetRemainingTime() == 0 && permanent->NextTurn(),
+        "temporary critical persisted through its expiry turn or the permanent one expired");
+}
+
+void CriticalHealthAndSession(const char* databasePath, const char* resourcePath, int mode)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* actor = MovementPolicyActor(world);
+    auto* mission = actor->GetUnitRPG();
+    auto* unit = mission->GetRPGUnit();
+    if (mode == 0) {
+        unit->Skills(NDb::ST_VP).SetConst(100);
+        unit->Skills(NDb::ST_VP).Modify(-10);
+        CObj<NRPG::CCritical> wounds = NRPG::CreateCritical(NRPG::SCritical(NDb::CL_ANY, NDb::C_VP));
+        Require(mission->GetTotalVP() == 90 && !wounds->SetModifiers(unit, mission),
+            "ordinary wound control unexpectedly has a health penalty");
+        unit->nHealedVP = -50;
+        Require(mission->GetTotalVP() == 90 && !wounds->SetModifiers(unit, mission),
+            "a negative saved bandage value reduced effective wound health");
+        return;
+    }
+    if (mode == 1) {
+        unit->Skills(NDb::ST_VP).SetConst(100);
+        unit->Skills(NDb::ST_VP).Modify(-20);
+        unit->nHealedVP = 9;
+        Require(mission->GetTotalVP() == 89, "critical death fixture does not have bandaged health");
+        mission->ApplyCritical(NRPG::SCritical(NDb::CL_HEAD, NDb::C_DEATH));
+        Require(mission->GetTotalVP() == 0, "death critical left bandaged health alive");
+        return;
+    }
+
+    auto* tracker = dynamic_cast<NRPG::CUnitMissionForMedals*>(mission);
+    Require(tracker && tracker->criticalHits.empty() && tracker->hitInSession.empty(),
+        "critical hit fixture did not start with an empty native attack session");
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    for (const auto& other : units) {
+        if (!IsValid(other) || !other->CanFight() || other->IsEmptyPK() || other->IsWearingPK() ||
+            actor->GetDiplomacyState(other) != NDb::DS_ENEMY)
+            continue;
+        auto* target = other->GetUnitRPG();
+        NRPG::CAttackPortion attack(100000, 0, 0.f, 5, 5, 100, 100, mission, target);
+        attack.bAlwaysHumanCritical = true;
+        attack.rTtrajectory.ptOrigin = actor->GetPosition().GetCP();
+        attack.rTtrajectory.ptDir = CVec3(1, 0, 0);
+        GlobalGameRandom().SeedForHarness(0x919);
+        other->ProcessAttack(world, NAI::HL_BODY, &attack, attack.rTtrajectory.ptDir, target->GetRPGArmor());
+        list<CPtr<NRPG::ICriticalInfo>> criticals;
+        target->GetCriticalsList(&criticals);
+        Require(std::any_of(criticals.begin(), criticals.end(), [](const auto& critical) {
+            return IsValid(critical) && critical->GetCriticalType() != NDb::C_VP;
+        }), "native attack did not create a real critical injury");
+        Require(tracker->hitInSession.size() == 1 && tracker->hitInSession.front().GetPtr() == target &&
+            tracker->criticalHits.size() == 1 && tracker->criticalHits.front().GetPtr() == target,
+            "native critical injury failed to record its recipient in the attacker's active session");
+        return;
+    }
+    Require(false, "critical hit fixture has no enemy receiver");
+}
+
 void CorpseDensity(const char* databasePath, const char* resourcePath, bool crowded)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -877,6 +947,8 @@ void CrouchedClimbIdle(const char* databasePath, const char* resourcePath)
 
 bool RunUnitTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "critical-lifetime") && argc == 2) { CriticalLifetime(); return true; }
+    if (!std::strcmp(mode, "critical-health-and-session") && argc == 5) { CriticalHealthAndSession(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "corpse-density") && argc == 5) { CorpseDensity(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "path-command-goal") && argc == 5) { PathCommandGoal(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "difficulty-skill-scaling") && argc == 2) { DifficultySkillScaling(); return true; }

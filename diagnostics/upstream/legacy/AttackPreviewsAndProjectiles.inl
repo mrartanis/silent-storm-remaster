@@ -1950,7 +1950,7 @@ static void PeriodicCriticalLifetime(const char* databasePath,const char* resour
     for(const auto& unit:units)if(IsValid(unit) && unit->CanFight() && !unit->IsWearingPK() && !unit->IsEmptyPK() && !unit->IsPerformingAction()){actor=unit.GetPtr();break;}
     Require(actor,"critical lifetime fixture has no idle healthy non-PK native actor");
     auto* rpg=actor->GetUnitRPG();rpg->RemoveCritical(NDb::C_BLEEDING);
-    const int duration=kind==3?-1:kind==4?3:1;
+    const int duration=kind==3?-1:kind==4?3:kind==0?1:2;
     rpg->ApplyCritical(NRPG::SCritical(NDb::CL_ANY,NDb::C_BLEEDING,duration,0));
     auto check=[&](bool present,int remaining,const char* phase) {
         NRPG::CCritical* critical=nullptr;const bool actual=rpg->HasCritical(NDb::C_BLEEDING,&critical);
@@ -1963,15 +1963,15 @@ static void PeriodicCriticalLifetime(const char* databasePath,const char* resour
         rpg->StartNewTurn(actor->GetPosition().GetCP());check(true,1,"first AP refresh");
         rpg->StartNewTurn(actor->GetPosition().GetCP());check(true,1,"second AP refresh");
     } else if(kind==1) {
-        actor->OnTBSEvent(NWorld::TBS_FINISH_OWN_TURN);check(true,0,"first own-turn finish");
-        rpg->StartNewTurn(actor->GetPosition().GetCP());check(true,0,"intervening AP refresh");
+        actor->OnTBSEvent(NWorld::TBS_FINISH_OWN_TURN);check(true,1,"first own-turn finish");
+        rpg->StartNewTurn(actor->GetPosition().GetCP());check(true,1,"intervening AP refresh");
         actor->OnTBSEvent(NWorld::TBS_FINISH_OWN_TURN);check(false,0,"second own-turn finish");
     } else if(kind==2) {
         Require(world->IsRealTime(),"critical lifetime fixture is not in real time");
         const STime base=world->GetTime()->GetValue();
         auto step=[&](STime elapsed) {world->GetTime()->Set(base+elapsed);world->GetAimTime()->Set(base+elapsed);actor->Segment();};
-        step(6000);check(true,1,"state-only interval");step(29900);check(true,1,"before regeneration");
-        step(30000);check(true,0,"first regeneration tick");step(60000);check(false,0,"second regeneration tick");
+        step(6000);check(true,2,"state-only interval");step(29900);check(true,2,"before regeneration");
+        step(30000);check(true,1,"first regeneration tick");step(60000);check(false,0,"second regeneration tick");
     } else if(kind==3) {
         for(int i=0;i<3;++i){rpg->StartNewTurn(actor->GetPosition().GetCP());actor->OnTBSEvent(NWorld::TBS_FINISH_OWN_TURN);check(true,-1,"permanent control");}
     } else {
