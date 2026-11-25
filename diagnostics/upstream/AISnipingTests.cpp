@@ -285,6 +285,24 @@ static void AISnipeSelectedWeapon(const char* databasePath, const char* resource
             int(shotInfo.bCanDo), int(collectInfo.bCanDo), int(cancelInfo.bCanDo));
         Require(shotInfo.bCanDo && collectInfo.bCanDo && !cancelInfo.bCanDo,
             "the sniper could not continue aiming at a live, hittable target");
+        if (lifecycle == 4) {
+            CPtr<NAI::IAIUnit> replacement;
+            for (const auto& other : units) {
+                if (!IsValid(other) || other.GetPtr() == server || other.GetPtr() == victim || !other->CanFight() ||
+                    server->GetDiplomacyState(other) != NDb::DS_ENEMY ||
+                    fabs(other->GetPosition().GetCP() - position.GetCP()) * 1.6f < 15.f)
+                    continue;
+                replacement = NAI::GetAIUnit(other);
+                if (IsValid(replacement))
+                    break;
+            }
+            Require(IsValid(replacement), "native retarget fixture lacks a second distant enemy");
+            state->pEnemy = replacement;
+            cancel->GetInfoInner(here, &cancelInfo);
+            Require(cancelInfo.bCanDo && server->GetSnipingState() == aiming.GetPtr() && victim->CanFight(),
+                "the AI retained its old aim after selecting another eligible enemy");
+            return;
+        }
         victim->Die();
         Require(victim->IsDead() && server->IsSniping(), "the stored target did not die while aim remained active");
         shot->GetInfoInner(here, &shotInfo);
@@ -312,6 +330,7 @@ static void AISnipeSelectedWeapon(const char* databasePath, const char* resource
 
 bool RunAISnipingTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "ai-snipe-retarget") && argc == 4) { AISnipeSelectedWeapon(argv[2], argv[3], 7, 4); return true; }
     if (!std::strcmp(mode, "ai-snipe-live-ap") && argc == 5) { AISnipeSelectedWeapon(argv[2], argv[3], 7, std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "ai-snipe-proposed-pose-and-target") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],7); return true; }
     if (!std::strcmp(mode, "ai-snipe-selected-empty-hand") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],0); return true; }

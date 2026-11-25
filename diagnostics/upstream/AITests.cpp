@@ -48,7 +48,22 @@ namespace UpstreamTests
 {
 namespace
 {
-void AISnipeCommandAP(const char* databasePath, const char* resourcePath, bool legacy)
+class SnipeRefreshReaction : public NAI::CAIReaction
+{
+    OBJECT_NOCOPY_METHODS(SnipeRefreshReaction);
+    bool replaceLogic = false;
+public:
+    int updates = 0;
+    SnipeRefreshReaction() = default;
+    SnipeRefreshReaction(NAI::IAIUnit* unit, bool replace) : NAI::CAIReaction(unit), replaceLogic(replace) {}
+    void Update() override {
+        ++updates;
+        if (replaceLogic)
+            SetLogic(nullptr);
+    }
+};
+
+void AISnipeCommandAP(const char* databasePath, const char* resourcePath, int mode)
 {
     auto world = FixtureWorld(databasePath, resourcePath, true);
     list<CPtr<NWorld::CUnitServer>> units;
@@ -58,6 +73,7 @@ void AISnipeCommandAP(const char* databasePath, const char* resourcePath, bool l
     });
     Require(sniper != units.end(), "native snipe command fixture lacks an AI unit");
     auto* actor = sniper->GetPtr();
+    auto* ai = NAI::GetAIUnit(actor);
     auto target = std::find_if(units.begin(), units.end(), [actor](const auto& unit) {
         return IsValid(unit) && unit.GetPtr() != actor && unit->CanFight();
     });
@@ -68,9 +84,33 @@ void AISnipeCommandAP(const char* databasePath, const char* resourcePath, bool l
     mission->GetRPGUnit()->Skills(NDb::ST_SNIPE).SetConst(20);
     const int ap = actor->GetAP();
     Require(ap > 3, "native sniper must have more AP than the requested amount");
+    const bool refresh = mode >= 2;
+    CObj<SnipeRefreshReaction> reaction;
+    if (refresh) {
+        reaction = new SnipeRefreshReaction(ai, mode == 3);
+        ai->SetReaction(reaction);
+    }
     CObj<NWorld::CUnitStateSniping> aim = new NWorld::CUnitStateSniping(actor, target->GetPtr(), 20, NAI::HL_ANY);
     actor->SetState(aim);
+    if (refresh) {
+        actor->CollectSnipeAP(3);
+        Require(!actor->HasCommand() && !actor->IsPerformingAction() && mission->GetSavedAP().nAP == 3,
+            "native reaction refresh did not start from idle aim with stored AP");
+        auto* commander = NAI::GetAICommander(actor);
+        Require(IsValid(commander), "native reaction refresh has no real AI commander");
+        for (int tick = 0; tick < 18 && reaction->updates == 0; ++tick)
+            commander->Segment();
+        Require(reaction->updates == 1, "native commander did not dispatch the pending reaction refresh");
+        if (mode == 2)
+            Require(actor->GetSnipingState() == aim.GetPtr() && mission->GetSavedAP().nAP == 3,
+                "AI reaction refresh cancelled an idle sniper and discarded banked AP");
+        else
+            Require(!actor->IsSniping() && mission->GetSavedAP().nAP == 0,
+                "replacing the AI's logic failed to cancel idle aim and clear its AP");
+        return;
+    }
 
+    const bool legacy = mode == 1;
     const int spend = legacy ? 1 : 3;
     CObj<NWorld::CCmdCollectSnipeAP> restored = new NWorld::CCmdCollectSnipeAP;
     CStructureNetworkContext references;
@@ -81,7 +121,7 @@ void AISnipeCommandAP(const char* databasePath, const char* resourcePath, bool l
         fields.Seek(0);
         { CStructureSaver reader(fields, CStructureSaver::READ); restored->operator&(reader); }
     } else {
-        CObj<NAI::CAILogCollectSnipeAP> record = new NAI::CAILogCollectSnipeAP(NAI::GetAIUnit(actor), spend);
+        CObj<NAI::CAILogCollectSnipeAP> record = new NAI::CAILogCollectSnipeAP(ai, spend);
         list<CPtr<NWorld::CCommand>> commands;
         record->GetCommands(&commands);
         Require(commands.size() == 1, "native snipe plan did not emit one AP command");
@@ -1267,7 +1307,7 @@ static void OwnedAIEnemySelection(bool placeSource)
 
 bool RunAITests(const char* mode, int argc, char** argv)
 {
-    if (!std::strcmp(mode, "ai-snipe-command-ap") && argc == 5) { AISnipeCommandAP(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
+    if (!std::strcmp(mode, "ai-snipe-command-ap") && argc == 5) { AISnipeCommandAP(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "ai-cancel-mounted-gunner") && argc == 4) { CancelMountedGunner(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "scripted-fear-reaction") && argc == 5) { ScriptedFearReaction(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "ai-job-scheduler") && argc == 3) { AIJobScheduler(std::atoi(argv[2])); return true; }

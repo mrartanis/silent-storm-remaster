@@ -395,7 +395,7 @@ void CAICommander::CheckForFinishedLogics()
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CheckForUpdates @0x34640: enqueue each AI-operable unit whose threat state changed (GetReactionForUpdate
-// returns the reaction only then), clearing its pending commands + in-flight action first.
+// returns the reaction only then). The new reaction can reuse an idle sniper's aim.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAICommander::CheckForUpdates()
 {
@@ -406,8 +406,10 @@ void CAICommander::CheckForUpdates()
 		CAIReaction *pReaction = (*i)->GetReactionForUpdate();
 		if ( IsValid( pReaction ) )
 		{
-			commandTracker.Clear( (*i)->GetUnitServer() );
-			(*i)->CancelCommand();
+			NWorld::CUnitServer *pUS = (*i)->GetUnitServer();
+			commandTracker.Clear( pUS );
+			if ( !IsValid( pUS ) || !pUS->IsSniping() || pUS->HasCommand() || pUS->IsPerformingAction() )
+				(*i)->CancelCommand();
 			updateTracker.Add( pReaction );
 		}
 	}

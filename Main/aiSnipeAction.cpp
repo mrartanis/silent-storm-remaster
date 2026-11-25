@@ -228,8 +228,7 @@ void CAISnipeShotAction::Do( CAILog *pLog ) const                        // @0x4
 		*pLog << new CAILogShot( pU, pTarget, HL_ANY );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// CAICancelSnipeAction::GetInfoInner @0x4a4720: sniping, but the snipe conditions no longer hold (enemies
-// came too close or the stored target is no longer hittable) -> cancel.
+// Drop the aim when the current enemy changes or the old firing position no longer qualifies.
 void CAICancelSnipeAction::GetInfoInner( const SPlaceWithAP &, SInfo *pInfo ) const
 {
 	pInfo->bCanDo = false;
@@ -239,7 +238,13 @@ void CAICancelSnipeAction::GetInfoInner( const SPlaceWithAP &, SInfo *pInfo ) co
 	NWorld::CUnitServer *pUS = pU->GetUnitServer();
 	if ( !IsValid( pUS ) )
 		return;
-	if ( pUS->IsSniping() && ( !CanSnipe( pU ) || !CanHitSnipeTarget( pUS, pUS->GetSnipingState() ) ) )
+	if ( !pUS->IsSniping() )
+		return;
+	SAIUnitState *pState = pU->GetAIUnitState();
+	IAIUnit *pEnemy = pState ? pState->pEnemy.GetPtr() : 0;
+	NWorld::CUnitStateSniping *pSnipe = pUS->GetSnipingState();
+	if ( !pSnipe || !IsValid( pEnemy ) || pSnipe->GetTarget() != pEnemy->GetUnitServer() ||
+		!CanSnipe( pU ) || !CanHitSnipeTarget( pUS, pSnipe ) )
 		pInfo->bCanDo = true;
 }
 void CAICancelSnipeAction::Do( CAILog *pLog ) const                      // @0x4a4df0
