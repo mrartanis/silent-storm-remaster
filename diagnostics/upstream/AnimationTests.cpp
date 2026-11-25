@@ -6,6 +6,8 @@
 #include "../../Main/wUnitMove.h"
 #include "../../Main/wUnitQueue.h"
 #include "../../Main/aiPath.h"
+#include "../../Main/aiGrid.h"
+#include "../../Main/aiLocker.h"
 #include <cmath>
 #include <cstring>
 #include <stdexcept>
@@ -63,6 +65,49 @@ void ClipFrameDuration(const char* databasePath, const char* resourcePath)
         }
     }
     Require(false, "authored clip length did not supply a distinguishing frame rate");
+}
+
+void UnoccupiedPKSkeleton(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    NDb::CRPGPers* persona = nullptr;
+    CDBIterator<NDb::CRPGPers> rows(*NDatabase::GetTable<NDb::CRPGPers>());
+    while (!persona && rows.MoveNext()) {
+        auto* candidate = rows.Get();
+        if (IsValid(candidate->pPanzerklein) && IsValid(candidate->pModel) &&
+            IsValid(candidate->pBaseValue) && candidate->pPanzerklein->nMaxVP > 0)
+            persona = candidate;
+    }
+    Require(IsValid(persona), "skeleton type fixture needs an authored Panzerklein shell");
+    auto* network = world->GetPathNetwork();
+    vector<NAI::SPathPlace> nearby;
+    network->GetNearPlaces(SSphere(actor->GetPosition().GetCP(), 15.f), &nearby);
+    auto placement = std::find_if(nearby.begin(), nearby.end(), [&](auto& point) {
+        point.SetPose(NAI::CM_STAND);
+        return network->IsPassable(point) && !network->IsLocked(point) && NAI::IsBigLockerPlacePassable(network, point);
+    });
+    Require(placement != nearby.end(), "skeleton type fixture needs a free native heavy footprint");
+    auto* shell = world->AddUnitInGame(*placement, NRPG::CreateUnit(persona), nullptr);
+    Require(IsValid(shell) && shell->IsEmptyPK(), "the actual spawn did not create an empty Panzerklein");
+    struct AnimatorSnapshot {
+        bool pk = false;
+        int operator&(CStructureSaver& reader) { reader.Add(38, &pk); return 0; }
+    };
+    struct UnitBodySnapshot {
+        AnimatorSnapshot animator;
+        int operator&(CStructureSaver& reader) { reader.Add(19, &animator); return 0; }
+    };
+    auto usesPKSkeleton = [](NWorld::CUnitServer* unit) {
+        CStructureNetworkContext refs;
+        auto fields = BorrowedObjectFields(unit, &refs);
+        UnitBodySnapshot state;
+        CStructureSaver reader(fields, CStructureSaver::READ, &refs);
+        reader.Add(2, &state);
+        return state.animator.pk;
+    };
+    Require(!usesPKSkeleton(actor), "ordinary soldier should keep its original skeleton type");
+    Require(usesPKSkeleton(shell), "new empty Panzerklein entered the ordinary human animation state");
 }
 
 struct AimTurnSample
@@ -298,6 +343,7 @@ bool RunAnimationTests(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "animation-path-smoothing-order") && argc == 2) { AnimationPathSmoothingOrder(); return true; }
     if (!std::strcmp(mode, "clip-frame-duration") && argc == 4) { ClipFrameDuration(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "unoccupied-pk-skeleton") && argc == 4) { UnoccupiedPKSkeleton(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "aim-turn-duration") && argc == 5) { AimTurnDuration(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "attack-animation-fallback") && argc == 5) { AttackAnimationFallback(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "movement-presentation-guards") && argc == 5) { MovementPresentationGuards(argv[2], argv[3], std::atoi(argv[4])); return true; }

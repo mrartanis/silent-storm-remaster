@@ -1079,8 +1079,55 @@ void DroppedCapModel(const char* databasePath, const char* resourcePath, bool ha
             "falling cap was randomized differently from the living attachment");
 }
 
+void InactiveHeavyAttachment(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    auto* mission = actor->GetUnitRPG();
+    auto* inventory = mission->GetInventory();
+    NDb::CRPGWeapon* ordinary = nullptr;
+    NDb::CRPGWeapon* heavy = nullptr;
+    CDBIterator<NDb::CRPGWeapon> records(*NDatabase::GetTable<NDb::CRPGWeapon>());
+    while ((!ordinary || !heavy) && records.MoveNext()) {
+        auto* candidate = records.Get();
+        if (!IsValid(candidate->pItem) || !candidate->pItem->bPlaceInHand || !IsValid(candidate->pItem->pModel))
+            continue;
+        if (!ordinary && candidate->pItem->subType == NDb::SUBTYPE_PISTOL)
+            ordinary = candidate;
+        if (!heavy && candidate->pItem->subType == NDb::SUBTYPE_HEAVY && candidate->nPanzerkleinType == 0)
+            heavy = candidate;
+    }
+    Require(IsValid(heavy) && IsValid(ordinary) && IsValid(ordinary->pItem) &&
+        IsValid(ordinary->pItem->pModel), "inactive heavy attachment fixture lacks its native models");
+    heavy->pItem->pModelInactive = ordinary->pItem->pModel;
+    for (auto slot : {NDb::SLOT_1, NDb::SLOT_2})
+        if (inventory->Get(slot))
+            inventory->TakeOff(slot);
+    CObj<NRPG::CWeaponItem> stored = new NRPG::CWeaponItem(heavy);
+    CObj<NRPG::CWeaponItem> held = new NRPG::CWeaponItem(ordinary);
+    Require(inventory->Equip(NDb::SLOT_1, held) && inventory->Equip(NDb::SLOT_2, stored) && inventory->Activate(NDb::SLOT_1),
+        "inactive heavy attachment fixture could not equip both weapons");
+    Require(mission->GetInventoryInfo()->GetActive() == held && mission->GetInventoryInfo()->Get(NDb::SLOT_2) == stored,
+        "inactive heavy attachment fixture does not have a normal active pistol and off-hand heavy weapon");
+    auto* bone = NWorld::GetBoneName(NWorld::UIT_WEAPON_HEAVY, stored);
+    Require(bone && *bone, "inactive heavy attachment fixture has no authored heavy bind bone");
+    vector<NWorld::IRenderVisitor::SBoundMesh> meshes;
+    NWorld::GetItemsBindPlaces(&meshes, mission, false, nullptr);
+    const auto attachment = std::find_if(meshes.begin(), meshes.end(), [&](const auto& model) {
+        return model.pszBindBone && std::strcmp(model.pszBindBone, bone) == 0;
+    });
+    Require(attachment != meshes.end() && IsValid(attachment->pModel), "off-hand heavy weapon lost its bound mesh");
+    Require(attachment->pModel->pSrcRndModel == ordinary->pItem->pModel.GetPtr(),
+        "off-hand heavy weapon ignored its authored inactive model");
+    NWorld::GetItemsBindPlaces(&meshes, mission, false, nullptr, true);
+    Require(std::none_of(meshes.begin(), meshes.end(), [&](const auto& model) {
+        return model.pszBindBone && std::strcmp(model.pszBindBone, bone) == 0;
+    }), "inactive heavy model was shown with the no-heavy flag");
+}
+
 bool RunInventoryTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "inactive-heavy-attachment") && argc == 4) { InactiveHeavyAttachment(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "dropped-cap-model") && argc == 5) { DroppedCapModel(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "difficulty-equipment") && argc == 5) { DifficultyEquipment(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "inventory-transfer-validation") && argc == 5) { InventoryTransferValidation(argv[2], argv[3], std::atoi(argv[4])); return true; }
