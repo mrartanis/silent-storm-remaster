@@ -1649,6 +1649,9 @@ static void NativeMeleeCalledShot(const char* databasePath,const char* resourceP
         Require(std::any_of(probe->traces.begin(), probe->traces.end(), [&](const auto& trace) {
             return fabs2(trace.origin - expected) < .0001f;
         }), "native melee impact traced from the height of the initial swing target");
+        Require(std::all_of(probe->traces.begin(), probe->traces.end(), [](const auto& trace) {
+            return trace.mask == (NWorld::TS_COVER | NWorld::TS_ITEM_BLOCKER | NWorld::TS_FRAGMENTED);
+        }), "native melee impact used a preview cover mask that omits fragments");
         return;
     }
     exec->OnLabel();Require(exec->calls==1 && (wanted==NAI::HL_ANY || exec->hitPart==wanted),"called-shot native label did not dispatch exactly one requested-part flesh hit");

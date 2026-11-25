@@ -1977,9 +1977,10 @@ void CExecMeleeObject::OnLabel()
 		const bool bObject = IsValid( pTarget ) && pMap->GetUnitHLPos( &ptCurrent, pMap->GetHull( pTarget ), -1 );
 		const CVec3 &ptAim = bObject ? ptCurrent : ptTarget;
 		CVec3 ptAttackPos = NRPG::GetMeleeAttackPos( pUS, ptAim );
+		const int nTraceFlags = NWorld::TS_COVER | NWorld::TS_ITEM_BLOCKER | NWorld::TS_FRAGMENTED;
 		CObj<NRPG::CCoverInfo> pCover = bObject
-			? pWorld->GetGame()->CalcCovers( ptAttackPos, attack[0], pUS, pTarget, -1, 0 )
-			: pWorld->GetGame()->CalcCoversForTile( ptAttackPos, attack[0], pUS, ptTarget, 0 );
+			? pWorld->GetGame()->CalcCovers( ptAttackPos, attack[0], pUS, pTarget, -1, 0, false, nTraceFlags )
+			: pWorld->GetGame()->CalcCoversForTile( ptAttackPos, attack[0], pUS, ptTarget, 0, nTraceFlags );
 		int nToHit;
 		float fHit;
 		CDynamicCast<CUnitServer> pUnitTarget( pTarget );
@@ -2092,7 +2093,8 @@ void CExecMeleeUnit::OnLabel()
 		if ( !IsValid( pTarget ) || !pMap->GetUnitHLPos( &ptImpactTarget, pMap->GetHull( pTarget ), hlInfo.eHL ) )
 			ptImpactTarget = ptTarget;
 		CVec3 ptAttackPos = NRPG::GetMeleeAttackPos( pUS, ptImpactTarget );
-		CObj<NRPG::CCoverInfo> pCover = pWorld->GetGame()->CalcCovers( ptAttackPos, attack[0], pUS, pTarget, hlInfo.eHL, 0 );
+		CObj<NRPG::CCoverInfo> pCover = pWorld->GetGame()->CalcCovers( ptAttackPos, attack[0], pUS, pTarget,
+			hlInfo.eHL, 0, false, NWorld::TS_COVER | NWorld::TS_ITEM_BLOCKER | NWorld::TS_FRAGMENTED );
 		//
 		int nToHit;
 		float fHit = NRPG::CheckToHit( pUS, pTarget,
