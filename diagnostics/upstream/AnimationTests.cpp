@@ -67,6 +67,76 @@ void ClipFrameDuration(const char* databasePath, const char* resourcePath)
     Require(false, "authored clip length did not supply a distinguishing frame rate");
 }
 
+void ItemActivationAndSingleStep(const char* databasePath, const char* resourcePath, bool step)
+{
+    auto fixture = MakeNativeCannonFixture(databasePath, resourcePath);
+    auto* actor = fixture.actor.GetPtr();
+    auto& animator = actor->animator;
+    auto position = actor->GetPosition();
+    const auto type = step ? NDb::CAnimation::MOVE_ONE_STEP : NDb::CAnimation::GET_BACKPACK;
+    CDBPtr<NDb::CSkeleton> skeleton;
+    CMemoryStream fields;
+    CStructureNetworkContext refs;
+    refs.include = [](CObjectBase*) { return false; };
+    { CStructureSaver writer(fields, CStructureSaver::WRITE, &refs); animator.operator&(writer); }
+    fields.Seek(0);
+    { CStructureSaver reader(fields, CStructureSaver::READ, &refs); reader.Add(31, &skeleton); }
+    auto* clip = NDb::GetAnimation(4437);
+    Require(IsValid(skeleton) && IsValid(clip), "animation fixture needs a native skeleton and playable clip");
+    clip->nPoseWeaponFlags = NDb::CAnimation::POSE_STAND |
+        (step ? (0x7fffffff & ~NDb::CAnimation::POSE_STAND) : NDb::CAnimation::WEAPON_PISTOL);
+    clip->nClassSexFlags = 0x7fffffff & ~NDb::CAnimation::BOSS;
+    clip->fRndWeight = 1.f;
+    clip->szParams.clear();
+    clip->pSide = nullptr;
+    skeleton->pAnimations[type].anims = {clip};
+    if (!step) {
+        auto* unarmed = NDb::GetAnimation(4438);
+        Require(IsValid(unarmed), "activation fixture needs a different unarmed control clip");
+        unarmed->nPoseWeaponFlags = NDb::CAnimation::POSE_STAND | NDb::CAnimation::WEAPON_NONE;
+        unarmed->nClassSexFlags = clip->nClassSexFlags;
+        unarmed->fRndWeight = 1.f;
+        unarmed->szParams.clear();
+        unarmed->pSide = nullptr;
+        for (auto& entry : skeleton->pAnimations) {
+            auto& candidates = entry.second.anims;
+            candidates.erase(std::remove_if(candidates.begin(), candidates.end(), [&](const auto& candidate) {
+                return candidate == clip || candidate == unarmed;
+            }), candidates.end());
+        }
+        skeleton->pAnimations[type].anims = {clip, unarmed};
+    }
+
+    vector<CObj<CObjectBase>> before;
+    for (auto* node : NativeAnimationNodes(animator.GetSkeletonAnimator()))
+        before.emplace_back(node);
+
+    if (step) {
+        CRay ray;
+        ray.ptOrigin = position.GetCP();
+        ray.ptDir = CVec3(1, 0, 0);
+        animator.Attack(position, ray, false, true);
+        Require(animator.IsAiming(), "single-step fixture did not enter its native aimed pose");
+        animator.StartMove(false);
+        auto next = position;
+        next.pos.p.SetXY(position.pos.p.GetX() + 1, position.pos.p.GetY());
+        animator.EndMove(position, next, true, false);
+    } else {
+        animator.SetActiveItem(false);
+        animator.SetWeaponAnimation(NDb::WT_DEFAULT);
+        animator.PlaceUnit(position);
+        animator.ActivateItem(position, false, true, NDb::BELT_L1, NDb::WT_PISTOL);
+    }
+    const auto nodes = NativeAnimationNodes(animator.GetSkeletonAnimator());
+    Require(std::any_of(nodes.begin(), nodes.end(), [&](auto* node) {
+        auto* animation = dynamic_cast<NAnimation::CAnimation*>(node);
+        return animation && animation->GetRecordID() == clip->GetRecordID() &&
+            std::none_of(before.begin(), before.end(), [&](const auto& previous) { return previous == node; });
+    }), "native activation or single-step queue lost its selected animation");
+    if (step)
+        Require(animator.IsAiming(), "the native single-step clip cleared the aimed posture");
+}
+
 void MovementEndBeforeTransition(const char* databasePath, const char* resourcePath, bool climb)
 {
     auto world = FixtureWorld(databasePath, resourcePath, true);
@@ -103,6 +173,7 @@ void MovementEndBeforeTransition(const char* databasePath, const char* resourceP
         std::count(order.begin(), order.end(), endID) == 1,
         "native movement must finalize the walk before climbing or changing stance");
 }
+
 
 void UnoccupiedPKSkeleton(const char* databasePath, const char* resourcePath)
 {
@@ -378,6 +449,7 @@ void MovementPresentationGuards(const char* databasePath, const char* resourcePa
 
 bool RunAnimationTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "item-activation-and-step") && argc == 5) { ItemActivationAndSingleStep(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "movement-end-before-transition") && argc == 5) { MovementEndBeforeTransition(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "animation-path-smoothing-order") && argc == 2) { AnimationPathSmoothingOrder(); return true; }
     if (!std::strcmp(mode, "clip-frame-duration") && argc == 4) { ClipFrameDuration(argv[2], argv[3]); return true; }
