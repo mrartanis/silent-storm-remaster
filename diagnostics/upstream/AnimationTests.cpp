@@ -1,4 +1,8 @@
 #include "NativeCannonFixture.h"
+#include "../../Main/wUICommands.h"
+#include "../../Main/wUnitMove.h"
+#include "../../Main/wUnitQueue.h"
+#include "../../Main/aiPath.h"
 #include <cmath>
 #include <cstring>
 #include <stdexcept>
@@ -105,11 +109,70 @@ void AimTurnDuration(const char* databasePath, const char* resourcePath, int mod
     }
     Require(false, "native cannon aim turn did not schedule its authored animation");
 }
+
+void MovementPresentationGuards(const char* databasePath, const char* resourcePath, int mode)
+{
+    NativeCannonFixture fixture;
+    if (mode == 1) {
+        fixture.world = FixtureWorld(databasePath, resourcePath, true, &fixture.game);
+        fixture.actor = MovementPolicyActor(fixture.world);
+    } else {
+        fixture = MakeNativeCannonFixture(databasePath, resourcePath);
+    }
+    auto* actor = fixture.actor.GetPtr();
+    auto* world = fixture.world.GetPtr();
+    world->GivePlayerTurn(actor->GetTBSPlayer());
+    actor->GetUnitRPG()->StartNewTurn(actor->GetPosition().GetCP());
+    auto* cannon = fixture.cannon.GetPtr();
+    CObj<NWorld::CCmdCannon> command = new NWorld::CCmdCannon(cannon);
+    CObj<NWorld::CExecCannon> mounted = new NWorld::CExecCannon(actor, cannon, true, command);
+    if (mode != 1) {
+        Require(mounted->CanDoIt(actor->GetPosition()) == NWorld::UCR_OK, "mounted movement fixture has no legal cannon order");
+        mounted->Run();
+        Require(actor->animator.GetCannon() == cannon, "mounted movement fixture did not mount its cannon");
+    }
+    auto from = actor->GetPosition().pos.p;
+    CObj<NAI::CPath> path = new NAI::CPath;
+    path->pNet = world->GetPathNetwork();
+    path->points.push_back(from);
+    if (mode == 1) {
+        auto to = from;
+        to.SetPose(NAI::CM_CROUCH);
+        path->pNet->Unlock(actor);
+        const auto pass = path->pNet->GetPassability(to);
+        path->pNet->Lock(actor, from);
+        Require(pass == NAI::AIP_YES, "movement fixture has no native crouch pose");
+        path->points.push_back(to);
+    }
+    if (mode == 0) {
+        CObj<NWorld::CExecQueue> queue = new NWorld::CExecQueue(actor);
+        queue->AddExecutor(mounted);
+        queue->SetNewPath(path, NAI::PF_USE_POSEDIR);
+        Require(queue->GetFrontExecutor() == mounted.GetPtr(), "a new path displaced the mounted cannon executor");
+        return;
+    }
+
+    while (CObj<NWorld::CUICmd> command = world->GetUICommand()) {}
+    CObj<NWorld::CCommandExecute> move = NWorld::CreateSimpleMoveExecutor(actor, path, NAI::PF_USE_POSEDIR,
+        NWorld::ITEM_NO_MATTER, true);
+    Require(move, "movement fixture failed to create the actual path executor");
+    move->Run();
+
+    Require(actor->GetPosition().pos.p.GetPose() == NAI::CM_CROUCH, "stance fixture did not execute the native crouch step");
+    int requests = 0;
+    while (CObj<NWorld::CUICmd> command = world->GetUICommand()) {
+        auto* camera = dynamic_cast<NWorld::CUICmdUnitCamera*>(command.GetPtr());
+        if (camera && camera->pUnit == actor && camera->nPriority == NWorld::PR_UNIT_ACTION)
+            ++requests;
+    }
+    Require(requests == 1, "native pose change did not issue exactly one action camera request");
+}
 }
 
 bool RunAnimationTests(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "aim-turn-duration") && argc == 5) { AimTurnDuration(argv[2], argv[3], std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "movement-presentation-guards") && argc == 5) { MovementPresentationGuards(argv[2], argv[3], std::atoi(argv[4])); return true; }
     return false;
 }
 }

@@ -744,6 +744,8 @@ void CExecMove::DoCommand()
 							CheckDoors( pChangePose->pos );
 							if (TestSingleGameMove(pChangePose))
 							{
+								if ( position.GetPose() != pChangePose->pos.GetPose() )
+									pUS->GetWorld()->AddUICommand( new CUICmdUnitCamera( pUS, PR_UNIT_ACTION, false, 1.0f, 0 ) );
 								animator.ChangePose(position, pChangePose->pos);
 								pCurCmd = pCmd;
 								DoGameMove(pChangePose->pos);

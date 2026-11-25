@@ -265,6 +265,8 @@ void CExecQueue::GetPathPoints( list<SPathPoint> *pRes )
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExecQueue::SetNewPath( NAI::CPath *pPath, NAI::EFindPathParams _eParams, ENeedActiveItem eActive )
 {
+	if ( pUS->animator.GetCannon() )
+		return;
 	bCancelled = false;
 	CObj<CCommandExecute> pHold = execList.front(); 
 	CDynamicCast<IExecMove> pOldCommand( pHold );
