@@ -154,7 +154,7 @@ protected:
 	int   nBulletPrepared = 0;           // retail +0x2c
 	int   nBulletGone = 0;               // retail +0x118
 	bool  bOnlyPrepareToShoot = false;   // retail +0x115 -- aim-and-hold selector from CCmdShootObject
-	bool  bUpdateVision = true;          // retail +0x120 -- ctor default true
+	bool  bUpdateVision = false;         // retail +0x120 -- refresh after the shot reveals the shooter
 public:
 	// full retail tag table (CExecShoot::operator& @0x3b0ef0): 1=base, 2=nExtraAP, 3=longBurstSnd,
 	// 4=tNextBulletPrepare, 5=bShotInitiated, 6=nBulletPrepared, 7=attack, 8=rayInfo, 9=ptAnimTarget,
@@ -183,7 +183,7 @@ protected:
 
 public:
 	CExecShoot() {}
-	CExecShoot( CUnitServer *_pUS, int _nExtraAP );
+	CExecShoot( CUnitServer *_pUS, int _nExtraAP, bool _bOnlyPrepareToShoot = false );
 
 	virtual EUnitCommandResult CanDoIt( const NAI::SUnitPosition &from, bool bIgnoreTarget = false ) const;
 	virtual int GetStartAP() const;
@@ -226,7 +226,7 @@ class CExecShootObject: public CExecShoot
 public:
 	int operator&( CStructureSaver &f ) { f.Add(1,(CExecShoot*)this); f.Add(2,&pTarget); return 0; }
 	CExecShootObject() {}
-	CExecShootObject( CUnitServer *pUS, CObjectBase *pTarget, int nExtraAP );
+	CExecShootObject( CUnitServer *pUS, CObjectBase *pTarget, int nExtraAP, bool bOnlyPrepareToShoot = false );
 	virtual EUnitCommandResult CanDoIt( const NAI::SUnitPosition &from, bool bIgnoreTarget = false ) const;
 	virtual void SelectRay();
 	virtual void CheckShotResult();

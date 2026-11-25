@@ -2,6 +2,7 @@
 #include "NativeCoverSnapshot.h"
 #include "../../Main/wMain.h"
 #include "../../Main/wExplTracker.h"
+#include "../../Main/wAckBase.h"
 #include "../../Main/wUnitServer.h"
 #include "../../Main/wUnitCommands.h"
 #include "../../Main/wUnitExec.h"
@@ -41,6 +42,166 @@ namespace UpstreamTests
 {
 namespace
 {
+class ShotFeedbackAck : public NWorld::CGlobalAck
+{
+    OBJECT_NOCOPY_METHODS(ShotFeedbackAck);
+public:
+    int empty = 0;
+    int hits = 0;
+    void OnLastPieceOfAmmo(NWorld::CUnitServer*) override { ++empty; }
+    void OnTargetHit(NWorld::CUnitServer*) override { ++hits; }
+    void OnHardTargetHit(NWorld::CUnitServer*) override { ++hits; }
+};
+
+class ShotFeedbackWorld : public NWorld::CWorld
+{
+    OBJECT_NOCOPY_METHODS(ShotFeedbackWorld);
+public:
+    CObj<ShotFeedbackAck> feedback;
+    int visibility = 0;
+    ShotFeedbackWorld() = default;
+    explicit ShotFeedbackWorld(NRPG::CGlobalGame* game) : NWorld::CWorld(game), feedback(new ShotFeedbackAck) {}
+    NWorld::CGlobalAck* GetGlobalAck() const override { return feedback ? feedback.GetPtr() : NWorld::CWorld::GetGlobalAck(); }
+    void UpdateVisible(bool force) override {
+        ++visibility;
+        NWorld::CWorld::UpdateVisible(force);
+    }
+};
+
+class CompletionBurstProbe : public NWorld::CExecShootUnit
+{
+public:
+    using CExecShootUnit::CExecShootUnit;
+    void RetainSound(NWorld::C3DSound* sound) { longBurstSnd.pLongBurstSnd = sound; }
+    bool IsRetainingSound() const { return IsValid(longBurstSnd.pLongBurstSnd); }
+    STime GetNextLaunch() const { return tNextBulletGo; }
+};
+
+void ShootingCompletion(const char* databasePath, const char* resourcePath, int mode)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game, 810,
+        [](NRPG::CGlobalGame* campaign) -> NWorld::CWorld* { return new ShotFeedbackWorld(campaign); });
+    auto* observed = static_cast<ShotFeedbackWorld*>(world.GetPtr());
+    auto* actor = MovementPolicyActor(world);
+    auto* mission = actor->GetUnitRPG();
+    auto* inventory = mission->GetInventory();
+    auto* record = NDatabase::GetTable<NDb::CRPGWeapon>()->GetRecord(26);
+    Require(IsValid(record) && IsValid(record->pInnerClip), "shot completion fixture lacks its native single-shot gun");
+    if (inventory->Get(NDb::SLOT_1))
+        inventory->TakeOff(NDb::SLOT_1);
+    CObj<NRPG::CWeaponItem> weapon = new NRPG::CWeaponItem(record);
+    const bool delayedBurst = mode == 3;
+    if (delayedBurst) {
+        Require(record->pAnimWeaponType, "completion fixture lacks native firing animation settings");
+        record->shootModes[NDb::SM_LongBurst] = true;
+        record->pAnimWeaponType->nBulletDelay = 100;
+    }
+    Require(inventory->Equip(NDb::SLOT_1, weapon) && inventory->Activate(NDb::SLOT_1) &&
+        weapon->SetShootMode(delayedBurst ? NDb::SM_LongBurst : NDb::SM_Snap),
+        "shot completion fixture failed to activate its loaded gun");
+    actor->SetUndrawItem(false);
+    actor->animator.SetActiveItem(true);
+    actor->animator.SetWeaponAnimation(mission->GetWeaponType());
+    actor->animator.SetWeaponName(record->szAnimName.c_str());
+    actor->SetScriptToHit(100);
+    world->GivePlayerTurn(actor->GetTBSPlayer());
+    const auto position = actor->GetPosition();
+    mission->StartNewTurn(position.GetCP());
+    const int ap = actor->GetAP();
+    const int ammo = weapon->GetAmmoQuantity();
+    Require(ammo > 1, "shot completion fixture has no ammunition controls");
+
+    if (mode == 0) {
+        CObj<NWorld::CCmdShootObject> command;
+        for (const auto& candidate : world->GetObjectsForHarness()) {
+            auto* door = dynamic_cast<NWorld::CWindowDoor*>(candidate.GetPtr());
+            if (!IsValid(door) || !world->GetAIMap()->GetHull(door))
+                continue;
+            command = new NWorld::CCmdShootObject(door, 0);
+            command->bOnlyPrepareToShoot = true;
+            NWorld::EUnitCommandResult result;
+            CObj<NWorld::CCommandExecute> action = actor->CreateExecutor(command, &result);
+            if (action && result == NWorld::UCR_OK)
+                break;
+            command = nullptr;
+        }
+        Require(command, "aim-only order fixture has no reachable native door");
+        actor->Do(new NWorld::CCmdSetCommand(actor, command));
+        actor->Do(new NWorld::CCmdSetCommand(actor, new NWorld::CCmdContinue));
+        Require(actor->IsPerformingAction(), "aim-only door order did not start its native executor");
+        Require(weapon->GetAmmoQuantity() == ammo && actor->GetAP() == ap,
+            "aim-only object command spent AP or ammunition while raising the gun");
+        for (int tick = 0; tick < 24 && actor->IsPerformingAction(); ++tick) {
+            auto* clock = world->GetTime();
+            clock->Set(std::max(clock->GetValue() + 1, actor->animator.GetTimeEnd()));
+            actor->Segment();
+        }
+        Require(!actor->IsPerformingAction() && weapon->GetAmmoQuantity() == ammo && actor->GetAP() == ap,
+            "aim-only object command completed with a real shot");
+        return;
+    }
+
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* target = nullptr;
+    CObj<CompletionBurstProbe> shot;
+    for (const auto& candidate : units) {
+        if (!IsValid(candidate) || !candidate->CanFight() || actor->GetDiplomacyState(candidate) != NDb::DS_ENEMY)
+            continue;
+        CObj<CompletionBurstProbe> attempt = new CompletionBurstProbe(actor, candidate, NAI::HL_ANY, 0);
+        if (attempt->CanDoIt(position) == NWorld::UCR_OK) {
+            target = candidate.GetPtr();
+            shot = attempt;
+            break;
+        }
+    }
+    Require(shot && target && !target->WasInterrupted(actor), "shot feedback fixture lacks an unmarked native target");
+    auto* clip = dynamic_cast<NRPG::CClipItem*>(weapon->GetInnerClip());
+    Require(clip && clip->GetItem(), "shot completion fixture lacks its native loaded ammunition");
+    if (delayedBurst)
+        clip->GetItem()->nQuantity = 1;
+    if (mode == 1) {
+        clip->GetItem()->nQuantity = 1;
+        Require(record->fSilencer >= 1.0f, "concealment fixture requires an unsuppressed gun");
+        actor->Hide(true, false);
+        Require(actor->IsHiding(), "shot completion fixture did not conceal the shooter");
+    }
+    const int before = weapon->GetAmmoQuantity();
+    GlobalGameRandom().SeedForHarness(42);
+    shot->Run();
+    Require(weapon->GetAmmoQuantity() == before - 1, "real shot did not spend one round before completion");
+    const int visibility = observed->visibility;
+    world->GetTime()->Set(std::max(world->GetTime()->GetValue(), actor->animator.GetTimeLabel1()));
+    bool keepLabels = shot->TimeLabelReached();
+    if (delayedBurst) {
+        Require(keepLabels && shot->GetNextLaunch() > world->GetTime()->GetValue(),
+            "delayed burst did not separate its first label from the last projectile");
+        CObj<NDb::CSound> burstSound = new NDb::CSound;
+        burstSound->nEndingSamples = 1;
+        CObj<NWorld::C3DSound> sound = new NWorld::C3DSound(position.GetCP(), burstSound);
+        shot->RetainSound(sound);
+        world->GetTime()->Set(shot->GetNextLaunch());
+        shot->Segment();
+        Require(shot->IsRetainingSound(), "long burst released its ending before the completion label");
+        Require(!shot->TimeLabelReached() && !shot->IsRetainingSound(),
+            "long burst did not release its ending at the completion label");
+        return;
+    }
+    for (int tick = 0; tick < 12 && keepLabels; ++tick) {
+        world->GetTime()->Set(world->GetTime()->GetValue() + 1000);
+        shot->Segment();
+        keepLabels = shot->TimeLabelReached();
+    }
+    Require(!keepLabels, "native shot did not finish its bullet schedule");
+    shot->AnimationFinished();
+    Require(observed->feedback->hits == 1, "native shot control did not produce exactly one successful result");
+    Require(observed->feedback->empty == (mode == 1 ? 1 : 0), "real last round did not deliver exactly one empty-weapon acknowledgment");
+    Require(target->WasInterrupted(actor), "a successful native shot left its target eligible to interrupt the shooter again");
+    Require((observed->visibility > visibility) == (mode == 1) && !actor->IsHiding(),
+        "native shot completion must refresh visibility after revealing the shooter");
+}
+
 void BossWeaponState(const char* databasePath, const char* resourcePath)
 {
     auto world = FixtureWorld(databasePath, resourcePath, true);
@@ -993,6 +1154,7 @@ void RangedHitRollRange(const char* databasePath, const char* resourcePath)
 
 bool RunProjectileTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "shooting-completion") && argc == 5) { ShootingCompletion(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "explosion-witnessed-kill") && argc == 5) { ExplosionWitnessedKill(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "boss-weapon-state") && argc == 4) { BossWeaponState(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "sniper-target-policy") && argc == 5) { SniperTargetPolicy(argv[2], argv[3], std::atoi(argv[4])); return true; }

@@ -806,7 +806,8 @@ CCommandExecute* CreateActionExecutor( CUnitServer *pUS, CCmd *pCmd, EUnitComman
 
 				if ( IsValid( pAttackObject->pTarget ) && (eType == AT_SHOOT || eType == AT_CANNON) )
 				{
-					CExecShootObject *pShot = new CExecShootObject( pUS, pAttackObject->pTarget, pAttackObject->nExtraAttackAP );
+					CExecShootObject *pShot = new CExecShootObject( pUS, pAttackObject->pTarget,
+						pAttackObject->nExtraAttackAP, pAttackObject->bOnlyPrepareToShoot );
 					if ( eType == AT_CANNON )
 						return CreateSimpleActionOrReload( pUS, pAttackObject.GetPtr(), pShot, pError );
 					return CreateActionQueueOrReload( pUS, pAttackObject.GetPtr(), pShot, pError );
