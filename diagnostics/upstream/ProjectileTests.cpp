@@ -779,6 +779,66 @@ auto CurrentProjectileObjects(NWorld::CWorld* world)
     return existing;
 }
 
+void AccidentalShotPayload(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    auto* mission = actor->GetUnitRPG();
+    auto* inventory = mission->GetInventory();
+    auto* record = NDatabase::GetTable<NDb::CRPGWeapon>()->GetRecord(26);
+    Require(IsValid(record) && IsValid(record->pInnerClip), "accidental shot fixture has no loaded firearm");
+    if (inventory->Get(NDb::SLOT_1))
+        inventory->TakeOff(NDb::SLOT_1);
+    CObj<NRPG::CWeaponItem> weapon = new NRPG::CWeaponItem(record);
+    Require(inventory->Equip(NDb::SLOT_1, weapon) && inventory->Activate(NDb::SLOT_1) &&
+        weapon->SetShootMode(NDb::SM_Snap), "accidental shot fixture could not activate the firearm");
+    actor->SetUndrawItem(false);
+    actor->animator.SetActiveItem(true);
+    actor->animator.SetWeaponAnimation(mission->GetWeaponType());
+    actor->animator.SetWeaponName(record->szAnimName.c_str());
+    actor->animator.PlaceUnit(actor->GetPosition());
+
+    CDBIterator<NDb::CRPGGrenade> grenades(*NDatabase::GetTable<NDb::CRPGGrenade>());
+    Require(grenades.MoveNext(), "accidental shot fixture has no authored grenade payload");
+    NDb::CRPGGrenade* payload = grenades.Get();
+    auto* clip = weapon->GetInnerClip();
+    Require(clip && clip->GetDBAmmo() && weapon->GetAmmoQuantity() > 1,
+        "accidental shot fixture has no loaded ammunition");
+    clip->GetDBAmmo()->pExplosiveBullet = payload;
+    record->nShotEffectType = 2;
+
+    CObj<NWorld::CCommandExecute> shot = NWorld::CreateAccidentalShot(actor);
+    Require(shot, "accidental shot could not find the real gun barrel");
+    const auto before = CurrentProjectileObjects(world);
+    const int ammo = weapon->GetAmmoQuantity();
+    shot->Run();
+    Require(weapon->GetAmmoQuantity() == ammo - 1, "the native critical shot did not consume its round");
+
+    NWorld::IDynamicObject* carrier = nullptr;
+    for (const auto& object : *world->GetMiscObjects()) {
+        if (!before.count(object.GetPtr()) && pSSClasses->GetObjectTypeID(object.GetPtr()) == int(0xB18B1160)) {
+            Require(!carrier, "the accidental single shot spawned multiple carriers");
+            carrier = object;
+        }
+    }
+    Require(carrier, "the native critical shot did not spawn a bullet carrier");
+    CStructureNetworkContext refs;
+    auto fields = BorrowedObjectFields(carrier, &refs);
+    CStructureSaver reader(fields, CStructureSaver::READ, &refs);
+    vector<NRPG::STrailPoint> trail;
+    CPtr<NWorld::CUnitServer> shooter;
+    CPtr<NDb::CRPGGrenade> loadedPayload;
+    int effect = -1;
+    reader.Add(11, &trail);
+    reader.Add(13, &shooter);
+    reader.Add(14, &loadedPayload);
+    reader.Add(15, &effect);
+    Require(!trail.empty() && !shooter && !trail.front().sAttack.pAttacker,
+        "the accidental bullet was credited as an intentional attack");
+    Require(loadedPayload == payload && effect == record->nShotEffectType,
+        "the accidental bullet lost its loaded explosive payload or weapon impact selector");
+}
+
 NWorld::IDynamicObject* NewFlyingGrenade(NWorld::CWorld* world,
     const std::set<NWorld::IDynamicObject*>& existing)
 {
@@ -1154,6 +1214,7 @@ void RangedHitRollRange(const char* databasePath, const char* resourcePath)
 
 bool RunProjectileTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "accidental-shot-payload") && argc == 4) { AccidentalShotPayload(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "shooting-completion") && argc == 5) { ShootingCompletion(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "explosion-witnessed-kill") && argc == 5) { ExplosionWitnessedKill(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "boss-weapon-state") && argc == 4) { BossWeaponState(argv[2], argv[3]); return true; }

@@ -209,18 +209,16 @@ public:
 			if ( !pUS->GetBarrelDir( &ray ) )
 				return;
 			//
-			vector<NRPG::CAttackPortion> attack;
-			pRPG->CreateAttack( &attack, true );
-			if ( attack.empty() )
-				return;
-			//
-			vector<NRPG::IAttackable *> ignores;
-			ignores.push_back( pUS );
-			//
-			CPtr<NRPG::IWeaponItem> pWeaponItem = pUS->GetUnitRPG()->GetWeaponItem();
+			CPtr<NRPG::IWeaponItem> pWeaponItem = pRPG->GetWeaponItem();
 			if ( !IsValid( pWeaponItem ) )
 				return;
 			CDBPtr<NDb::CRPGWeapon> pWeapon = pWeaponItem->GetDBWeapon();
+			NRPG::IClipItem *pClip = pWeaponItem->GetInnerClip();
+			NDb::CRPGGrenade *pGrenade = pClip && pClip->GetDBAmmo() ? pClip->GetDBAmmo()->pExplosiveBullet.GetPtr() : 0;
+			//
+			vector<NRPG::CAttackPortion> attack;
+			if ( !pRPG->CreateAttack( &attack, true, true ) || attack.empty() )
+				return;
 			//
 			CPtr<NDb::CModel> pTrailEffect = 0;
 			if ( pWeapon->pTrailEffect )
@@ -234,7 +232,8 @@ public:
 			{
 				NRPG::SAttackRayInfo rayInfo;
 				NRPG::MakeAccidentalShot( &rayInfo, pUS, pUS->GetPosition(), *i, ray.ptOrigin, ray.ptDir, 30.0f );
-				pUS->GetWorld()->PerformRangedAttack( rayInfo, pUS->GetWorld()->GetTime()->GetValue(), pTrailEffect, pWeapon->fTrailSpeed );
+				pUS->GetWorld()->PerformRangedAttack( rayInfo, pUS->GetWorld()->GetTime()->GetValue(), pTrailEffect,
+					pWeapon->fTrailSpeed, pGrenade, pWeapon->nShotEffectType );
 			}
 			pUS->CreateFlash( false, false );   // @0x3b6d10 accidental shot -> right barrel, single sound
 		}
