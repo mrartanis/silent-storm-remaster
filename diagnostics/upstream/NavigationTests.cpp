@@ -7,6 +7,7 @@
 #include "../../Main/aiPath.h"
 #include "../../Main/aiSmoothPath.h"
 #include "../../Main/aiMoves.h"
+#include "../../Main/aiMultiMoves.h"
 #include "../../Main/aiMovesCalcer.h"
 #include "../../Main/aiPassCalcer.h"
 #include "../../Main/aiDoorCollider.h"
@@ -777,6 +778,31 @@ void TiedApproximatePath()
     }
 }
 
+void ReachableDestinationFilter()
+{
+    using namespace NAI;
+    CObj<CPathNetwork> network = new CPathNetwork;
+    network->CreateLayer(6, 6, VNULL2, 0.f, 0);
+    network->Freeze(true);
+    SPathPlace source(3, 3, 0, 0, CM_STAND, 0);
+    auto& tile = network->GetLayer(0)->tiles[3][3];
+    tile = STile{};
+    tile.nMoveStand = 0xff;
+    tile.nFlags = TF_STAND_PASSABLE;
+    int costs[N_MOVE_TYPES];
+    std::fill(std::begin(costs), std::end(costs), 1);
+    for (bool landable : {true, false}) {
+        tile.nPassable = landable ? CP_STAND : 0;
+        CMultiMovesTable table;
+        list<SPathPlace> offered;
+        table.PrepareAllPaths(&offered, network, source, costs, 0, {}, false, false, true);
+        Require(IsValid(CObj<CPath>(table.ConstructPath(source))), "reachability filter discarded the route's internal wave root");
+        Require((std::find(offered.begin(), offered.end(), source) != offered.end()) == landable,
+            "native reachable endpoints offered a cell where the active stance cannot stand");
+    }
+}
+
+
 static void IsolatedSourcePath()
 {
     CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
@@ -1149,6 +1175,7 @@ static void FlyingShootDirection()
 
 bool RunNavigationTests(const char* mode)
 {
+    if (!std::strcmp(mode, "reachable-destination-filter")) { ReachableDestinationFilter(); return true; }
     if (!std::strcmp(mode, "climb-displacement-halo")) { ClimbDisplacementHalo(); return true; }
     if (!std::strcmp(mode, "high-climb-probe-radius")) { HighClimbProbeRadius(); return true; }
     if (!std::strcmp(mode, "native-geometric-point-aliases")) { NativeGeometricPointAliases(); return true; }
