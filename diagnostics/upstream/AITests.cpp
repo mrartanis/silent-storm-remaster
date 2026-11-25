@@ -28,6 +28,7 @@
 #include "../../Main/aiEvent.h"
 #include "../../Main/aiFearReaction.h"
 #include "../../Main/aiGrid.h"
+#include "../../Main/aiCollider.h"
 #include "../../Main/aiLocker.h"
 #include "../../Main/aiMap.h"
 #include "../../Main/aiReaction.h"
@@ -1148,6 +1149,184 @@ void AILogicReadiness(const char* databasePath, const char* resourcePath, int mo
     }
 }
 
+void AIPanzerkleinPolicy(const char* databasePath, const char* resourcePath, int mode)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* actor = MovementPolicyActor(world);
+    auto* ai = NAI::GetAIUnit(actor);
+    Require(IsValid(ai), "AI Panzerklein fixture needs its native unit wrapper");
+    NDb::CRPGPers* persona = nullptr;
+    CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+    while (!persona && people.MoveNext()) {
+        auto* candidate = people.Get();
+        auto* suit = candidate->pPanzerklein.GetPtr();
+        if (IsValid(suit) && !suit->bHasNoHead && suit->nMaxVP > 0 && IsValid(candidate->pModel))
+            persona = candidate;
+    }
+    Require(IsValid(persona), "AI Panzerklein fixture needs an authored empty shell");
+    auto* network = world->GetPathNetwork();
+    const auto origin = actor->GetPosition().GetCP();
+    vector<NAI::SPathPlace> candidates;
+    network->GetNearPlaces(SSphere(origin, 12.f), &candidates);
+    auto spawn = std::find_if(candidates.begin(), candidates.end(), [&](auto& point) {
+        point.SetPose(NAI::CM_STAND);
+        const auto delta = NAI::SPosition(point, network).GetCP() - origin;
+        return fabs(delta.z) < 0.1f && fabs(delta) > 2.f && fabs(delta) < 7.f && network->IsPassable(point) &&
+            !network->IsLocked(point) && NAI::IsBigLockerPlacePassable(network, point);
+    });
+    Require(spawn != candidates.end(), "AI Panzerklein fixture has no free heavy footprint near the pilot");
+    CObj<NWorld::CUnitServer> shell = world->AddUnitInGame(*spawn, NRPG::CreateUnit(persona), nullptr);
+    Require(IsValid(shell) && shell->IsEmptyPK(), "AI Panzerklein fixture failed to deploy its empty shell");
+    shell->Update();
+    MarkNewDGFrame();
+    world->GetAIMap()->Sync();
+
+    if (mode == 3) {
+        auto* map = world->GetAIMap();
+        int hulls = 0;
+        for (auto next : candidates) {
+            next.SetPose(NAI::CM_STAND);
+            if (!next.IsIntegral() || next.IsFinal() || !network->IsPassable(next) || network->IsLocked(next) ||
+                !NAI::IsBigLockerPlacePassable(network, next))
+                continue;
+            auto position = shell->GetPosition();
+            position.pos.p = next;
+            network->Unlock(shell);
+            shell->SetPosition(position);
+            shell->animator.AlignTime();
+            shell->animator.PlaceUnit(position);
+            shell->Update();
+            MarkNewDGFrame();
+            map->Sync();
+            CVec3 target;
+            if (!map->GetUnitHLPos(&target, map->GetHull(shell), NAI::HL_ANY))
+                continue;
+            ++hulls;
+            SBound bound;
+            bound.SphereInit(target, 2.5f);
+            NAI::CCollider collider;
+            map->PrepareCollider(&collider, bound, 0.5f, NWorld::TS_PASS_BLOCKER);
+            if (collider.DoesIntersect(target, 0.31f))
+                continue;
+            vector<NAI::SPathPlace> originalNeighborhood;
+            network->GetNearPlaces(SSphere(target - CVec3(0, 0, 0.5f), 1.5f), &originalNeighborhood);
+            vector<NAI::SPathPlace> centeredNeighborhood;
+            network->GetNearPlaces(SSphere(target, 1.5f), &centeredNeighborhood);
+            bool hasBlockedApproach = false;
+            for (auto approach : originalNeighborhood) {
+                approach.SetPose(NAI::CM_STAND);
+                if (network->GetPassability(approach) == NAI::AIP_NOT_PASSABLE)
+                    continue;
+                const SSphere sweep(NAI::SPosition(approach, network).GetCP() + CVec3(0, 0, 0.5f), 0.31f);
+                if (collider.CollideBool(sweep, target - sweep.ptCenter, &NCollider::skipAnalyzer)) {
+                    hasBlockedApproach = true;
+                    break;
+                }
+            }
+            if (!hasBlockedApproach && (originalNeighborhood == centeredNeighborhood || centeredNeighborhood.empty()))
+                continue;
+            vector<NAI::SPathPlace> approaches;
+            NWorld::GetCorpsePickupPlaces(shell, &approaches);
+            Require(!approaches.empty(), "empty suit pickup has no usable candidate beside authored geometry");
+            for (auto approach : approaches) {
+                Require(std::any_of(centeredNeighborhood.begin(), centeredNeighborhood.end(), [&](const auto& point) {
+                    return NAI::IsSamePlace(approach, point, 0x1feffff);
+                }), "empty suit pickup included a tile outside its hull-centered approach radius");
+                const SSphere sweep(NAI::SPosition(approach, network).GetCP() + CVec3(0, 0, 0.5f), 0.31f);
+                Require(!collider.CollideBool(sweep, target - sweep.ptCenter, &NCollider::skipAnalyzer),
+                    "empty suit pickup offered a standing approach through a native movement blocker");
+            }
+            Require(hasBlockedApproach || approaches.size() == centeredNeighborhood.size(),
+                "empty suit pickup lost a tile in the hull-centered approach radius");
+            return;
+        }
+        std::printf("empty suit hull observations=%d\n", hulls);
+        Require(false, "suit approach fixture found no authored blocker crossed by an old candidate");
+        return;
+    }
+
+    if (mode == 1) {
+        world->GivePlayerTurn(actor->GetTBSPlayer());
+        actor->GetUnitRPG()->StartNewTurn(origin);
+        auto& melee = shell->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_MELEE);
+        melee.SetConst(20);
+        CObj<NWorld::CCmdTakeCorpse> command = new NWorld::CCmdTakeCorpse(shell);
+        Require(shell->IsAddedToVisitor() && int(melee) == 20 && shell->GetUnitRPG()->GetTotalVP() > 0,
+            "eligible shell fixture lacks a visible healthy hull and positive effective skill");
+        vector<NAI::SPathPlace> approaches;
+        network->GetNearPlaces(SSphere(shell->GetPosition().GetCP(), 2.f), &approaches);
+        const auto previous = actor->GetPosition();
+        bool reachable = false;
+        vector<NAI::SPathPlace> pickup;
+        NWorld::GetCorpsePickupPlaces(shell, &pickup);
+        std::printf("empty suit native hull=%d, pickup places=%zu at (%.2f, %.2f, %.2f)\n",
+            IsValid(world->GetAIMap()->GetHull(shell)), pickup.size(), shell->GetPosition().GetCP().x,
+            shell->GetPosition().GetCP().y, shell->GetPosition().GetCP().z);
+        actor->SetWishPose(NAI::RUN);
+        for (auto place : approaches) {
+            place.SetPose(NAI::CM_STAND);
+            if (!network->IsPassable(place) || network->IsLocked(place))
+                continue;
+            network->Unlock(actor);
+            auto position = previous;
+            position.pos.p = place;
+            actor->SetPosition(position);
+            if (actor->CanDo(command) == NWorld::UCR_OK) {
+                reachable = true;
+                break;
+            }
+        }
+        Require(reachable, "eligible shell fixture is unreachable through the ordinary take command");
+        ai->Synchronize(false);
+        CObj<NAI::CAIWearPKAction> mount = new NAI::CAIWearPKAction(ai);
+        NAI::CAIWearPKAction::SInfo eligible;
+        mount->GetInfoInner(NAI::SPlaceWithAP(actor->GetPosition(), 100), &eligible);
+        Require(eligible.bCanDo && eligible.pPK == shell, "AI Panzerklein fixture cannot reach the eligible suit");
+        melee.SetConst(0);
+        NAI::CAIWearPKAction::SInfo invalid;
+        mount->GetInfoInner(NAI::SPlaceWithAP(actor->GetPosition(), 100), &invalid);
+        Require(!invalid.bCanDo && shell->GetUnitRPG()->GetTotalVP() > 0,
+            "AI accepted a healthy empty shell with a zero effective melee skill");
+        return;
+    }
+
+    CObj<NAI::CAIThrowGrenadeAction> throwGrenade = new NAI::CAIThrowGrenadeAction(ai);
+    CObj<NAI::CAIShootAction> shoot = new NAI::CAIShootAction(ai);
+    Require(throwGrenade->CanPerform() && shoot->CanPerform(), "ordinary pilot failed the native action availability control");
+    Require(shell->WearAsPK(true), "AI Panzerklein fixture could not prepare the native shell");
+    network->Unlock(actor);
+    actor->SetPosition(shell->GetPosition());
+    actor->FlipPanzerklein(shell, false, false);
+    ai->Synchronize(false);
+    Require(actor->IsWearingPK(), "AI Panzerklein fixture did not mount the real suit");
+    if (mode == 0) {
+        Require(shoot->CanPerform() && !throwGrenade->CanPerform(), "worn suit did not restrict AI grenade actions while retaining firing");
+        return;
+    }
+
+    NAI::SAIState state;
+    state.pWorld = world.GetPtr();
+    state.pPlayer = actor->GetPlayer();
+    state.enemyGroups.resize(1);
+    state.enemyGroups.front().ptCenter = origin;
+    ai->SetAIState(&state);
+    struct RestoreAIState { NAI::IAIUnit* ai; ~RestoreAIState() { ai->SetAIState(nullptr); } } restore{ai};
+    auto& health = shell->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP);
+    health.Modify(health.GetMaxValue() / 10 - int(health));
+    auto* charge = NDb::GetRPGGrenade(1);
+    Require(IsValid(charge), "AI suicide-suit fixture has no authored explosive charge");
+    persona->pPanzerklein->pSelfExplosion = charge;
+    CObj<NAI::CAITerrorPKAction> rush = new NAI::CAITerrorPKAction(ai);
+    NAI::CAITerrorPKAction::SInfo withCharge;
+    const NAI::SPlaceWithAP place(actor->GetPosition(), 100);
+    rush->GetInfoInner(place, &withCharge);
+    Require(withCharge.bCanDo, "low-health suit did not pass the suicide-charge control");
+    persona->pPanzerklein->pSelfExplosion = nullptr;
+    NAI::CAITerrorPKAction::SInfo noCharge;
+    rush->GetInfoInner(place, &noCharge);
+    Require(!noCharge.bCanDo, "AI started a suicide rush in an armored suit without a charge");
+}
 
 void AIPlaceSourcePolicy(const char* databasePath, const char* resourcePath, int mode)
 {
@@ -1755,6 +1934,7 @@ static void OwnedAIEnemySelection(bool placeSource)
 
 bool RunAITests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "ai-panzerklein-policy") && argc == 5) { AIPanzerkleinPolicy(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "ai-place-source-policy") && argc == 5) { AIPlaceSourcePolicy(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "ai-cannon-candidate-position") && argc == 4) { AICannonCandidatePosition(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-logic-readiness") && argc == 5) { AILogicReadiness(argv[2], argv[3], std::atoi(argv[4])); return true; }

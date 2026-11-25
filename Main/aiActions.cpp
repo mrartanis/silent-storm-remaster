@@ -410,7 +410,7 @@ void CAIReloadAction::GetInfoInner( const SPlaceWithAP &place, SInfo *pInfo ) co
 	if ( !IsValid( pRPGUnit ) )
 		return;
 	// can't reload from an inactive pose (release gates on the pose category bits)
-	if ( ( place.place.GetPose() & 0xc000 ) == 0xc000 )
+	if ( place.place.pos.p.GetPose() == CM_INACTIVE )
 		return;
 	CAIFireArmsWeapon *pWeapon = pUnit->GetAIInventory()->GetBestWeaponForReload();
 	pInfo->pWeapon = pWeapon;
@@ -648,18 +648,14 @@ bool CAILootAction::ComparePlaces( const SPlaceWithAP &p1, const SPlaceWithAP &p
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CAIWearPKAction - climb into the best reachable free panzerklein. Reconstructed from the matched-
 // release decode (oracle: decomp/src/s2_aipkaction.h: GetInfoInner @0x0048d8b0, Do @0x0048dd10).
-// Scans every unit server for candidate suits: empty suits with a live hull (IsEmptyPK + IsAddedToVisitor
-// + HP != 0) are preferred; occupied suits whose pilot cannot fight come after. With the unit's wish-pose
-// temporarily forced to RUN (reachability judged as if running), the first candidate with positive HP the
-// unit can reach + take (CanDo(CCmdTakeCorpse) == UCR_OK) wins. Hook resolution: the suit-server wish-pose
-// scratch (+0x28) is CDumbUnitServer::Get/SetWishPose, the run byte (+0x24) is Set/IsStrafing, the
-// candidate HP is its RPG unit's ST_VP, the corpse mounted is the suit cast to NWorld::CUnit.
+// Prefer visible, empty chassis with a nonzero effective melee skill. The selected
+// candidate must also have positive total VP and pass the native take command.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-static int WearPK_SuitHP( NWorld::CUnitServer *pS )
+static int WearPK_EmptySuitSkill( NWorld::CUnitServer *pS )
 {
 	NRPG::IUnitMissionInfo *pRPG = pS->GetRPG();
 	NRPG::CUnit *pUnit = IsValid( pRPG ) ? pRPG->GetRPGUnit() : 0;
-	return IsValid( pUnit ) ? (int)pUnit->Skills( NDb::ST_VP ) : 0;
+	return IsValid( pUnit ) ? (int)pUnit->Skills( NDb::ST_MELEE ) : 0;
 }
 void CAIWearPKAction::GetInfoInner( const SPlaceWithAP &place, SInfo *pInfo ) const   // @0x0048d8b0
 {
@@ -687,9 +683,9 @@ void CAIWearPKAction::GetInfoInner( const SPlaceWithAP &place, SInfo *pInfo ) co
 		if ( !IsValid( pS ) )
 			continue;
 		bool bEmpty = pS->IsEmptyPK();
-		if ( bEmpty && pS->IsAddedToVisitor() && WearPK_SuitHP( pS ) != 0 )
+		if ( bEmpty && pS->IsAddedToVisitor() && WearPK_EmptySuitSkill( pS ) != 0 )
 		{
-			cands.push_back( pS );
+			cands.insert( cands.begin(), pS );
 			continue;
 		}
 		if ( !bEmpty && IsValid( pS->GetWearingDBPK() ) && !pS->CanFight() )
@@ -705,7 +701,7 @@ void CAIWearPKAction::GetInfoInner( const SPlaceWithAP &place, SInfo *pInfo ) co
 	for ( int i = 0; i < (int)cands.size(); ++i )
 	{
 		CObj<NWorld::CCmd> cmd = new NWorld::CCmdTakeCorpse( (NWorld::CUnit*)cands[i] );
-		if ( WearPK_SuitHP( cands[i] ) > 0 && pUS->CanDo( cmd.GetPtr() ) == NWorld::UCR_OK )
+		if ( cands[i]->GetUnitRPG()->GetTotalVP() > 0 && pUS->CanDo( cmd.GetPtr() ) == NWorld::UCR_OK )
 		{
 			pInfo->bCanDo = true;
 			pInfo->pPK = cands[i];
@@ -754,7 +750,7 @@ void CAITerrorPKAction::GetInfoInner( const SPlaceWithAP &place, SInfo *pInfo ) 
 	NWorld::CUnitServer *pPK = pUS->GetWearingPK();
 	if ( !IsValid( pPK ) )
 		return;
-	if ( !IsValid( pUS->GetWearingDBPK() ) )           // the binary re-checks the worn record here
+	if ( !IsValid( pUS->GetWearingDBPK()->pSelfExplosion ) )
 		return;
 	// the rampage is a DESPERATION move: only once the suit is hurt to <= 25% of its max HP.
 	NRPG::IUnitMissionInfo *pRPG = pPK->GetRPG();

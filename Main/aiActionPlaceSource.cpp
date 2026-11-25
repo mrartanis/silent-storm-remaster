@@ -274,10 +274,11 @@ bool CAIActionPlaceSource::AddAllPoses( const SPathPlace &p, int nMoveAP, int nM
 	}
 	//
 	const int  nCurAP    = pUnit->GetAP();
-	const bool bCanCrouch = !pUnit->HasInactivePose();   // @0x0048e5e0 gates crouch on vtbl 0x20 (inferred)
+	const bool bCanCrouch = !pUS->IsWearingPK();
+	const EPose originalPose = GetUnitPos( p, pNet ).GetPose();
 	//
 	// stand/walk pose
-	const int nWalkCost = nMoveAP + pRPG->GetActionAP( ( NAI::EPose )p.GetPose(), NRPG::AC_POSE_WALK );
+	const int nWalkCost = nMoveAP + pRPG->GetActionAP( originalPose, NRPG::AC_POSE_WALK );
 	bool bAddedWalk = false;
 	if ( nWalkCost <= nMaxAP )
 	{
@@ -291,7 +292,7 @@ bool CAIActionPlaceSource::AddAllPoses( const SPathPlace &p, int nMoveAP, int nM
 		}
 	}
 	// crouch pose (the release reuses the walk passability when the walk pose was added at this tile)
-	const int nCrouchCost = nMoveAP + pRPG->GetActionAP( ( NAI::EPose )p.GetPose(), NRPG::AC_POSE_CROUCH );
+	const int nCrouchCost = nMoveAP + pRPG->GetActionAP( originalPose, NRPG::AC_POSE_CROUCH );
 	if ( bCanCrouch && nCrouchCost <= nMaxAP )
 	{
 		SPathPlace pp = p;

@@ -63,6 +63,7 @@ public:
 	CAIAction() {}
 	CAIAction( IAIUnit *_pUnit ): pUnit( _pUnit ) {}
 	//
+	virtual bool CanPerformInPK() const { return false; }
 	virtual bool CanPerform();
 	void DoFromPlace( CAILog *pLog, const SPlaceWithAP &place );
 	virtual void Do( CAILog *pLog ) const = 0;                          // slot5: emit the log records

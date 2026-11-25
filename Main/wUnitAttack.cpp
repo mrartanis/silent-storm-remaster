@@ -396,24 +396,46 @@ static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdUsePassage
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static EUnitCommandResult GetActionValidPlaces( CUnitServer *pUS, CCmdTakeCorpse *pCmd, vector<NAI::SPathPlace> *pRes )
 {
-	if ( !IsValid( pCmd->pCorpse ) )
-		return UCR_NO_TARGET;
-
 	CDynamicCast<CUnitServer> pDeadUnit( pCmd->pCorpse );
-	NAI::IPathNetwork *pNet = pUS->GetWorld()->GetPathNetwork();
-	CVec3 ptTarget(0,0,0);
-	pUS->GetWorld()->GetAIMap()->GetUnitHLPos( &ptTarget, pUS->GetWorld()->GetAIMap()->GetHull(pDeadUnit), -1 );
-	SSphere s;
-	s.ptCenter = ptTarget - CVec3(0,0,0.5f);
-	s.fRadius = 1; // CRAP need more grounded number then this
-	if ( pDeadUnit->IsEmptyPK() )
-		s.fRadius = 1.5f;
-	vector<NAI::SPathPlace> res;
-	pNet->GetNearPlaces( s, &res );
-	for ( int k = 0; k < res.size(); ++k )
-		GetDirectedPoints( pNet, res[k], ptTarget, pRes, PM_STAND );
-
+	if ( !IsValid( pDeadUnit ) )
+		return UCR_NO_TARGET;
+	GetCorpsePickupPlaces( pDeadUnit, pRes );
 	return UCR_OK;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void GetCorpsePickupPlaces( CUnitServer *pCorpse, vector<NAI::SPathPlace> *pRes )
+{
+	CWorld *pWorld = pCorpse->GetWorld();
+	NAI::IPathNetwork *pNet = pWorld->GetPathNetwork();
+	NAI::IAIMap *pMap = pWorld->GetAIMap();
+
+	CVec3 ptTarget;
+	if ( !pMap->GetUnitHLPos( &ptTarget, pMap->GetHull( pCorpse ), NAI::HL_ANY ) )
+		ptTarget = pCorpse->GetPosition().GetCenter();
+	const bool bEmptyPK = pCorpse->IsEmptyPK();
+	const SSphere search( bEmptyPK ? ptTarget : ptTarget - CVec3( 0, 0, 0.5f ), bEmptyPK ? 1.5f : 1.f );
+	vector<NAI::SPathPlace> nearby;
+	pNet->GetNearPlaces( search, &nearby );
+	NAI::CCollider collider;
+	bool bCheckObstructions = false;
+	if ( bEmptyPK )
+	{
+		SBound bound;
+		bound.SphereInit( search.ptCenter, search.fRadius + 1.f );
+		pMap->PrepareCollider( &collider, bound, 0.5f, TS_PASS_BLOCKER );
+		// A suit embedded in map geometry can still offer nearby pickup places.
+		bCheckObstructions = !collider.DoesIntersect( ptTarget, 0.31f );
+	}
+	for ( const NAI::SPathPlace &place : nearby )
+	{
+		if ( bCheckObstructions )
+		{
+			const CVec3 start = NAI::SPosition( place, pNet ).GetCP() + CVec3( 0, 0, 0.5f );
+			if ( collider.CollideBool( SSphere( start, 0.31f ), ptTarget - start, &NCollider::skipAnalyzer ) )
+				continue;
+		}
+		GetDirectedPoints( pNet, place, ptTarget, pRes, PM_STAND );
+	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // v1.1 0x7940f0 / v1.2 0x794340: keep the carrier's tile and pose,
