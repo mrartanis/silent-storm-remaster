@@ -1187,6 +1187,18 @@ void CExecMove::ConvertPath( NAI::CPath *pPath, ENeedActiveItem eActive )
 				commandsQueue.push_back( new CCmdDeactivateItem( pUS, nSlot ) );
 				bActive = false;
 			}
+			if ( bInterGrid )
+			{
+				pLastMove = new CCmdMove( pUS, prevPos, true, pPath->bStrafePath );
+				commandsQueue.push_back( pLastMove );
+				bInterGrid = false;
+			}
+			if ( pLastMove )
+			{
+				commandsQueue.push_back( new CCmdEndMove( pUS, pLastMove ) );
+				pLastMove = 0;
+			}
+			bMoving = false;
 			// climb
 			NAI::ETransitionType type = NAI::GetTransitionType( pNet, prev, cur );
 			bool bReal = true;
@@ -1256,8 +1268,16 @@ void CExecMove::ConvertPath( NAI::CPath *pPath, ENeedActiveItem eActive )
 		pLastMove = new CCmdMove( pUS, pos, true, pPath->bStrafePath );
 		commandsQueue.push_back( pLastMove );
 	}
-	if ( bMoving )
-		commandsQueue.push_back( new CCmdEndMove( pUS, pLastMove ) );
+	if ( bMoving && pLastMove )
+	{
+		// Finish the last walking command before any later pose change.
+		for ( auto i = commandsQueue.rbegin(); i != commandsQueue.rend(); ++i )
+			if ( i->GetPtr() == pLastMove )
+			{
+				commandsQueue.insert( i.base(), new CCmdEndMove( pUS, pLastMove ) );
+				break;
+			}
+	}
 
 	if ( eActive == ITEM_ACTIVE && !bActive && !bInactivePose )
 		commandsQueue.push_back( new CCmdActivateItem( pUS, nSlot ) );

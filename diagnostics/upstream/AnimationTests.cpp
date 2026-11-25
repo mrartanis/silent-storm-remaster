@@ -67,6 +67,43 @@ void ClipFrameDuration(const char* databasePath, const char* resourcePath)
     Require(false, "authored clip length did not supply a distinguishing frame rate");
 }
 
+void MovementEndBeforeTransition(const char* databasePath, const char* resourcePath, bool climb)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    auto from = actor->GetPosition().pos.p;
+    auto walk = from;
+    walk.SetXY(from.GetX() + 1, from.GetY());
+    walk.SetMoving(1);
+    auto transition = walk;
+    transition.SetPose(climb ? NAI::CM_INACTIVE : NAI::CM_CROUCH);
+    if (climb)
+        transition.SetXY(walk.GetX() + 1, walk.GetY());
+    CObj<NAI::CPath> path = new NAI::CPath;
+    path->pNet = world->GetPathNetwork();
+    path->points = {from, walk, transition};
+    CObj<NWorld::CCommandExecute> move = NWorld::CreateSimpleMoveExecutor(actor, path, NAI::PF_USE_POSEDIR,
+        NWorld::ITEM_NO_MATTER, false);
+    Require(IsValid(move), "native movement could not convert the test path into commands");
+    CStructureNetworkContext queueRefs;
+    auto queuedFields = BorrowedObjectFields(move, &queueRefs);
+    list<CObj<NWorld::CCommand>> queue;
+    { CStructureSaver reader(queuedFields, CStructureSaver::READ, &queueRefs); reader.Add(2, &queue); }
+    vector<int> order;
+    for (const auto& cmd : queue)
+        order.push_back(pSSClasses->GetObjectTypeID(cmd.GetPtr()));
+    constexpr int moveID = 0x02731142, endID = 0x12541120;
+    const int transitionID = climb ? 0x12681160 : 0x13151130;
+    const auto walking = std::find(order.begin(), order.end(), moveID);
+    const auto finalizing = std::find(order.begin(), order.end(), endID);
+    const auto changing = std::find(order.begin(), order.end(), transitionID);
+    Require(walking != order.end() && changing != order.end() && walking < changing,
+        "native movement queue lacks the walking and transition commands in the fixture");
+    Require(walking < finalizing && finalizing < changing && (climb || finalizing == walking + 1) &&
+        std::count(order.begin(), order.end(), endID) == 1,
+        "native movement must finalize the walk before climbing or changing stance");
+}
+
 void UnoccupiedPKSkeleton(const char* databasePath, const char* resourcePath)
 {
     auto world = FixtureWorld(databasePath, resourcePath, true);
@@ -341,6 +378,7 @@ void MovementPresentationGuards(const char* databasePath, const char* resourcePa
 
 bool RunAnimationTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "movement-end-before-transition") && argc == 5) { MovementEndBeforeTransition(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "animation-path-smoothing-order") && argc == 2) { AnimationPathSmoothingOrder(); return true; }
     if (!std::strcmp(mode, "clip-frame-duration") && argc == 4) { ClipFrameDuration(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "unoccupied-pk-skeleton") && argc == 4) { UnoccupiedPKSkeleton(argv[2], argv[3]); return true; }
