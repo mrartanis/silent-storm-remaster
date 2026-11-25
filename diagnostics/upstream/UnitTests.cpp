@@ -13,6 +13,7 @@
 #include "../../Main/aiGrid.h"
 #include "../../Main/aiMoves.h"
 #include "../../Main/A5Time.h"
+#include "../../Main/GAnimation.h"
 #include "../../Main/rpgPerk.h"
 #include "../../Main/rpgGlobal.h"
 #include "../../DBFormat/DataRPG.h"
@@ -416,6 +417,21 @@ struct LadderDescentFixture
         animation.EnterLadder(ledge, upperRung, false);
         Require(!animation.CanActivateItem(), "actor can activate an item while still on the ladder");
     }
+
+    void Ascend()
+    {
+        auto& animation = actor->animator;
+        animation.EnterLadder(bottom, lowerRung, true);
+        auto rung = lowerRung;
+        while (rung.pos.p.GetLadderStep() < upperRung.pos.p.GetLadderStep()) {
+            auto next = rung;
+            next.pos.p.SetY(rung.pos.p.GetLadderStep() + 1);
+            Require(world->GetPathNetwork()->IsPassable(next.pos.p), "ascent crossed an unavailable rung");
+            animation.MoveLadder(rung, next);
+            rung = next;
+        }
+        animation.LeaveLadder(rung, ledge, true);
+    }
 };
 
 void LadderDescentItemActivation(const char* databasePath, const char* resourcePath, int mode)
@@ -424,16 +440,7 @@ void LadderDescentItemActivation(const char* databasePath, const char* resourceP
     auto* actor = fixture.actor;
     auto& animation = actor->animator;
     if (mode == 3) {
-        animation.EnterLadder(fixture.bottom, fixture.lowerRung, true);
-        auto rung = fixture.lowerRung;
-        while (rung.pos.p.GetLadderStep() < fixture.upperRung.pos.p.GetLadderStep()) {
-            auto next = rung;
-            next.pos.p.SetY(rung.pos.p.GetLadderStep() + 1);
-            Require(fixture.world->GetPathNetwork()->IsPassable(next.pos.p), "ascent crossed an unavailable rung");
-            animation.MoveLadder(rung, next);
-            rung = next;
-        }
-        animation.LeaveLadder(rung, fixture.ledge, true);
+        fixture.Ascend();
         Require(!animation.CanActivateItem(), "leaving the ladder onto an inactive ledge enabled item activation");
         return;
     }
@@ -503,6 +510,28 @@ void ForcedFallPose(const char* databasePath, const char* resourcePath)
         "animated fall onto an inactive ledge enabled item activation");
 }
 
+void CrouchedClimbIdle(const char* databasePath, const char* resourcePath)
+{
+    LadderDescentFixture fixture(databasePath, resourcePath);
+    auto& animation = fixture.actor->animator;
+    animation.PlaceUnit(fixture.bottom);
+    fixture.Ascend();
+    auto* idleState = dynamic_cast<NAnimation::CSkeletonState*>(animation.GetSkeletonState());
+    Require(idleState, "actor lacks a native skeleton idle state");
+    auto flags = [&] { return idleState->state.nAnimFlagsPoseWeapon; };
+    Require(!animation.CanActivateItem() && (flags() & NDb::CAnimation::POSE_STAND),
+        "authored ladder approach did not retain its pre-climb standing idle flags");
+    const auto transition = NAI::GetTransitionType(fixture.world->GetPathNetwork(),
+        fixture.ledge.pos.p, fixture.approach.pos.p);
+    const bool jump = transition == NAI::TT_JUMP || transition == NAI::TT_JUMP_BACK;
+    Require(jump || transition == NAI::TT_MOVE || transition == NAI::TT_MOVE_DIAGONAL,
+        "fixture lacks the native transition off the upper ledge");
+    animation.Jump(fixture.ledge, fixture.approach, jump, transition == NAI::TT_JUMP_BACK);
+    Require(animation.CanActivateItem(), "completing the climb did not release the inactive ledge pose");
+    Require((flags() & NDb::CAnimation::POSE_CROUCH) && !(flags() & NDb::CAnimation::POSE_STAND),
+        "completed crouched climb retained standing idle flags");
+}
+
 }
 
 bool RunUnitTests(const char* mode, int argc, char** argv)
@@ -520,6 +549,7 @@ bool RunUnitTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "normal-state-command-lifetime") && argc == 4) { NormalStateCommandLifetime(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ladder-descent-item-activation") && argc == 5) { LadderDescentItemActivation(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "forced-fall-pose") && argc == 4) { ForcedFallPose(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "crouched-climb-idle") && argc == 4) { CrouchedClimbIdle(argv[2], argv[3]); return true; }
     return false;
 }
 }

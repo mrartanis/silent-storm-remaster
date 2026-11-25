@@ -1537,6 +1537,7 @@ void CUnitAnimator::Jump( const NAI::SUnitPosition &prevPos, const NAI::SUnitPos
 	CPtr<NAnimation::CAnimator> pResult = 0;
 	STime t = 0;
 	pose = cmdPos.GetPose();
+	CalculateAnimFlags();
 	if ( !bRealJump )
 	{
 		pTerrainFunc->Move( prevPos, cmdPos );
