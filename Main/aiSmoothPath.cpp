@@ -37,21 +37,28 @@ bool NotSmooth( const vector<SPathPlace> &pts, int i )
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// @0xa3b20: length of the straight run ENDING at i -- same layer as i, constant backward step,
-// no INACTIVE pose (nPose==3) on the run (an INACTIVE predecessor stops the scan).
+// Smoothing may redistribute walking steps. Stationary actions and transitions
+// keep the tile where their movement executor will play the animation.
+static bool IsSmoothableStep( const SPathPlace &from, const SPathPlace &to )
+{
+	return from.IsIntegral() && to.IsIntegral() && !from.IsFinal() && !to.IsFinal() &&
+		from.GetLayer() == to.GetLayer() && from.GetPose() == to.GetPose() && from.GetPose() != CM_INACTIVE &&
+		( from.GetX() != to.GetX() || from.GetY() != to.GetY() );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// @0xa3b20: length of the straight run ending at i, stopping at an action boundary.
 int FindMaxPreSize( const vector<SPathPlace> &pts, int i )
 {
-	if ( pts[i - 1].GetPose() == 3 )
+	if ( !IsSmoothableStep( pts[i - 1], pts[i] ) )
 		return 0;
 	int nDX = (int)pts[i].GetX() - (int)pts[i - 1].GetX();
 	int nDY = (int)pts[i].GetY() - (int)pts[i - 1].GetY();
 	int j = i - 1;
 	while ( j > 0 )
 	{
-		if ( pts[j].GetLayer() != pts[i].GetLayer() ||
+		if ( !IsSmoothableStep( pts[j - 1], pts[j] ) ||
 		     (int)pts[j].GetX() - (int)pts[j - 1].GetX() != nDX ||
-		     (int)pts[j].GetY() - (int)pts[j - 1].GetY() != nDY ||
-		     pts[j - 1].GetPose() == 3 )
+		     (int)pts[j].GetY() - (int)pts[j - 1].GetY() != nDY )
 			break;
 		--j;
 	}
@@ -59,11 +66,10 @@ int FindMaxPreSize( const vector<SPathPlace> &pts, int i )
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// @0xa3be0: length of the straight run STARTING at i (forward steps), stopping one short of the
-// path's end; same INACTIVE rules.
+// @0xa3be0: length of the straight run starting at i under the same rules.
 int FindMaxPostSize( const vector<SPathPlace> &pts, int i )
 {
-	if ( pts[i + 1].GetPose() == 3 )
+	if ( !IsSmoothableStep( pts[i], pts[i + 1] ) )
 		return 0;
 	int nDX = (int)pts[i + 1].GetX() - (int)pts[i].GetX();
 	int nDY = (int)pts[i + 1].GetY() - (int)pts[i].GetY();
@@ -71,10 +77,9 @@ int FindMaxPostSize( const vector<SPathPlace> &pts, int i )
 	int nLast = (int)pts.size() - 1;
 	while ( j < nLast )
 	{
-		if ( pts[j].GetLayer() != pts[i].GetLayer() ||
+		if ( !IsSmoothableStep( pts[j], pts[j + 1] ) ||
 		     (int)pts[j + 1].GetX() - (int)pts[j].GetX() != nDX ||
-		     (int)pts[j + 1].GetY() - (int)pts[j].GetY() != nDY ||
-		     pts[j + 1].GetPose() == 3 )
+		     (int)pts[j + 1].GetY() - (int)pts[j].GetY() != nDY )
 			break;
 		++j;
 	}

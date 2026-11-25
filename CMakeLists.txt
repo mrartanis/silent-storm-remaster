@@ -938,6 +938,7 @@ add_test(NAME UpstreamFreshNavigationColouring COMMAND UpstreamBugTests fresh-na
 add_test(NAME UpstreamInvalidRegionColouring COMMAND UpstreamBugTests invalid-region-colouring)
 add_test(NAME UpstreamFreshNavigationTransitions COMMAND UpstreamBugTests fresh-navigation-transitions)
 add_test(NAME UpstreamGeometricAliasColouring COMMAND UpstreamBugTests geometric-alias-colouring)
+add_test(NAME UpstreamSmoothPathStanceBoundary COMMAND UpstreamBugTests smooth-path-stance-boundary)
 add_test(NAME UpstreamExplicitGrassVisionOverflow COMMAND UpstreamBugTests explicit-grass-vision-overflow)
 add_test(NAME UpstreamAIJobExternalCompletion COMMAND UpstreamBugTests ai-job-scheduler 0)
 add_test(NAME UpstreamAIJobDuplicateRemoval COMMAND UpstreamBugTests ai-job-scheduler 1)

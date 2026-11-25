@@ -5,6 +5,7 @@
 #include "../../Main/aiMapProxy.h"
 #include "../../Main/aiObject.h"
 #include "../../Main/aiPath.h"
+#include "../../Main/aiSmoothPath.h"
 #include "../../Main/aiMoves.h"
 #include "../../Main/aiNearestPosition.h"
 #include "../../Main/PrecalcCollider.h"
@@ -23,6 +24,41 @@ namespace UpstreamTests
 {
 namespace
 {
+void SmoothPathStanceBoundary()
+{
+    using namespace NAI;
+    CObj<CPathNetwork> network = new CPathNetwork;
+    network->CreateLayer(12, 12, VNULL2, 0.f, 0);
+    network->Freeze(true);
+    for (int y = 0; y < 12; ++y)
+        for (int x = 0; x < 12; ++x) {
+            auto& tile = network->GetLayer(0)->tiles[y][x];
+            tile = {};
+            tile.nPassable = CP_STAND | CP_CROUCH;
+            tile.nMoveStand = tile.nMoveCrouch = 0xff;
+        }
+    auto point = [](int x, int y, ECheckMove pose = CM_STAND) {
+        return SPathPlace(x, y, 0, 0, pose, 0);
+    };
+    CObj<CPath> action = new CPath;
+    action->pNet = network;
+    action->points = {point(4, 4), point(4, 4, CM_CROUCH), point(4, 4), point(5, 5), point(6, 6), point(7, 7)};
+    Require(GetTransitionType(network, action->points[0], action->points[1]) == TT_POSE &&
+        GetTransitionType(network, action->points[1], action->points[2]) == TT_POSE,
+        "native path fixture lacks two stationary stance changes");
+    const auto original = action->points;
+    SmoothenPath(*action);
+    Require(action->points == original, "smoothing carries a stationary stance transition onto a different tile");
+
+    CObj<CPath> walking = new CPath;
+    walking->pNet = network;
+    walking->points = {point(1, 4), point(2, 4), point(3, 4), point(4, 5), point(5, 6), point(6, 7)};
+    const auto before = walking->points;
+    SmoothenPath(*walking);
+    Require(walking->points != before && walking->points.front() == before.front() &&
+        walking->points.back() == before.back(), "ordinary walking corners no longer smooth in place");
+}
+
 void ExplicitGrassVisionOverflow()
 {
     STerrainInfo terrain;
@@ -954,6 +990,7 @@ static void FlyingShootDirection()
 
 bool RunNavigationTests(const char* mode)
 {
+    if (!std::strcmp(mode, "smooth-path-stance-boundary")) { SmoothPathStanceBoundary(); return true; }
     if (!std::strcmp(mode, "explicit-grass-vision-overflow")) { ExplicitGrassVisionOverflow(); return true; }
     if (!std::strcmp(mode, "geometric-alias-colouring")) { GeometricAliasColouring(); return true; }
     if (!std::strcmp(mode, "known-mine-path-reservations")) { KnownMinePathReservations(); return true; }
