@@ -174,6 +174,49 @@ void MovementEndBeforeTransition(const char* databasePath, const char* resourceP
         "native movement must finalize the walk before climbing or changing stance");
 }
 
+void ObjectApproachBoneOwnership(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game, 4517);
+    for (const auto& entry : world->GetObjectsForHarness()) {
+        auto* object = dynamic_cast<NWorld::CAnimObjectServerBase*>(entry.GetPtr());
+        if (!IsValid(object))
+            continue;
+        vector<CVec3> bones;
+        object->GetApproachPts(&bones);
+        for (const auto& anchor : bones) {
+            const CVec3 ground = anchor - CVec3(0, 0, 0.4f);
+            if (ground.z < 0.f)
+                continue;
+            const auto overlapping = std::count_if(bones.begin(), bones.end(), [&](const auto& bone) {
+                return fabs2(ground - bone) < sqr(3 * FP_GRID_STEP) && bone.z >= ground.z - 0.25f;
+            });
+            if (overlapping < 2 || std::count_if(bones.begin(), bones.end(), [&](const auto& bone) {
+                return sqr(bone.x - anchor.x) + sqr(bone.y - anchor.y) < 1e-4f;
+            }) != 1)
+                continue;
+            CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+            network->CreateLayer(8, 8, CVec2(ground.x - 3 * FP_GRID_STEP, ground.y - 3 * FP_GRID_STEP), 0.f, 0);
+            network->Freeze(true);
+            auto& tiles = network->GetLayer(0)->tiles;
+            tiles.FillEvery(NAI::STile{});
+            auto& tile = tiles[3][3];
+            tile.nHeight = NAI::GetIHeight(ground.z);
+            tile.nPassable = NAI::CP_STAND | NAI::CP_CROUCH;
+            tile.nFlags = NAI::TF_STAND_PASSABLE;
+            tile.nMoveStand = tile.nMoveCrouch = 0xff;
+            vector<NAI::SPathPlace> approaches;
+            object->GetApproaches(&approaches, network);
+            Require(!approaches.empty() && std::all_of(approaches.begin(), approaches.end(), [](const auto& place) {
+                return place.GetX() == 3 && place.GetY() == 3;
+            }), "native multi-bone object did not find the only passable approach tile");
+            Require(approaches.size() == 1 && approaches.front().GetPose() == NAI::CM_CROUCH,
+                "one approach tile was assigned to several nearby interaction bones");
+            return;
+        }
+    }
+    Require(false, "fixture scene has no authored object with overlapping interaction bones");
+}
 
 void UnoccupiedPKSkeleton(const char* databasePath, const char* resourcePath)
 {
@@ -449,6 +492,7 @@ void MovementPresentationGuards(const char* databasePath, const char* resourcePa
 
 bool RunAnimationTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "object-approach-bone-ownership") && argc == 4) { ObjectApproachBoneOwnership(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "item-activation-and-step") && argc == 5) { ItemActivationAndSingleStep(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "movement-end-before-transition") && argc == 5) { MovementEndBeforeTransition(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "animation-path-smoothing-order") && argc == 2) { AnimationPathSmoothingOrder(); return true; }
