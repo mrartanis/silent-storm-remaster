@@ -114,6 +114,7 @@ void CalcCoverIntervals( NAI::CFastRenderer::SResult *pList, const SAttackRayInf
 	NDb::CRPGArmor *pFallbackArmor, vector<SCoverInterval> *pOut );
 // Prepare a shot from the chosen cover cell, keeping grid identity through roulette selection.
 bool PrepareAttackRay( NAI::IAIMap *pAIMap, CCoverInfo *pCover, SAttackRayInfo *pInfo, float fHit );
+void PrepareRocketAttackRay( NAI::IAIMap *pAIMap, CCoverInfo *pCover, SAttackRayInfo *pInfo, bool bHit );
 void GetHitIntersections( NAI::IAIMap *pAIMap, vector<STrailPoint> *pTrail,
 	NAI::CFastRenderer::SResult *pList, const SAttackRayInfo &rayInfo );
 // Original incidental-unit hit chance/roll, independent of the intended shot result.

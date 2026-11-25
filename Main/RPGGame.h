@@ -182,7 +182,6 @@ CObjectBase* CreateBuilding( NBuilding::CBuildingGrid *pGrid );
 NDb::CRPGArmor* GetTerrainArmor();
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CanShoot( CCoverInfo *pCover );
-bool PeekRayForRocket( CCoverInfo *pCover, CRay *pRes, bool bHit );
 bool PeekRay( CCoverInfo *pCover, CRay *pRes, float fHit, bool *bIsMiss, bool bStickTo_pRes = false );
 // retail @0x2b5220/@0x2b53d0: the check fns carry the burst bullet index (default 0 -- one-shot
 // weapons and the callers that predate the exec-side cursor).

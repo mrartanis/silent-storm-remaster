@@ -622,16 +622,6 @@ EAttackResult CGame::ProcessThrowingAttackPortion( CAttackPortion *pA, IAttackab
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static SRand rand;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-bool PeekRayForRocket( CCoverInfo *pCover, CRay *pRes, bool bHit )
-{
-	float fHitFlag;
-	if ( ( bHit && !pCover->hitRays.empty() ) || pCover->looseRays.empty() )
-		fHitFlag = 2.f;
-	else
-		fHitFlag = 0.f;
-	bool bIsMiss;
-	return PeekRay( pCover, pRes, fHitFlag, &bIsMiss );
-}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static float GetBurstRayWeight( const CVec3 &previous, const CVec3 &candidate, float angleThreshold )
 {
@@ -712,6 +702,16 @@ bool PeekRay( CCoverInfo *pCover, CRay *pRes, float fHit, bool *bIsMiss, bool bS
 	return RealPeekRay( pCover, pRes, fHit, bIsMiss, bStickTo_pRes, &selected );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+static void BuildGridHitTrail( NAI::IAIMap *pAIMap, const CCoverInfo &cover, const CCoverInfo::SRay &selected,
+	SAttackRayInfo *pInfo )
+{
+	if ( !cover.runtimeGrids || selected.nGrid < 0 || selected.nGrid >= 2 )
+		return;
+	const auto &grid = cover.runtimeGrids->grids[selected.nGrid].resGrid;
+	if ( selected.nX >= 0 && selected.nY >= 0 && selected.nX < grid.GetXSize() && selected.nY < grid.GetYSize() )
+		GetHitIntersections( pAIMap, &pInfo->trailPoints, grid[selected.nY][selected.nX], *pInfo );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 bool PrepareAttackRay( NAI::IAIMap *pAIMap, CCoverInfo *pCover, SAttackRayInfo *pInfo, float fHit )
 {
 	CCoverInfo::SRay selected;
@@ -731,13 +731,27 @@ bool PrepareAttackRay( NAI::IAIMap *pAIMap, CCoverInfo *pCover, SAttackRayInfo *
 	pInfo->vDir = ray.ptDir;
 	pInfo->bTargetIsHit = !bMissed;
 	// Hits use the chosen grid cell; the separate precise trace supplies normals only.
-	if ( pInfo->bTargetIsHit && pCover->runtimeGrids && selected.nGrid >= 0 && selected.nGrid < 2 &&
-		selected.nX >= 0 && selected.nY >= 0 &&
-		selected.nX < pCover->runtimeGrids->grids[selected.nGrid].resGrid.GetXSize() &&
-		selected.nY < pCover->runtimeGrids->grids[selected.nGrid].resGrid.GetYSize() )
-		GetHitIntersections( pAIMap, &pInfo->trailPoints,
-			pCover->runtimeGrids->grids[selected.nGrid].resGrid[selected.nY][selected.nX], *pInfo );
+	if ( pInfo->bTargetIsHit )
+		BuildGridHitTrail( pAIMap, *pCover, selected, pInfo );
 	return true;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void PrepareRocketAttackRay( NAI::IAIMap *pAIMap, CCoverInfo *pCover, SAttackRayInfo *pInfo, bool bHit )
+{
+	CRay ray;
+	ray.ptOrigin = pCover->src;
+	ray.ptDir = V3_AXIS_Z;
+	CCoverInfo::SRay selected;
+	bool bMissed;
+	const bool bUseHitRay = ( bHit && !pCover->hitRays.empty() ) || pCover->looseRays.empty();
+	const bool bSelected = CanShoot( pCover ) &&
+		RealPeekRay( pCover, &ray, bUseHitRay ? 2.f : 0.f, &bMissed, false, &selected );
+	pInfo->vOrigin = ray.ptOrigin;
+	pInfo->vDir = ray.ptDir;
+	pInfo->bTargetIsHit = bHit;
+	pInfo->trailPoints.clear();
+	if ( bHit && bSelected )
+		BuildGridHitTrail( pAIMap, *pCover, selected, pInfo );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 float GetHitCover( const NWorld::CUnit *pAttacker, CCoverInfo *pCover )

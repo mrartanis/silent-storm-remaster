@@ -1093,6 +1093,117 @@ CObj<NRPG::IClipItem> FixtureRocketAmmo()
     throw std::runtime_error("the projectile fixture needs native rocket ammunition");
 }
 
+class RocketLaunchProbe : public NWorld::CExecLaunchRocket
+{
+public:
+    using CExecLaunchRocket::CExecLaunchRocket;
+    const NRPG::SAttackRayInfo& GetLaunchRay() const { return rayInfo; }
+};
+
+void RocketLaunchSolve(const char* databasePath, const char* resourcePath, bool trailOnly)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    auto* mission = actor->GetUnitRPG();
+    auto* inventory = mission->GetInventory();
+    CObj<NRPG::CWeaponItem> weapon;
+    CDBIterator<NDb::CRPGWeapon> rows(*NDatabase::GetTable<NDb::CRPGWeapon>());
+    while (rows.MoveNext()) {
+        auto* candidate = rows.Get();
+        if (!candidate->bBazookaLogic || candidate->nPanzerkleinType || !candidate->pItem ||
+            !candidate->pTrailEffect || !candidate->pInnerClip || !candidate->pAnimWeaponType || candidate->fTrailSpeed <= 0)
+            continue;
+        CObj<NRPG::CWeaponItem> loaded = new NRPG::CWeaponItem(candidate);
+        if (loaded->GetAmmoQuantity() > 0) {
+            weapon = loaded;
+            break;
+        }
+    }
+    Require(weapon, "rocket solve fixture has no loaded native launcher");
+    if (inventory->Get(NDb::SLOT_1))
+        inventory->TakeOff(NDb::SLOT_1);
+    Require(inventory->Equip(NDb::SLOT_1, weapon) && inventory->Activate(NDb::SLOT_1),
+        "rocket solve fixture could not activate the native launcher");
+    auto* record = weapon->GetDBWeapon();
+    constexpr STime delay = 100;
+    record->pAnimWeaponType->nBulletDelay = delay;
+    actor->SetUndrawItem(false);
+    actor->SetScriptToHit(100);
+    actor->animator.SetActiveItem(true);
+    actor->animator.SetWeaponAnimation(mission->GetWeaponType());
+    actor->animator.SetWeaponName(record->szAnimName.c_str());
+    world->GivePlayerTurn(actor->GetTBSPlayer());
+    mission->StartNewTurn(actor->GetPosition().GetCP());
+    const auto from = actor->GetPosition();
+    const CVec3 origin = actor->GetAttackOrigin(from);
+    const float clearance = actor->GetMinClearDistance();
+    Require(clearance > 0.f, "rocket solve fixture cannot distinguish a second muzzle offset");
+
+    vector<NRPG::CAttackPortion> attack;
+    Require(mission->CreateAttack(&attack, false) && !attack.empty(), "rocket solve fixture has no native attack portion");
+    attack.front().nK = 1;
+    auto* path = world->GetPathNetwork();
+    vector<NAI::SPathPlace> places;
+    path->GetNearPlaces(SSphere(from.GetCP(), 16.f), &places);
+    CObj<RocketLaunchProbe> shot;
+    for (const auto& place : places) {
+        if (!place.IsIntegral() || place.IsFinal())
+            continue;
+        const CVec3 point = NAI::SPosition(place, path).GetCP() + CVec3(0, 0, 0.5f);
+        if (fabs2(point - from.GetCP()) < 25.f)
+            continue;
+        CObj<RocketLaunchProbe> candidate = new RocketLaunchProbe(actor, point);
+        if (candidate->CanDoIt(from) != NWorld::UCR_OK)
+            continue;
+        CObj<NRPG::CCoverInfo> coverage = world->GetGame()->CalcCoversForTile(origin, attack.front(), actor, point,
+            clearance, 0x8210);
+        if (!CoverSnapshot(coverage).hits.empty()) {
+            shot = candidate;
+            break;
+        }
+    }
+    Require(shot, "rocket solve fixture has no reachable native tile with a hit ray");
+    shot->Run();
+    auto* time = world->GetTime();
+    const STime label = actor->animator.GetTimeLabel1();
+    const STime arm = std::max(time->GetValue() + 1, label);
+    time->Set(arm);
+    Require(shot->TimeLabelReached(), "normal rocket animation failed to arm its delayed launch");
+    const auto existing = CurrentProjectileObjects(world);
+    const int ammo = weapon->GetAmmoQuantity();
+    time->Set(arm + delay - 1);
+    shot->Segment();
+    Require(weapon->GetAmmoQuantity() == ammo && world->GetMiscObjects()->size() == existing.size(),
+        "rocket fired before its native delayed tick");
+    const STime launch = arm + delay + 25;
+    time->Set(launch);
+    shot->Segment();
+    NWorld::IDynamicObject* carrier = nullptr;
+    for (const auto& object : *world->GetMiscObjects())
+        if (!existing.count(object.GetPtr()) && pSSClasses->GetObjectTypeID(object.GetPtr()) == int(0x73062152))
+            carrier = object;
+    Require(carrier && weapon->GetAmmoQuantity() == ammo - 1, "native delayed rocket did not launch and spend exactly one round");
+    const auto& selected = shot->GetLaunchRay();
+    if (trailOnly) {
+        Require(selected.bTargetIsHit && !selected.trailPoints.empty() && selected.pUS == actor,
+            "native rocket hit did not retain the chosen cover trail");
+        return;
+    }
+
+    CStructureNetworkContext refs;
+    auto fields = BorrowedObjectFields(carrier, &refs);
+    CStructureSaver reader(fields, CStructureSaver::READ, &refs);
+    CVec3 muzzle, velocity;
+    STime finish = 0;
+    reader.Add(2, &finish);
+    reader.Add(10, &muzzle);
+    reader.Add(11, &velocity);
+    const STime expectedDuration = Float2Int((record->nMaxRange * FP_GRID_STEP) / fabs(velocity) * 1000.f);
+    Require(finish == launch + expectedDuration, "rocket travel ended relative to the animation label rather than the launch tick");
+    Require(fabs2(muzzle - origin) < 1e-6f && fabs2(selected.vOrigin - origin) < 1e-6f,
+        "native rocket applied its muzzle clearance after selecting the launch origin");
+}
+
 void RocketImpactPoint(const char* databasePath, const char* resourcePath, bool expires)
 {
     auto world = FixtureWorld(databasePath, resourcePath, true);
@@ -1404,6 +1515,7 @@ bool RunProjectileTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "disarm-callback") && argc == 6) { DisarmCallback(argv[2], argv[3], std::atoi(argv[4]) != 0, std::atoi(argv[5]) != 0); return true; }
     if (!std::strcmp(mode, "explosion-modifier-ownership") && argc == 5) { ExplosionModifierOwnership(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "grenade-release-orientation") && argc == 5) { GrenadeReleaseOrientation(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
+    if (!std::strcmp(mode, "rocket-launch-solve") && argc == 5) { RocketLaunchSolve(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "rocket-impact-point") && argc == 5) { RocketImpactPoint(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "cover-ray-row-order") && argc == 4) { CoverRayRowOrder(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "equal-miss-ray-order") && argc == 2) { EqualMissRayOrder(); return true; }
