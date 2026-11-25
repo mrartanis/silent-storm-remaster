@@ -15,6 +15,7 @@
 #include "../../Main/A5Time.h"
 #include "../../Main/GAnimation.h"
 #include "../../Main/rpgPerk.h"
+#include "../../Main/rpgPerkConstants.h"
 #include "../../Main/rpgGlobal.h"
 #include "../../Main/A5Script.h"
 #include "../../Main/scriptPtr.h"
@@ -513,6 +514,39 @@ void ForcedFallPose(const char* databasePath, const char* resourcePath)
         "animated fall onto an inactive ledge enabled item activation");
 }
 
+void OwnerWoundPolicy(const char* databasePath, const char* resourcePath, int mode)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* party = MovementPolicyActor(world);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    const auto enemy = std::find_if(units.begin(), units.end(), [](const auto& unit) {
+        return IsValid(unit) && unit->IsAIUnit() && unit->CanFight() && !unit->IsWearingPK() && !unit->IsEmptyPK();
+    });
+    Require(enemy != units.end(), "wound policy fixture lacks a live AI unit");
+    auto* actor = mode == 1 ? party : enemy->GetPtr();
+    auto* owner = mode == 2 ? party->GetTBSPlayer() : (*enemy)->GetTBSPlayer();
+    if (mode != 0)
+        world->ChangeUnitPlayer(actor, owner);
+    Require(actor->GetTBSPlayer() == owner && actor->IsAIUnit() == (mode != 2),
+        "native world failed to assign the expected unit owner");
+
+    auto* mission = actor->GetUnitRPG();
+    auto* rpg = mission->GetRPGUnit();
+    Require(!rpg->HasPerk(NRPG::N_PERK_LESS_INFLUENCE_OF_WOUNDS_FOR_TOHIT),
+        "native wound fixture unexpectedly has the wound tolerance perk");
+    rpg->Skills(NDb::ST_VP).SetConst(100);
+    rpg->Skills(NDb::ST_VP).SetValue(40);
+    rpg->Skills(NDb::ST_SHOOTING).SetConst(100);
+    rpg->nHealedVP = 0;
+    mission->ApplyCritical(NRPG::SCritical(NDb::CL_ANY, NDb::C_VP));
+    const int shooting = rpg->Skills(NDb::ST_SHOOTING).GetCurrentMaxValue();
+    std::printf("native wound owner case=%d ai=%d wounded skill=%d\n", mode, actor->IsAIUnit(), shooting);
+    Require(shooting == (mode == 2 ? 75 : 60),
+        "native wound penalties did not follow the current owner");
+}
+
 void ScriptedAckSpeaker(const char* databasePath, const char* resourcePath)
 {
     auto world = FixtureWorld(databasePath, resourcePath, true);
@@ -629,6 +663,7 @@ bool RunUnitTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "forced-fall-pose") && argc == 4) { ForcedFallPose(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "crouched-climb-idle") && argc == 4) { CrouchedClimbIdle(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "scripted-ack-speaker") && argc == 4) { ScriptedAckSpeaker(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "owner-wound-policy") && argc == 5) { OwnerWoundPolicy(argv[2], argv[3], std::atoi(argv[4])); return true; }
     return false;
 }
 }

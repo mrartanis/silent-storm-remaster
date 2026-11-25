@@ -10,7 +10,8 @@ const int
 	CHEAT_AP								= 8,
 	CHEAT_SCRIPTSEQUENCE		= 16,
 	CHEAT_NOAI							= 32,
-	CHEAT_TOHIT							= 64;
+	CHEAT_TOHIT							= 64,
+	CHEAT_SEVERE_WOUNDS			= 128;
 }
 
 #endif __RPGCHEATCONSTANTS_H_

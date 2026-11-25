@@ -12,6 +12,7 @@
 #include "RPGAllCriticals.h"
 #include "RPGUnitMission.h"
 #include "RPGItemSet.h"
+#include "rpgCheatConstants.h"
 #include "rpgPerkConstants.h"   // N_PERK_LESS_INFLUENCE_OF_WOUNDS_FOR_TOHIT (CVPCritical @0x295280)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NRPG
@@ -136,7 +137,7 @@ bool CVPCritical::SetModifiers( CUnit *pRPGUnit, IUnitMission *pRPGMission )
 	if ( pRPGUnit->HasPerk( 8, &fP1, &fP2 ) && float( nHealthPercentage ) < fP1 * 100.0f )
 		PushModifier( new CSkillModifier( &pRPGUnit->Skills(NDb::ST_IC), SSkillModifyInfo( fP2 + 1.0f, 0 ) ) );
 
-	const bool bCheat = pRPGUnit->IsCheatEnabled( 0x80 );    // harsher-wounds cheat bit
+	const bool bCheat = pRPGUnit->IsCheatEnabled( CHEAT_SEVERE_WOUNDS );
 	if ( nPercentage > 75 )
 		return false;
 
