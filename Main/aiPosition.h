@@ -356,6 +356,7 @@ public:
 	virtual void RestoreDynamicLocks( CObjectBase *pUnit ) = 0;
 	virtual void ChangeDynamicLocks( CObjectBase *pUnit, const vector<SPathPlace> &points ) = 0;
 	virtual bool IsValidDestination( const SPathPlace &p ) = 0;
+	virtual bool IsValidPoint( const SPathPlace &p ) const = 0;
 	virtual bool IsPassable( const SPathPlace &p ) = 0;
 	// @0x42e30 (retail path-net vtbl+0x3c): the granular per-place verdict. IsPassable( p ) is exactly
 	// ( GetPassability( p ) == AIP_YES ). Added AFTER IsPassable rather than at the retail slot index --

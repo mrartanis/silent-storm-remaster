@@ -135,6 +135,40 @@ void GeometricAliasColouring()
     Require(local.empty(), "building the zone graph exposed an isolated alias to local movement");
 }
 
+void NativeGeometricPointAliases()
+{
+    using namespace NAI;
+    CObj<CPathNetwork> network = new CPathNetwork;
+    network->CreateLayer(8, 8, VNULL2, 0.f, 0);
+    auto* group = network->GetLayer(0)->pGroup.GetPtr();
+    network->CreateLayer(8, 8, VNULL2, 0.f, 1, group);
+    network->CreateLayer(8, 8, VNULL2, 0.f, 2, group);
+    group->bFreeze = true;
+    const SPathPlace origin(3, 3, 0, 0, CM_STAND, 0);
+    for (int layer : {0, 1, 2}) {
+        auto& tile = network->GetLayer(layer)->tiles[3][3];
+        tile = STile{};
+        tile.nHeight = 100;
+        tile.nPassable = CP_STAND | CP_CROUCH;
+        tile.nFlags = TF_STAND_PASSABLE;
+        tile.nDisplacement = layer == 2 ? 1 : 0;
+        Require(!tile.HasNavigationLinks(), "native alias fixture unexpectedly acquired a travel link");
+    }
+    const SSphere area(network->GetCP(origin), 0.31f);
+    vector<SPathPlace> places;
+    network->GetNearPlaces(area, &places, true);
+    Require(places.size() == 3, "point alias fixture does not contain all three physical candidates");
+    network->GetNearPlaces(area, &places);
+    Require(places.size() == 2 && places[0].GetLayer() == 0 && places[1].GetLayer() == 2,
+        "nearest physical points included a redundant tile without a navigation link or removed a displaced tile");
+    network->GetLayer(0)->tiles[3][3].nLocks = 1;
+    Require(network->IsValidPoint(origin) && !network->IsValidDestination(origin),
+        "action bounds check conflated a valid locked coordinate with a travel destination");
+    const SPathPlace outside(8, 3, 0, 0, CM_STAND, 0);
+    Require(!network->IsValidPoint(outside) && !network->IsValidDestination(outside),
+        "navigation accepted an out-of-bounds coordinate");
+}
+
 class FootprintOwner : public NWorld::CUnitServer
 {
     OBJECT_NOCOPY_METHODS(FootprintOwner);
@@ -1034,6 +1068,7 @@ static void FlyingShootDirection()
 
 bool RunNavigationTests(const char* mode)
 {
+    if (!std::strcmp(mode, "native-geometric-point-aliases")) { NativeGeometricPointAliases(); return true; }
     if (!std::strcmp(mode, "smooth-path-stance-boundary")) { SmoothPathStanceBoundary(); return true; }
     if (!std::strcmp(mode, "explicit-grass-vision-overflow")) { ExplicitGrassVisionOverflow(); return true; }
     if (!std::strcmp(mode, "geometric-alias-colouring")) { GeometricAliasColouring(); return true; }

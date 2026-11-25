@@ -886,7 +886,7 @@ void CNodesLayer::AddNearPoints( const SSphere &s, vector<SPathPlace> *pRes, boo
 						bool bBetter = ( t2.nPassable & t1.nPassable ) == t1.nPassable;
 						if ( t2.nPassable == t1.nPassable )
 							bBetter = pL->nLayer < nLayer;
-						if ( t2.IsLinkedSame( t1 ) && bBetter )
+						if ( t2.nHeight == t1.nHeight && t2.nDisplacement == t1.nDisplacement && bBetter )
 						{
 							bAdd = false;
 							break;
@@ -2159,6 +2159,14 @@ CObjectBase* CPathNetwork::GetWhoLocksThisPlace( const SPathPlace &p ) const
 	return 0; 
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+bool CPathNetwork::IsValidPoint( const SPathPlace &p ) const
+{
+	if ( p.IsFinal() || !p.IsIntegral() || p.GetLayer() >= layers.size() )
+		return false;
+	const CNodesLayer *pLayer = layers[p.GetLayer()];
+	return pLayer && p.GetX() < pLayer->tiles.GetXSize() && p.GetY() < pLayer->tiles.GetYSize();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CPathNetwork::IsValidDestination( const SPathPlace &p )
 {
 	// CRAP: 
@@ -2175,6 +2183,8 @@ bool CPathNetwork::IsValidDestination( const SPathPlace &p )
 			return false;
 		return ladder.nLocks[ p.GetLadderStep() ] == 0;
 	}
+	if ( !IsValidPoint( p ) )
+		return false;
 	pLayer->pGroup->RefreshSpot( p, pMap, 2 );
 	const CNodesLayer::STile &t = pLayer->tiles[p.GetY()][p.GetX()];
 	if ( t.nPassable == 0 )

@@ -532,6 +532,7 @@ public:
 	virtual void RestoreDynamicLocks( CObjectBase *pUnit );
 	virtual void ChangeDynamicLocks( CObjectBase *pUnit, const vector<SPathPlace> &points );
 	virtual bool IsValidDestination( const SPathPlace &p );
+	bool IsValidPoint( const SPathPlace &p ) const override;
 	virtual bool IsPassable( const SPathPlace &p );
 	virtual EPassable GetPassability( const SPathPlace &p );   // anchor classification; IsPassable additionally checks the full footprint
 	bool IsBlockedByFlipper( int nFlipper, const SPathPlace &from, const SPathPlace &to, CPtr<CObjectBase> *ppFlipper,
