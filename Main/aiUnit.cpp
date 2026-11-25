@@ -330,12 +330,21 @@ public:
 			SetLogic( 0 );
 		state.Modified();
 	}
-	// CancelCommand @0xad820 (vtbl 0x28): cancel the unit's current world command (the reaction is about to
-	// re-decide). Dev analog of CAIUnit::DeactivateCurrentControl's CCmdCancel; the exit-cannon tail is elided.
+	// Retail @0xad820 cancels the current world command and queues any mounted gunner's exit.
 	virtual void CancelCommand()
 	{
-		if ( IsValid( pUnitServer ) && pUnitServer->CanFight() )
-			pUnitServer->Do( new NWorld::CCmdCancel( pUnitServer ) );
+		if ( !IsValid( pUnitServer ) || !pUnitServer->CanFight() )
+			return;
+		pUnitServer->Do( new NWorld::CCmdCancel( pUnitServer ) );
+		if ( pUnitServer->GetState() != NWorld::CUnit::ST_MACHINE_GUN )
+			return;
+		NWorld::IPlayer *pPlayer = pUnitServer->GetPlayer();
+		NWorld::CCommander *pCommander = IsValid( pPlayer ) ? pPlayer->GetCommander() : 0;
+		if ( IsValid( pCommander ) )
+		{
+			pCommander->Do( new NWorld::CCmdSetCommand( pUnitServer, new NWorld::CCmdExitCannon() ) );
+			pCommander->Do( new NWorld::CCmdSetCommand( pUnitServer, new NWorld::CCmdContinue() ) );
+		}
 	}
 	// release CAIUnit::OnAISegment @0xad2c0: per-segment tick. Repair the event tracker after deserialization
 	// (where the (CUnitServer*,bool) ctor never runs), then ProcessAISegment (the corpse scan @0xab7a0, now LIVE -- IsCorpseVisible probe over the

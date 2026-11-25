@@ -38,6 +38,7 @@
 #include "../../DBFormat/DataRPG.h"
 #include "../../DBFormat/DataMap.h"
 #include "../../DBFormat/DataFormat.h"
+#include "NativeCannonFixture.h"
 #include <cstring>
 #include <stdexcept>
 
@@ -45,6 +46,55 @@ namespace UpstreamTests
 {
 namespace
 {
+void CancelMountedGunner(const char* databasePath, const char* resourcePath)
+{
+    auto fixture = MakeNativeCannonFixture(databasePath, resourcePath);
+    auto* world = fixture.world.GetPtr();
+    auto* actor = fixture.actor.GetPtr();
+    auto* cannon = fixture.cannon.GetPtr();
+    auto* player = dynamic_cast<NWorld::CPlayer*>(actor->GetPlayer());
+    Require(IsValid(player) && IsValid(player->GetCommander()), "native gunner has no player commander");
+    world->GivePlayerTurn(player);
+    auto* commander = player->GetCommander();
+    commander->ClearList();
+    CObj<NAI::IAIUnit> gunner = NAI::CreateAIUnit(actor, true);
+    gunner->CancelCommand();
+    Require(!commander->HasCommands(), "cancelling an unmounted unit queued a dismount");
+
+    CObj<NWorld::CCmdCannon> mount = new NWorld::CCmdCannon(cannon);
+    CObj<NWorld::CExecCannon> enter = new NWorld::CExecCannon(actor, cannon, true, mount);
+    Require(enter->CanDoIt(actor->GetPosition()) == NWorld::UCR_OK, "native gunner cannot enter the authored cannon");
+    enter->Run();
+    world->GetTime()->Set(actor->animator.GetTimeEnd());
+    enter->AnimationFinished();
+    enter = nullptr;
+    Require(actor->GetState() == NWorld::CUnit::ST_MACHINE_GUN && cannon->GetCurrentUnit() == actor,
+        "native gunner did not mount the cannon");
+
+    const int ap = actor->GetAP();
+    gunner->CancelCommand();
+    Require(commander->HasCommands(), "cancelling a mounted AI unit left no queued dismount");
+    CObj<NWorld::CCommand> leave = commander->GetCommand();
+    Require(commander->HasCommands(), "queued native dismount lost its continuation");
+    CObj<NWorld::CCommand> resume = commander->GetCommand();
+    auto* leaveOrder = dynamic_cast<NWorld::CCmdSetCommand*>(leave.GetPtr());
+    auto* resumeOrder = dynamic_cast<NWorld::CCmdSetCommand*>(resume.GetPtr());
+    auto* exit = leaveOrder ? dynamic_cast<NWorld::CCmdExitCannon*>(leaveOrder->GetCmd()) : nullptr;
+    Require(exit && leaveOrder->pUnit.GetPtr() == actor && resumeOrder && resumeOrder->pUnit.GetPtr() == actor &&
+        dynamic_cast<NWorld::CCmdContinue*>(resumeOrder->GetCmd()) && !commander->HasCommands(),
+        "native mounted cancellation did not queue exit then continue for the gunner");
+    Require(actor->GetAP() == ap && actor->GetState() == NWorld::CUnit::ST_MACHINE_GUN,
+        "AI cancellation spent AP or detached the cannon before executing its order");
+    NWorld::EUnitCommandResult result = NWorld::UCR_UNAVAILABLE;
+    CObj<NWorld::CCommandExecute> dismount = actor->CreateExecutor(exit, &result);
+    Require(dismount && result == NWorld::UCR_OK, "native mounted state rejected the queued exit command");
+    dismount->Run();
+    world->GetTime()->Set(actor->animator.GetTimeEnd());
+    dismount->AnimationFinished();
+    Require(!cannon->IsOccupied() && actor->GetState() != NWorld::CUnit::ST_MACHINE_GUN,
+        "executing the queued native exit left the actor mounted");
+}
+
 void ScriptedFearReaction(const char* databasePath, const char* resourcePath, bool panic)
 {
     auto world = FixtureWorld(databasePath, resourcePath);
@@ -1158,6 +1208,7 @@ static void OwnedAIEnemySelection(bool placeSource)
 
 bool RunAITests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "ai-cancel-mounted-gunner") && argc == 4) { CancelMountedGunner(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "scripted-fear-reaction") && argc == 5) { ScriptedFearReaction(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "ai-job-scheduler") && argc == 3) { AIJobScheduler(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "ai-alarm-without-route") && argc == 4) { AIAlarmWithoutRoute(argv[2], argv[3]); return true; }
