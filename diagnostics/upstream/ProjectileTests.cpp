@@ -470,6 +470,71 @@ list<NWorld::CExplosionMaster::SStartInfo> PendingExplosions(NWorld::CWorld* wor
     return pending;
 }
 
+void ExplosionWitnessedKill(const char* databasePath, const char* resourcePath, bool visible)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* thrower = MovementPolicyActor(world);
+    auto* player = thrower->GetTBSPlayer();
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    auto receiver = std::find_if(units.begin(), units.end(), [thrower](const auto& unit) {
+        return IsValid(unit) && unit->CanFight() && !unit->IsWearingPK() && !unit->IsEmptyPK() &&
+            thrower->GetDiplomacyState(unit) == NDb::DS_ENEMY;
+    });
+    Require(receiver != units.end(), "explosion fixture lacks a native enemy receiver");
+    auto* target = receiver->GetPtr();
+    Require(IsValid(player), "explosion fixture lacks the thrower's native player");
+    target->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_VP).SetValue(5);
+
+    CStructureNetworkContext playerRefs;
+    playerRefs.externalReferences = true;
+    playerRefs.ids[target] = 1;
+    playerRefs.refs[1] = target;
+    playerRefs.nextID = 100;
+    playerRefs.include = [](CObjectBase*) { return false; };
+    list<CPtr<NWorld::CUnitServer>> witnesses;
+    if (visible)
+        witnesses.push_back(target);
+    CMemoryStream state;
+    { CStructureSaver writer(state, CStructureSaver::WRITE, &playerRefs); writer.Add(3, &witnesses); }
+    state.Seek(0);
+    { CStructureSaver reader(state, CStructureSaver::READ, &playerRefs);
+      player->CPlayerBaseVision<NWorld::CUnitServer>::operator&(reader); }
+    list<CPtr<NWorld::CUnit>> seen;
+    player->GetVisible(&seen);
+    Require((std::find(seen.begin(), seen.end(), static_cast<NWorld::CUnit*>(target)) != seen.end()) == visible,
+        "native player vision fixture did not set the intended witness state");
+
+    CObj<NDb::CRPGGrenade> grenade = new NDb::CRPGGrenade;
+    grenade->nWaveNumber = 1;
+    grenade->fWaveRadius = 1.f;
+    grenade->fWaveDmgMin = grenade->fWaveDmgMax = 50.f;
+    grenade->nFragmentNumber = 0;
+    grenade->nFragmentAPA = 10000;
+    grenade->nCriticalProbability = grenade->nCriticalDifficulty = 0;
+    grenade->fStructureDamageCoeff = 0.f;
+    grenade->fDecalRadius = 0.f;
+    world->GetAIMap()->Sync();
+    CObj<NWorld::CExplosionSpace> space = new NWorld::CExplosionSpace(world->GetAIMap());
+    CObj<NWorld::CVoxelExplTracker> explosion = new NWorld::CVoxelExplTracker(space, target->GetPosition().GetCenter(),
+        nullptr, grenade, thrower, NWorld::SPerkMineModifiers(), world);
+    bool stillExpanding = true;
+    for (int step = 0; step < 256 && stillExpanding; ++step) {
+        NWorld::ResetBreakExplCalcs();
+        stillExpanding = explosion->MakeSingleStep();
+    }
+    Require(!stillExpanding, "native grenade wave did not settle");
+    explosion->MakeDamage();
+    Require(IsValid(target) && target->IsDead() && explosion->IsFinished(),
+        "native explosion wave did not kill its target and finish");
+    int acknowledged = -1;
+    CStructureNetworkContext blastRefs;
+    auto fields = BorrowedObjectFields(explosion, &blastRefs);
+    { CStructureSaver reader(fields, CStructureSaver::READ, &blastRefs); reader.Add(6, &acknowledged); }
+    Require(acknowledged == int(visible), "native explosion counted a kill outside the thrower's field of knowledge");
+}
+
 void ExplosionModifierOwnership(const char* databasePath, const char* resourcePath, int mode)
 {
     auto world = FixtureWorld(databasePath, resourcePath, true);
@@ -928,6 +993,7 @@ void RangedHitRollRange(const char* databasePath, const char* resourcePath)
 
 bool RunProjectileTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "explosion-witnessed-kill") && argc == 5) { ExplosionWitnessedKill(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "boss-weapon-state") && argc == 4) { BossWeaponState(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "sniper-target-policy") && argc == 5) { SniperTargetPolicy(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "disarm-callback") && argc == 6) { DisarmCallback(argv[2], argv[3], std::atoi(argv[4]) != 0, std::atoi(argv[5]) != 0); return true; }

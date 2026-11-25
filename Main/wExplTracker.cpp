@@ -345,6 +345,12 @@ void CVoxelExpl::ApplyWaveDamage()
 		nWavesTotal = GetEngGrenadeWaves( pEngGrenade, nEngSkill );
 		fStructDamageCoeff = pEngGrenade->fStructureDamageCoeff;
 	}
+	// Snapshot the thrower's sight before the blast changes visibility or displaces bodies.
+	CPtr<IPlayer> pOwner = IsValid( pThrower ) ? pThrower->GetPlayer() : 0;
+	const bool bHasOwner = IsValid( pOwner );
+	list< CPtr<CUnit> > visible;
+	if ( bHasOwner )
+		pOwner->GetVisible( &visible );
 	// retail: iterate the SPACE's blast-object registry; only objects the wave actually touched have a
 	// damageInfo entry (retail's inlined bucket-walk find -- no entry, no processing).
 	for ( NAI::CExplVoxelRenderer::CObjectsHash::const_iterator i = pSpace->objects.begin(); i != pSpace->objects.end(); ++i )
@@ -410,8 +416,10 @@ void CVoxelExpl::ApplyWaveDamage()
 								att.bNoBlowUp = false;   // retail @0x355ba0: the blast-wave unit portion CAN gib (byte store portion+0x39 = 0)
 								if ( IsValid( pTracker ) )
 									FillAttackModifiers( &att, pTracker->sMineModifiers );
+								const bool bCountKill = !bHasOwner || ( pUS->GetPlayer() != pOwner.GetPtr() &&
+									find( visible.begin(), visible.end(), static_cast<CUnit*>( pUS.GetPtr() ) ) != visible.end() );
 								pAtt->ProcessAttack( pWorld, o.nUserID, &att, di.rDir.ptDir, o.pArmor );
-								if ( ( !IsValid( pThrower ) || pUS->GetPlayer() != pThrower->GetPlayer() ) && ( !IsValid(pUS) || pUS->GetUnitRPG()->IsDead() ) )
+								if ( bCountKill && ( !IsValid( pUS ) || pUS->GetUnitRPG()->IsDead() ) )
 									++nEnemyUnitsKilled;
 							}
 						}
