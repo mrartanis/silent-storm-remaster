@@ -179,7 +179,7 @@ CMission::CMission():
 	bindCluesMenu( "clues" ), bindObjectivesMenu( "objectives" ), bindGameMenu( "gamemenu" ),
 	bindStartOfTurn( "startofturn" ), bindEndOfTurn( "endofturn" ), 
 	bindSaveMenu( "savemenu" ), bindLoadMenu( "loadmenu" ), bindQuickSave( "save" ),
-	bindMove( "move" ), bindAttack( "attack" ), bindSetMine( "setmine" ), bindSetTrap( "settrap" ), bindFirstAid( "firstaid" ), bindDropCorpse( "dropcorpse" ), bindExitPK( "exitpk" ), bindRotate( "unit_rotate" ), bindUseTool( "usetool" ),
+	bindMove( "move" ), bindAttack( "attack" ), bindSetMine( "setmine" ), bindSetTrap( "settrap" ), bindFirstAid( "firstaid" ), bindDropCorpse( "dropcorpse" ), bindExitPK( "exitpk" ), bindRotate( "unit_rotate" ), bindUseTool( "usetool" ), bindModifier( "modifier" ),
 	bindSnipeAttack( "snipe_attack" ), bindCollect1AP( "collectap_1ap" ), bindCollect10AP( "collectap_10ap" ), bindCollectMaxAP( "collectap_max" ), bindCollectAllAP( "collectap_all" ),
 	bindNormalPose( "pose_normal" ), bindCrawlPose( "pose_crawl" ), bindCrouchPose( "pose_crouch" ), bindRunPose( "pose_run" ), bindStrafe( "pose_strafe" ), bindHide( "hide" ),
 	bindFocusUnit( "focus_unit" ), bindAddFloor("next_floor"), bindSubFloor("prev_floor"),
@@ -1196,25 +1196,15 @@ const CTransformStack& CMission::GetCameraTransform() const
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CObjectBase* CMission::GetTraceObject() const
 {
-	return sTraceResult.pObject;	// W4.2: retail STraceResult record (tag 21)
+	return sTraceResult.bObjectSet ? sTraceResult.pObject.GetPtr() : 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMission::GetTracePosition( CVec3 *pPos ) const
 {
-	int nMaxFloor = GetScene()->GetCutFloor();
-	vector<NAI::SInterval> intervals;
-	pWorld->GetAIMap()->Trace( rTraceRay, &intervals, NWorld::TS_PASS_BLOCKER, NAI::CFloorsSet() );
-	for ( int k = 0; k < intervals.size(); ++k )
-	{
-		NAI::SInterval &interv = intervals[k];
-		if ( interv.enter.fT < 0 )
-			continue;
-		if ( interv.pSrc->nFloor > nMaxFloor )
-			continue;
-		*pPos = rTraceRay.Get( intervals[k].enter.fT );
-		return true;
-	}
-	return false;
+	if ( !sTraceResult.bPointSet )
+		return false;
+	*pPos = sTraceResult.vPoint;
+	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CMission::GetTracePosition( NAI::SPosition *pPos ) const
@@ -1454,7 +1444,10 @@ void CMission::GameStep()
 				new NWorld::CCmdCallScriptFunction( "OnPlayerLose", "i", 0 ), 4000 ) );
 	}
 
-	sTraceResult.bTileSet = false;	// W4.2: was the dev bTraceOk
+	sTraceResult.bTileSet = false;
+	sTraceResult.bPointSet = false;
+	sTraceResult.bObjectSet = false;
+	sTraceResult.pObject = 0;
 	if ( IsReady() )
 	{
 		TraceCursor();
@@ -2425,97 +2418,38 @@ void CMission::TraceCursor()
 	CTransformStack sTS;
 	GetCamera()->GetTransform( &sTS, GetScene()->GetScreenRect() );   // retail @0x1fec80 traces against the SELECTED camera (vtbl+0xb8)
 	MakeProjectiveRay( &rTraceRay.ptDir, &rTraceRay.ptOrigin, &sTS, GetScene()->GetScreenRect(), GetCursor()->GetPos() );
-	sTraceResult.bTileSet = NWorld::TraceTile( GetWorld(), rTraceRay, &sTraceResult.sTile, GetScene()->GetCutFloor() );
+	NWorld::IPlayer *pPlayer = GetActivePlayer()->GetPlayer();
+	NWorld::Trace( GetWorld(), pPlayer, rTraceRay, GetScene()->GetCutFloor(), &sTraceResult, bindModifier.IsActive() );
 
-	list< CPtr<NWorld::CUnit> > visibleList;
-	GetActivePlayer()->GetPlayer()->GetVisible( &visibleList );
-
-	CPtr<CObjectBase> pTraceObject;
-	vector<CObjectBase*> objectsSet;
-	NWorld::TraceObjects( GetWorld(), rTraceRay, &objectsSet, GetScene()->GetCutFloor() );
-	if ( !objectsSet.empty() )
+	if ( sTraceResult.bTileSet && !sTraceResult.bObjectSet )
 	{
-		for ( vector<CObjectBase*>::iterator iTemp = objectsSet.begin(); iTemp != objectsSet.end(); iTemp++ )
+		NAI::SUnitPosition position;
+		position.pos = sTraceResult.sTile;
+		position.bRun = false;
+		NWorld::CUnit *pUnit = GetWorld()->GetUnitInTile( position );
+		list<CPtr<NWorld::CUnit>> visible;
+		pPlayer->GetVisible( &visible );
+		if ( pUnit && find( visible.begin(), visible.end(), pUnit ) != visible.end() )
 		{
-			NWorld::CUnit *pTempUnit = dynamic_cast<NWorld::CUnit*>( *iTemp );
-			if ( pTempUnit )
-			{
-				if ( find( visibleList.begin(), visibleList.end(), pTempUnit ) != visibleList.end() )
-				{
-					pTraceObject = *iTemp;
-					break;
-				}
-			}
-
-			CDynamicCast<NWorld::IObject> pTempObject( *iTemp );
-			if ( pTempObject && pTempObject->IsTargetable() )
-			{
-				pTraceObject = *iTemp;
-				break;
-			}
-			CDynamicCast<NWorld::IItem> pTempItem(*iTemp);
-			if ( pTempItem )
-			{
-				pTraceObject = *iTemp;
-				break;
-			}
-
-			// retail NWorld::Trace @0x37d760: a heard-not-seen unit's noise marker (CDMesh) is a
-			// valid pick. News gate (retail's sound-interval filter): skip when the heard unit is
-			// one of MINE or is ALREADY VISIBLE, and only accept a marker present in the player's
-			// audible sound set (GetSounds). CRITICAL: the trace object stays THE MARKER (retail
-			// pObject = the IAISound) -- every state except CStateAttack CUnit-casts and bails, so
-			// no name tooltip / carry-body / friend state can spoil the hidden unit's identity.
-			// INTENTIONAL DIVERGENCE from retail: retail targets a heard-not-seen unit ONLY through
-			// its ear icon (CSoundIcon CActionDecorator hover -> SetStateTarget); this world-trace
-			// pick of the silhouette CDMesh itself is an ADDITION so the model is hover-targetable
-			// too. Keep both paths (the ear icon path lives in iMissionUI.cpp CSoundIcon).
-			NWorld::CUnit *pHeardUnit = dynamic_cast<NWorld::CUnit*>( NWorld::GetDMeshUnit( *iTemp ) );
-			if ( pHeardUnit )
-			{
-				NWorld::IPlayer::CUnitSet myUnits;
-				GetActivePlayer()->GetPlayer()->GetUnits( &myUnits );
-				vector<NWorld::IVisObj*> soundsList;
-				GetActivePlayer()->GetPlayer()->GetSounds( &soundsList );
-				if ( find( myUnits.begin(), myUnits.end(), pHeardUnit ) == myUnits.end()
-					&& find( visibleList.begin(), visibleList.end(), pHeardUnit ) == visibleList.end()
-					&& find( soundsList.begin(), soundsList.end(), CDynamicCast<NWorld::IVisObj>( *iTemp ) ) != soundsList.end() )
-				{
-					pTraceObject = *iTemp;
-					break;
-				}
-			}
+			sTraceResult.pObject = pUnit;
+			sTraceResult.bObjectSet = true;
 		}
 	}
 
-	if ( sTraceResult.bTileSet && !IsValid( pTraceObject ) )
-	{
-		NAI::SUnitPosition sPosition;
-		sPosition.pos = sTraceResult.sTile;
-		sPosition.bRun = false;
-		NWorld::CUnit *pTempUnit = GetWorld()->GetUnitInTile( sPosition );
-		if ( find( visibleList.begin(), visibleList.end(), pTempUnit ) != visibleList.end() )
-			pTraceObject = pTempUnit;
-	}
-
-	// retail: suppress the hovered OBJECT while the camera is still moving (a moving camera must not
-	// snap-target a unit under the transiently-passing cursor), but leave the tile/point trace live so
-	// a click resolves to the correct ground tile. Do this BEFORE the object snaps the tile below.
+	// Keep the live ground hit during camera movement and suppress the transient object hover.
 	if ( nFramesSameCameraPosition < 4 )
-		pTraceObject = 0;
-
-	if ( pTraceObject != 0 )
 	{
-		NWorld::CUnit *pTempUnit = dynamic_cast<NWorld::CUnit*>( pTraceObject.GetPtr() );
-		if ( pTempUnit )
+		sTraceResult.pObject = 0;
+		sTraceResult.bObjectSet = false;
+	}
+	if ( sTraceResult.bObjectSet )
+	{
+		if ( auto *pUnit = dynamic_cast<NWorld::CUnit*>( sTraceResult.pObject.GetPtr() ) )
 		{
 			sTraceResult.bTileSet = true;
-			sTraceResult.sTile = pTempUnit->GetPosition().pos;
+			sTraceResult.sTile = pUnit->GetPosition().pos;
 		}
 	}
-
-	sTraceResult.pObject = pTraceObject;
-	sTraceResult.bObjectSet = IsValid( pTraceObject );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CMission::UnitCollectAP( NWorld::ECollectSnipeAP eAP )

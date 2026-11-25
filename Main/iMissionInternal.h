@@ -108,6 +108,7 @@ private:
 	NInput::CBind bindHero1, bindHero2, bindHero3, bindHero4, bindHero5, bindHero6, bindHero7, bindSelPrev, bindSelNext;
 	NInput::CBind bindMove, bindAttack, bindSetMine, bindSetTrap, bindFirstAid, bindDropCorpse, bindExitPK, bindRotate;
 	NInput::CBind bindUseTool;	// retail "usetool" icon-bar command (use the held tool on a target)
+	NInput::CBind bindModifier;
 	NInput::CBind bindNormalPose, bindCrawlPose, bindCrouchPose, bindRunPose, bindStrafe, bindHide;
 	NInput::CBind bindSnipeAttack, bindCollect1AP, bindCollect10AP, bindCollectMaxAP, bindCollectAllAP;
 	NInput::CBind bindGrenadeModeThrow, bindGrenadeModeSetTrap;

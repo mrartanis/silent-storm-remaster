@@ -18,9 +18,8 @@ namespace UpstreamTests
 {
 namespace
 {
-void FractionalUnitCover(const char* databasePath, const char* resourcePath)
+NWorld::CUnitServer* EquipAccuracyActor(NWorld::CWorld* world)
 {
-    auto world = FixtureWorld(databasePath, resourcePath, true);
     auto* actor = MovementPolicyActor(world);
     auto* mission = actor->GetUnitRPG();
     auto* inventory = mission->GetInventory();
@@ -35,6 +34,14 @@ void FractionalUnitCover(const char* databasePath, const char* resourcePath)
     actor->animator.SetActiveItem(true);
     actor->animator.SetWeaponAnimation(mission->GetWeaponType());
     actor->animator.SetWeaponName(record->szAnimName.c_str());
+    return actor;
+}
+
+void FractionalUnitCover(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = EquipAccuracyActor(world);
+    auto* mission = actor->GetUnitRPG();
     vector<NRPG::CAttackPortion> attacks;
     Require(mission->CreateAttack(&attacks, false) && !attacks.empty() && attacks.front().nK > 0,
         "cover precision fixture has no native piercing attack");
@@ -82,12 +89,105 @@ void FractionalUnitCover(const char* databasePath, const char* resourcePath)
     }
     Require(false, "native map cover fixture has no hit chance sensitive to fractional piercing");
 }
+
+void NativeHitArithmetic(const char* databasePath, const char* resourcePath, int test)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    if (test == 2) {
+        auto rain = NWorld::IWorld::WEATHER_RAIN;
+        CMemoryStream fields;
+        { CStructureSaver writer(fields, CStructureSaver::WRITE); writer.Add(2, &rain); }
+        fields.Seek(0);
+        CStructureSaver reader(fields, CStructureSaver::READ);
+        static_cast<NWorld::CWeatherTracker&>(*world).operator&(reader);
+    }
+    auto* actor = EquipAccuracyActor(world);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    const auto target = std::find_if(units.begin(), units.end(), [&](const auto& unit) {
+        return IsValid(unit) && unit.GetPtr() != actor && unit->CanFight();
+    });
+    Require(target != units.end(), "accuracy fixture has no living target");
+    const auto position = actor->GetPosition();
+    const auto origin = actor->GetAttackOrigin(position);
+    const auto destination = (*target)->GetPosition();
+    const int distance = test == 2 ? 6 : 21;
+    CObj<NRPG::CTileToHitCalcer> tile = new NRPG::CTileToHitCalcer(actor, position.GetPose(), distance,
+        origin, 0, 67.29f, true, true, VNULL3, destination.GetCenter(), 0);
+    CObj<NRPG::CUnitToHitCalcer> unit = new NRPG::CUnitToHitCalcer(actor, position.GetPose(), distance,
+        origin, destination.pos, 0, 0, 67.29f, true, true, VNULL3, NAI::HL_ANY, *target, 0, false);
+    auto* mission = actor->GetUnitRPG();
+    auto* calcer = test == 0 ? static_cast<NRPG::CToHitCalcer*>(tile.GetPtr()) : unit.GetPtr();
+    if (test == 2)
+        mission->GetToHitConstants()->fICModifier = 3.17f;
+    bool observed = false;
+    bool observedCover = false;
+    bool observedUnit = false;
+    const int maxSkill = test == 2 ? 160 : 100;
+    for (int skill = 25; skill <= maxSkill; skill += 3) {
+        mission->GetRPGUnit()->Skills(NDb::ST_SHOOTING).SetConst(skill);
+        if (test == 2)
+            (*target)->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_IC).SetConst(skill / 2);
+        for (int step = 1; step < 30; ++step) {
+            const float light = step / 30.f;
+            calcer->ptIllumination = CVec3(light, light, light);
+            const int hit = calcer->GetToHit();
+            if (test < 2) {
+                const float raw = calcer->fToHit;
+                if (raw > 2.f && raw < 99.f && raw - int(raw) >= 0.5f) {
+                    Require(hit == int(raw), "native firearm chance rounded up instead of truncating");
+                    return;
+                }
+                continue;
+            }
+            const float add = unit->GetAllAdd();
+            const float firstRound = unit->GetFRMult();
+            const float illumination = unit->GetLight();
+            const float attackMultiplier = std::max(0.f, (add * firstRound) * illumination);
+            if (attackMultiplier != std::max(0.f, (add * illumination) * firstRound)) {
+                observed = true;
+                Require(unit->GetAllMult() == attackMultiplier, "native shot applied light before first-round penalty");
+            }
+            float coverPerk = 1.f;
+            mission->HasPerk(0x48, &coverPerk);
+            const float scope = unit->sWeaponInfo.fScopeFactor;
+            const float range = (scope + 1.f) * 100.f / (distance + scope);
+            const float area = unit->GetTArea();
+            unit->fHitCover = (3700.f + step * 29.f) / 47.f;
+            const float coverage = ((100.f - range) * ((unit->fHitCover * 0.01f * coverPerk) * area) + range) * 0.01f;
+            const float byDivision = ((100.f - range) * ((unit->fHitCover / 100.f * coverPerk) * area) + range) / 100.f;
+            if (coverage != byDivision) {
+                observedCover = true;
+                Require(unit->CToHitCalcer::GetCA() == coverage, "native cover conversion lost original float operation order");
+            }
+            const float defense = unit->GetTAuraEvasionAdd() +
+                (*target)->GetUnitRPG()->GetIC() / mission->GetToHitConstants()->fICModifier;
+            const float combined = unit->GetCA() * unit->GetAllMult() + unit->GetCarefulShootPerk();
+            const float aura = unit->GetAuraToHitAdd();
+            const float weather = unit->GetWeatherPenalty();
+            const float expected = std::clamp(float(double(combined) + aura - weather - defense), 2.f, 100.f);
+            const float previous = std::clamp(combined + aura - defense - weather, 2.f, 100.f);
+            if (expected != previous) {
+                observedUnit = true;
+                unit->GetToHit();
+                Require(unit->fToHit == expected, "native unit shot applied defense before weather");
+            }
+        }
+    }
+    Require(test == 2 && observed, "native accuracy fixture did not distinguish truncation or first-round order");
+    Require(observedCover, "native accuracy fixture did not distinguish original cover multiplication");
+    Require(observedUnit, "native accuracy fixture did not distinguish original unit defense and weather order");
+}
 }
 
 bool RunAccuracyTests(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "fractional-unit-cover") && argc == 4) {
         FractionalUnitCover(argv[2], argv[3]);
+        return true;
+    }
+    if (!std::strcmp(mode, "native-hit-arithmetic") && argc == 5) {
+        NativeHitArithmetic(argv[2], argv[3], std::atoi(argv[4]));
         return true;
     }
     return false;

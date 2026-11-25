@@ -354,7 +354,9 @@ float CToHitCalcer::GetFRMult()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 float CToHitCalcer::GetAllMult()
 {
-	return Max( 0.f, GetAllAdd() * GetLight() * GetFRMult() );
+	float fAttack = GetAllAdd();
+	fAttack *= GetFRMult();
+	return Max( 0.f, fAttack * GetLight() );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 float CToHitCalcer::GetSnipeAdd()
@@ -373,13 +375,13 @@ float CToHitCalcer::GetTArea()
 float CToHitCalcer::GetCA()
 {
 	float fTArea = GetTArea();
-	float fTCover = fHitCover / 100.f;
+	float fTCover = fHitCover * 0.01f;
 	float fCoverMultiplier;
 	if ( pUnitMission->HasPerk( 0x48, &fCoverMultiplier ) )
 		fTCover *= fCoverMultiplier;
 	float fScopeFactor = sWeaponInfo.fScopeFactor; // 20 - normal weapon // 100 - sniper rifle
 	float fDistCoeff = DistanceFunc( nDistance, fScopeFactor );
-	return ( (100-fDistCoeff)*(fTCover*fTArea)+fDistCoeff ) / 100.0f;
+	return ( (100-fDistCoeff)*(fTCover*fTArea)+fDistCoeff ) * 0.01f;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 float CToHitCalcer::GetAllAdd()
@@ -488,7 +490,7 @@ int CToHitCalcer::GetToHit()
 		return 0;
 	fToHit = GetAllMult() + ( GetAuraToHitAdd() + GetCarefulShootPerk() ) - GetWeatherPenalty();
 	fToHit = Clamp( fToHit, 2.0f, 100.0f );
-	return int( fToHit + 0.5f );  // release rounds the result (fistp), unlike the dev's truncation
+	return int( fToHit ); // Retail sets x87 rounding control to truncate before storing the integer.
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CToHitCalcer::Log()
@@ -541,9 +543,12 @@ int CUnitToHitCalcer::GetToHit()
 	float fDef = 0;
 	if ( !bBackStab )
 		fDef = GetTAuraEvasionAdd() + pTarget->GetUnitRPG()->GetIC() / pUnitMission->GetToHitConstants()->fICModifier;
-	fToHit = GetAllMult() * GetCA() + GetCarefulShootPerk() + GetAuraToHitAdd() - fDef - GetWeatherPenalty();
+	float fAttack = GetCA();
+	fAttack *= GetAllMult();
+	fAttack += GetCarefulShootPerk();
+	fToHit = double( fAttack ) + GetAuraToHitAdd() - GetWeatherPenalty() - fDef;
 	fToHit = Clamp( fToHit, 2.0f, 100.0f );
-	return int( fToHit + 0.5f );  // release rounds the result (fistp), unlike the dev's truncation
+	return int( fToHit );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // NRPG::GetTAreaReal  @0x2b8800 (RVA) -- release-new free helper extracted as the single source of truth

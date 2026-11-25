@@ -6,6 +6,8 @@
 #include "../../Main/RPGItem.h"
 #include "../../Main/Sound.h"
 #include "../../Main/iMission.h"
+#include "../../Main/aiMap.h"
+#include "../../Main/GView.h"
 #include "../../Main/iGameStates.h"
 #include "../../Main/iCommonUI.h"
 #include "../../Main/PlayerTracker.h"
@@ -24,6 +26,7 @@
 #include "../../DBFormat/DataRPG.h"
 #include "../../Input/Bind.h"
 #include "../../MiscDll/Commands.h"
+#include "../../Main/iMissionInternal.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -32,6 +35,59 @@ namespace UpstreamTests
 {
 namespace
 {
+class CursorTraceMission : public NGame::CMission
+{
+    OBJECT_NOCOPY_METHODS(CursorTraceMission);
+public:
+    CursorTraceMission() = default;
+    explicit CursorTraceMission(NWorld::CWorld* world)
+    {
+        pWorld = world;
+        pScene = NGScene::CreateNewView();
+        pScene->SetCutFloor(0);
+    }
+};
+
+void CursorTraceLatch(const char* databasePath, const char* resourcePath, bool point)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    CObj<CursorTraceMission> mission = new CursorTraceMission(world);
+    CRay ray;
+    ray.ptDir = CVec3(0, 0, -1);
+    ray.ptOrigin = actor->GetPosition().GetCenter() + CVec3(0, 0, 15.f);
+    vector<NAI::SInterval> blockers;
+    world->GetAIMap()->Trace(ray, &blockers, NWorld::TS_PASS_BLOCKER);
+    const auto nearest = std::find_if(blockers.begin(), blockers.end(), [](const auto& hit) {
+        return hit.enter.fT >= 0.f && hit.pSrc->nFloor <= 0;
+    });
+    Require(nearest != blockers.end(), "cursor fixture has no native pass-blocking geometry");
+    NWorld::STraceResult trace;
+    trace.bPointSet = point;
+    trace.vPoint = ray.Get(nearest->enter.fT + 0.5f);
+    trace.bObjectSet = !point;
+    trace.pObject = actor;
+    CStructureNetworkContext refs;
+    refs.externalReferences = true;
+    const auto id = refs.nextID++;
+    refs.ids[actor] = id;
+    refs.refs[id] = actor;
+    CMemoryStream fields;
+    { CStructureSaver writer(fields, CStructureSaver::WRITE, &refs); writer.Add(20, &ray); writer.Add(21, &trace); }
+    fields.Seek(0);
+    { CStructureSaver reader(fields, CStructureSaver::READ, &refs); mission->operator&(reader); }
+    if (point) {
+        CVec3 preview;
+        Require(mission->GetTracePosition(&preview) && fabs(preview - trace.vPoint) < 0.0001f,
+            "cursor preview retraced the nearest blocker instead of using the ranked point");
+        Require(!mission->GetTraceObject(), "cursor exposed the old object with its frame latch cleared");
+    } else {
+        Require(mission->GetTraceObject() == actor, "cursor discarded the valid latched object");
+        CVec3 preview;
+        Require(!mission->GetTracePosition(&preview), "cursor exposed a point with its frame latch cleared");
+    }
+}
+
 class AckSoundProbe : public NSound::ISoundScene
 {
     OBJECT_NOCOPY_METHODS(AckSoundProbe);
@@ -376,6 +432,10 @@ static void OptionsPenCursor(const char* databasePath,const char* resourcePath)
 
 bool RunUITests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "cursor-trace-latch") && argc == 5) {
+        CursorTraceLatch(argv[2], argv[3], std::atoi(argv[4]) != 0);
+        return true;
+    }
     if (!std::strcmp(mode, "character-response-voice") && argc == 5) { CharacterResponseVoice(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "template-control-tie-order") && argc == 2) { TemplateControlTieOrder(); return true; }
     if (!std::strcmp(mode, "inventory-drag-during-action")) { InventoryDragDuringAction(); return true; }
