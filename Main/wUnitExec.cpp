@@ -916,8 +916,7 @@ EUnitCommandResult CExecTakePerk::CanDoIt()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CExecTakePerk::Run() 
 { 
-	NRPG::CPerksTree *pTree = pUS->GetUnitRPG()->GetRPGUnit()->GetPerksTree();
-	pTree->TakePerk( nID );
+	pUS->GetUnitRPG()->TakePerk( nID );
 
 	Finished(); 
 }

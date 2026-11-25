@@ -453,6 +453,12 @@ bool CPathConflictsRemover::UseAnotherPCR( CUnitServer *server, CPathConflictsRe
 	return !other->IsWaitingForPath( 0 );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+bool CUnitServer::IsWaitingForPath()
+{
+	CPathConflictsRemover *pRemover = GetPathConflictsRemover();
+	return IsValid( pRemover ) && pRemover->IsWaitingForPath();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // @0x3cc2d0 -- walk the chain of who-locks-whom from the unit blocking our target cell. A visited list
 // breaks cycles (deadlock): if a link has no remover, or is no longer waiting, or the cycle loops back
 // to us, we reroute ourselves and stop.

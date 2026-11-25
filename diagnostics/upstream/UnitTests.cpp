@@ -26,6 +26,7 @@
 #include "../../Main/scriptPtr.h"
 #include "../../Main/wAckBase.h"
 #include "../../DBFormat/DataRPG.h"
+#include "../../DBFormat/DataPerk.h"
 #include "../../DBFormat/DataMap.h"
 #include "../../MiscDll/LogStream.h"
 #include "../../Misc/RandomGen.h"
@@ -321,6 +322,64 @@ void TakePerkDuringTreatment(const char* databasePath, const char* resourcePath)
         "purchasing a perk did not spend precisely one point or interrupted the treatment");
     order = actor->CreateExecutor(purchase, &result);
     Require(!order && result == UCR_GENERAL_FAILURE, "treatment bypassed ordinary perk eligibility");
+}
+
+void TakePKAdaptation(const char* databasePath, const char* resourcePath, bool scriptGrant)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    auto* mission = actor->GetUnitRPG();
+    auto* rpg = mission->GetRPGUnit();
+    auto* tree = rpg->GetPerksTree();
+    constexpr int adaptation = 0x1d;
+    auto* perk = NDb::GetDBPerk(adaptation);
+    Require(IsValid(perk) && IsValid(tree), "PK adaptation needs the native perk record and tree");
+    unordered_map<int, CObj<NRPG::CPerk>> perks{{adaptation, new NRPG::CPerk(perk)}};
+    CMemoryStream fields;
+    { CStructureSaver writer(fields, CStructureSaver::WRITE); writer.Add(2, &perks); }
+    fields.Seek(0);
+    { CStructureSaver reader(fields, CStructureSaver::READ); static_cast<CObjectBase*>(tree)->operator&(reader); }
+    tree->AddPerkPoints(1);
+    const int points = tree->GetPerkPoints();
+
+    CObj<NDb::CRPGBaseValue> modifiers = new NDb::CRPGBaseValue;
+    modifiers->skills[NDb::ST_SHOOTING] = -12;
+    modifiers->skills[NDb::ST_MELEE] = 7;
+    CObj<NDb::CPanzerklein> suit = new NDb::CPanzerklein;
+    suit->pChangeValues = modifiers;
+    CObj<NRPG::CDynamicSkill> hullVP = new NRPG::CDynamicSkill(110, 100);
+    auto& shooting = rpg->Skills(NDb::ST_SHOOTING);
+    auto& melee = rpg->Skills(NDb::ST_MELEE);
+    shooting.SetConst(60);
+    shooting.FreezeToMax(true);
+    melee.SetConst(45);
+    mission->SetPanzerklein(suit, hullVP, nullptr);
+    Require(int(shooting) == 48 && int(melee) == 52 && !mission->HasPerk(adaptation),
+        "native suit failed to install its negative and positive modifiers");
+
+    if (scriptGrant) {
+        auto* script = world->GetOwnScript();
+        Require(IsValid(script), "PK adaptation fixture lacks the active Lua state");
+        NScript::luaPushCPtr(script->GetState(), actor);
+        script->SetGlobal("TestPKPilot");
+        Require(script->DoString("UnitTakePerk(TestPKPilot,29)") == 0,
+            "native Lua could not grant the adaptation perk");
+        world->ExecuteOwnScript();
+    } else {
+        world->GivePlayerTurn(actor->GetTBSPlayer());
+        CObj<NWorld::CCmdTakePerk> purchase = new NWorld::CCmdTakePerk(adaptation);
+        NWorld::EUnitCommandResult result = NWorld::UCR_UNAVAILABLE;
+        CObj<NWorld::CCommandExecute> order = actor->CreateExecutor(purchase, &result);
+        Require(IsValid(order) && result == NWorld::UCR_OK, "native perk purchase was unavailable");
+        order->Run();
+    }
+    Require(mission->HasPerk(adaptation) && tree->GetPerkPoints() == points - 1,
+        "live adaptation did not acquire its perk or charged an unexpected cost");
+    Require(int(shooting) == 60 && shooting.GetMaxValue() == 60,
+        "acquiring adaptation while suited left the suit's current skill penalty active");
+    Require(int(melee) == 52 && int(*hullVP) == 110 && mission->GetPanzerklein() == suit,
+        "acquiring adaptation removed a positive suit modifier or changed the worn hull");
+    mission->SetPanzerklein(nullptr, nullptr, nullptr);
 }
 
 void SelectedCriticalTreatmentLog(const char* databasePath)
@@ -742,6 +801,38 @@ void ForcedFallPose(const char* databasePath, const char* resourcePath)
         "animated fall onto an inactive ledge enabled item activation");
 }
 
+class RetirementProbe : public NWorld::CCommandExecute
+{
+    OBJECT_NOCOPY_METHODS(RetirementProbe);
+public:
+    int services = 0;
+    int edges = 0;
+    RetirementProbe() = default;
+    explicit RetirementProbe(NWorld::CUnitServer* actor) : CCommandExecute(actor) {}
+    void Run() override { StartAction(pUS->GetWorld(), NORMAL); }
+    void Segment() override { ++services; }
+    void AnimationFinished() override
+    {
+        if (++edges == 20)
+            Finished();
+    }
+};
+
+void ExecutorRetirementBudget(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    CObj<RetirementProbe> executor = new RetirementProbe(actor);
+    actor->RunCriticalExecutor(executor);
+    Require(executor->IsExecuting() && actor->IsPerformingAction(), "native executor probe did not start a forced action");
+    actor->Segment();
+    Require(executor->services == 1 && executor->edges == 13 && actor->IsPerformingAction(),
+        "one world tick repeatedly serviced an executor or exceeded the animation retirement budget");
+    actor->Segment();
+    Require(executor->services == 2 && executor->edges == 20 && !actor->IsPerformingAction(),
+        "the next world tick did not retire the outstanding animation edges");
+}
+
 class PlacementWorld : public NWorld::CWorld
 {
     OBJECT_NOCOPY_METHODS(PlacementWorld);
@@ -1022,6 +1113,7 @@ bool RunUnitTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "path-command-goal") && argc == 5) { PathCommandGoal(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "difficulty-skill-scaling") && argc == 2) { DifficultySkillScaling(); return true; }
     if (!std::strcmp(mode, "take-perk-during-treatment") && argc == 4) { TakePerkDuringTreatment(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "take-pk-adaptation") && argc == 5) { TakePKAdaptation(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "selected-critical-treatment-log") && argc == 3) { SelectedCriticalTreatmentLog(argv[2]); return true; }
     if (!std::strcmp(mode, "panzerklein-regeneration-bleeding") && argc == 3) { PanzerkleinRegenerationBleeding(argv[2]); return true; }
     if (!std::strcmp(mode, "look-action-point-cost") && argc == 4) { LookActionPointCost(argv[2], argv[3]); return true; }
@@ -1033,6 +1125,7 @@ bool RunUnitTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "normal-state-command-lifetime") && argc == 4) { NormalStateCommandLifetime(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ladder-descent-item-activation") && argc == 5) { LadderDescentItemActivation(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "forced-fall-pose") && argc == 4) { ForcedFallPose(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "executor-retirement-budget") && argc == 4) { ExecutorRetirementBudget(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "crouched-climb-idle") && argc == 4) { CrouchedClimbIdle(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "scripted-ack-speaker") && argc == 4) { ScriptedAckSpeaker(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "owner-wound-policy") && argc == 5) { OwnerWoundPolicy(argv[2], argv[3], std::atoi(argv[4])); return true; }

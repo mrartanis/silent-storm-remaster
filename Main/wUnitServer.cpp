@@ -1100,13 +1100,17 @@ CPathConflictsRemover* CUnitServer::GetPathConflictsRemover()
 void CUnitServer::Segment()
 {
 	STime tCur = GetWorld()->GetTime()->GetValue();
-	int nDoNotFreeze = 0;
+	// Path and other per-tick services run once. They can replace the active executor.
+	if ( IsValid( pExec ) && pExec->IsExecuting() )
+	{
+		CObj<CCommandExecute> executing = pExec;
+		executing->Segment();
+	}
+	if ( !IsValid( this ) )
+		return;
+	int nRetiredEdges = 0;
 	while ( IsValid( pExec ) && pExec->IsExecuting() )
 	{
-		// Service the move wait-state (path-conflict recovery) each tick. The Jan03 inline locker/reroute
-		// pump now lives in CExecMove::CheckCanDoMove/CheckLockerState/TryToSetNewPath, driven from
-		// CPathConflictsRemover::Segment (@0x3cc670). Still waiting after servicing -> hold this tick.
-		pExec->Segment();
 		// RETAIL RETIRE PREDICATE (disasm @0x3c2f00, re-derived dev-bugs s7 after the hold-aim
 		// regression): the retail pump retires an executor (AnimationFinished vtbl+0x20 +
 		// CheckCmdExecState @0x3c08b0) ONLY at an animation edge -- `if (tCur < animator.TimeEnd
@@ -1130,7 +1134,7 @@ void CUnitServer::Segment()
 			CheckCmdExecState();
 			break;
 		}
-		if ( pExec->IsWaitingForPath() )
+		if ( pExec->GetState() != CCommandExecute::RUNNING && pExec->IsWaitingForPath() )
 		{
 			//   (s6, retest#5 bug B) a wait-PARKED mover whose move already terminated
 			//        (TryToSetNewPath found no route -> FullCancel latched state=FINISHED but,
@@ -1138,10 +1142,11 @@ void CUnitServer::Segment()
 			//        below, so it was NEVER reaped: its CObj<CActionCounter> pinned
 			//        CTBSWorld::IsAction() true forever and froze the first enemy turn. Reap the
 			//        dead park; only a still-RUNNING park (live 10-tick locker retry) holds the tick.
-			if ( pExec->GetState() != CCommandExecute::RUNNING )
-				CheckCmdExecState();
+			CheckCmdExecState();
 			break;
 		}
+		if ( IsWaitingForPath() )
+			break;
 		if ( bCallTimeLabel && tCur >= animator.GetTimeLabel1() )
 			bCallTimeLabel = pExec->TimeLabelReached();
 		if ( tCur >= animator.GetTimeEnd() )
@@ -1159,16 +1164,9 @@ void CUnitServer::Segment()
 		}
 		else
 			break;
-		++nDoNotFreeze;
-		if ( nDoNotFreeze > 100 )
-		{
-#if defined(_WIN32)
-			__debugbreak(); // somehow we freezed here?
-#else
-			__builtin_trap();
-#endif
-		}
-		if ( nDoNotFreeze > 150 )
+		if ( ++nRetiredEdges > 10 )
+			DebugTrace( "CUnitServer::Segment: animation retirement exceeded ten edges\n" );
+		if ( nRetiredEdges >= 13 )
 			break;
 	}
 	if ( IsValid(pAutoRunCmd) && ( !IsPerformingAction() )  )
@@ -1177,6 +1175,8 @@ void CUnitServer::Segment()
 		pAutoRunCmd = 0;
 		Do( new CCmdSetCommand( this, new CCmdContinue ) );
 	}
+	if ( !IsValid( this ) )
+		return;
 	CDumbUnitServer::Segment();
 	if ( GetWorld()->IsRealTime() )
 	{

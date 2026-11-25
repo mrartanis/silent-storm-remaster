@@ -209,6 +209,7 @@ public:
 	virtual void SetAuraPerkICModifier( float f ) {}
 	// Steam SetPlayer 0x7c1def publishes the owner AI snapshot; saved tag 46 already exists.
 	virtual void SetIsAIPlayer( bool b ) {}
+	virtual void TakePerk( int nPerkID ) {}
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 float GetCubesArea( const CVec3 &ptPos, vector<CVec3> *pCubes );

@@ -29,6 +29,7 @@
 #include "RPGDiplomacy.h"
 #include "rpgCheatConstants.h"
 #include "rpgPerkConstants.h"
+#include "rpgPerk.h"
 #include "../DBFormat/DataRpgConstants.h"
 #include "../DBFormat/DataMisc.h"   // NDb::CRPGAP (GetActionAP RPGAP-table costs) + CRPGPicklock (AC_PICK_LOCK nAPToUse)
 
@@ -337,6 +338,7 @@ public:
 	virtual void SetHiding( bool _bHiding );
 	virtual bool HasPerk( int nPerkID, 
 		float *pParam1 = 0, float *pParam2 = 0, float *pParam3 = 0 ) const;
+	void TakePerk( int nPerkID ) override;
 	virtual int GetGrenadeTrapDC( NDb::CRPGGrenade *pGrenade );
 	virtual int GetMineDC( NDb::CRPGMine *pMine );
 	virtual bool CanSeeMine( float fDistance, int nDC );
@@ -417,7 +419,22 @@ void CUnitMission::InitAsCorpse( bool bDead )
 	bUnconscious = !bDead;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-bool CUnitMission::HasPerk( int nPerkID, 
+void CUnitMission::TakePerk( int nPerkID )
+{
+	CPerksTree *pTree = pRPGUnit->GetPerksTree();
+	if ( !IsValid( pTree ) )
+		return;
+	pTree->TakePerk( nPerkID );
+	if ( nPerkID != N_PERK_PANZERKLEIN_ADAPTATION || !HasPerk( nPerkID ) )
+		return;
+	// An adapted pilot keeps the suit's bonuses and the shell keeps its own VP adjustment.
+	auto *pVP = &pRPGUnit->Skills( NDb::ST_VP );
+	pkModifiers.erase( std::remove_if( pkModifiers.begin(), pkModifiers.end(), [pVP]( const auto &modifier ) {
+		return IsValid( modifier ) && modifier->fAdd < 0 && modifier->pSkill != pVP;
+	} ), pkModifiers.end() );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+bool CUnitMission::HasPerk( int nPerkID,
 		float *pParam1, float *pParam2, float *pParam3 ) const
 {
 	return pRPGUnit->HasPerk( nPerkID, pParam1, pParam2, pParam3 );
@@ -2363,7 +2380,7 @@ void CUnitMission::SetPanzerklein( NDb::CPanzerklein *pPK, CDynamicSkill *_pPanz
 	if ( pPanzerkleinVP && ( *pPanzerkleinVP < 1 ) )
 		WearBrokenPK();
 	pkModifiers.clear();   // each CObj releases -> the skill Update() sweeps the dead weak refs
-	bool bAdaptPerk = HasPerk( 0x1d );
+	bool bAdaptPerk = HasPerk( N_PERK_PANZERKLEIN_ADAPTATION );
 	for ( int skill = NDb::ST_MELEE; skill < NDb::SKILL_TYPE_NUMBERS; ++skill )
 	{
 		if ( skill == NDb::ST_VP )
