@@ -23,6 +23,7 @@
 #include "../../Main/aiEvent.h"
 #include "../../Main/aiGrid.h"
 #include "../../Main/aiReaction.h"
+#include "../../Main/aiReactions.h"
 #include "../../Main/aiRouteLogic.h"
 #include "../../Main/aiRouteMisc.h"
 #include "../../Main/aistate.h"
@@ -41,6 +42,84 @@ namespace UpstreamTests
 {
 namespace
 {
+void AIAlarmWithoutRoute(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    list<CPtr<NWorld::CUnitServer>> actors;
+    world->GetAllUnits(&actors);
+    NAI::IAIUnit* owner = nullptr;
+    NAI::IAIUnit* contact = nullptr;
+    NAI::SAIState* shared = nullptr;
+    for (const auto& actor : actors) {
+        if (!IsValid(actor) || !actor->CanFight() || !actor->IsAIUnit() || !actor->GetUnitRPG()->CanMove())
+            continue;
+        auto* commander = dynamic_cast<NAI::CAICommander*>(actor->GetPlayer()->GetCommander());
+        owner = NAI::GetAIUnit(actor);
+        if (owner && commander) {
+            shared = commander->GetAIState();
+            break;
+        }
+    }
+    Require(owner && shared, "alarm fixture has no tactical AI commander");
+    auto* server = owner->GetUnitServer();
+    for (const auto& actor : actors)
+        if (IsValid(actor) && actor->CanFight() && server->GetDiplomacyState(actor) == NDb::DS_ENEMY) {
+            contact = NAI::GetAIUnit(actor);
+            if (contact)
+                break;
+        }
+    Require(contact, "alarm fixture has no hostile unit");
+    shared->Synchronize();
+    owner->SetAIState(shared);
+    vector<CPtr<NAI::IAIUnit>> supporters;
+    shared->GetUnits(&supporters, true, false);
+    Require(supporters.size() > 1, "alarm decision requires another active supporter");
+    auto* network = dynamic_cast<NAI::CPathNetwork*>(world->GetPathNetwork());
+    Require(network && network->GetLayer(0), "alarm map has no base layer for the airborne supporter");
+    const auto* group = network->GetLayer(0)->pGroup.GetPtr();
+    const NAI::SPathPlace base(group->GetXSize() / 2, group->GetYSize() / 2, 0);
+    const CVec3 overhead = network->GetCP(base) + CVec3(0.f, 0.f, 20.f);
+    NAI::SPosition remote;
+    Require(NAI::MakeFlyPos(overhead, network, &remote),
+        "alarm fixture cannot place an airborne supporter beyond navigation");
+    vector<NAI::SPathPlace> ground;
+    network->GetNearPlaces(SSphere(remote.GetCP(), 2.f), &ground);
+    Require(ground.empty(), "airborne supporter has a nearby navigation destination");
+    for (const auto& supporter : supporters)
+        if (supporter != owner) {
+            auto* unit = supporter->GetUnitServer();
+            auto pose = unit->GetPosition();
+            pose.pos = remote;
+            unit->SetPosition(pose);
+        }
+    CObj<NAI::IAILogic> unreachable = NAI::CreateAIAlarmLogic(owner, contact);
+    Require(!unreachable, "alarm fixture unexpectedly found a route to its supporter");
+
+    auto* threat = owner->GetAIUnitState();
+    Require(threat, "alarm actor has no native contact state");
+    *threat = NAI::SAIUnitState();
+    threat->SetUnit(owner);
+    threat->AddEnemy(contact);
+    threat->pEnemy = contact;
+    threat->bScared = true;
+    CObj<NAI::CAIReaction> reaction = NAI::CreateAINormalReaction(owner);
+    owner->SetReaction(reaction);
+    unsigned seed = 1;
+    for (; seed < 512; ++seed) {
+        GlobalGameRandom().SeedForHarness(seed);
+        if (GlobalGameRandom().Get(100) < 40)
+            break;
+    }
+    Require(seed != 512, "alarm fixture could not select the native successful roll");
+    GlobalGameRandom().SeedForHarness(seed);
+    auto expected = GlobalGameRandom();
+    expected.Get(100);
+    reaction->Update();
+    Require(owner->GetReaction() == reaction && !threat->pEnemy && !threat->enemies.data.IsContain(contact, false) &&
+        GlobalGameRandom().Get() == expected.Get(),
+        "successful alarm decision fell through to fear behavior after the route factory returned empty");
+}
+
 void AIWeaponSwitchOrder(const char* databasePath, const char* resourcePath, int mode)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -975,6 +1054,7 @@ static void OwnedAIEnemySelection(bool placeSource)
 
 bool RunAITests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "ai-alarm-without-route") && argc == 4) { AIAlarmWithoutRoute(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-weapon-switch-order") && argc == 5) { AIWeaponSwitchOrder(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "ai-self-healing-bandaged-health") && argc == 4) { SelfHealingWithBandagedHealth(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "map-deployment-reactions") && argc == 5) { MapDeploymentReactions(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }

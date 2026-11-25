@@ -75,17 +75,15 @@ void CAINormalReaction::Update()
 		// SQUAD ALARM (release @0x47f241): an outnumbered-but-supported scared unit may break off and RUN to a nearby
 		// ally to raise the garrison (2+ active side-units && 40% roll) instead of merely retreating. It drops its own
 		// enemy (CreateAIEnemyDiedEvent -> RemoveEnemy) so it disengages and runs the alarm route; the route's
-		// CTaskCommandAlarm then alerts every ally within 5 m on arrival. The Update-top guard lets the route finish.
+		// CTaskCommandAlarm alerts allies on arrival. The chosen decision consumes the contact
+		// even when no route can be built.
 		if ( CountActiveAllies( u ) > 1 && ReactionRandom().Get( 100 ) < 40 )   // release @0x47f254: raw Get()%100 < 0x28 (40%)
 		{
-			if ( IAILogic *pAlarm = CreateAIAlarmLogic( u, pEnemy ) )
-			{
-				SetLogic( pAlarm );
-				CObj<IAIEvent> e = CreateAIEnemyDiedEvent( pEnemy );
-				if ( IsValid( e ) )
-					us->Notify( e );   // drop own enemy without arming another contact update
-				return;
-			}
+			SetLogic( CreateAIAlarmLogic( u, pEnemy ) );
+			CObj<IAIEvent> e = CreateAIEnemyDiedEvent( pEnemy );
+			if ( IsValid( e ) )
+				us->Notify( e );   // drop own enemy without arming another contact update
+			return;
 		}
 		SPathPlace fearPos;
 		// Original Normal installs the reachable 5m/30AP retreat; the pump

@@ -404,8 +404,8 @@ IAILogic* CreateAIMoveToPositionLogic( IAIUnit *pUnit, const SPathPlace &place, 
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CreateAIAlarmLogic (matched Steam 0x49b6a0) -- a scared, supported unit RUNs to a place beside its nearest ally, then the
-// CTaskCommandAlarm step raises the garrison. Gated on a runnable path to that place; else 0 (caller falls back to
-// the normal retreat/guard). Query the current non-enemy AI units and exclude the caller.
+// CTaskCommandAlarm step raises the garrison. Return 0 when no runnable path reaches the chosen point.
+// Query the current non-enemy AI units and exclude the caller.
 IAILogic* CreateAIAlarmLogic( IAIUnit *pUnit, IAIUnit *pEnemy )
 {
 	if ( !RouteUnitAndServerAlive( pUnit ) || !IsValid( pEnemy ) )
