@@ -5,6 +5,13 @@
 #include "../../Main/aiObject.h"
 #include "../../Main/SWTexture.h"
 #include "../../Main/2DSceneSW.h"
+#include "../../Main/MapBuildTerrain.h"
+#include "../../Main/TerrainInfo.h"
+#include "../../Main/Grid.h"
+#include "../../DBFormat/DataFormat.h"
+#include "../../DBFormat/DataMap.h"
+#include "../../DBFormat/DataRPG.h"
+#include "../../DBFormat/DataTerrain.h"
 #include "../../Misc/RandomGen.h"
 #include <array>
 #include <cmath>
@@ -16,6 +23,55 @@ namespace UpstreamTests
 {
 namespace
 {
+void TerrainSpotTieOrder(const char* databasePath)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database, CStructureSaver::READ);
+    auto* variant = NDb::GetTemplVariant(810);
+    Require(IsValid(variant), "terrain spot fixture lacks its authored variant");
+
+    CObj<NDb::CMaterial> material = new NDb::CMaterial;
+    CObj<NDb::CTMaterial> materials = new NDb::CTMaterial;
+    materials->variants.push_back(material.GetPtr());
+    materials->roulette.AddSector(1.f);
+    vector<CObj<NDb::CRPGArmor>> armors;
+    vector<CObj<NDb::CSpot>> spots;
+    vector<CObj<NDb::CRndTerrainSpot>> authored;
+    variant->terrainSpots.clear();
+    for (int priority : {7, 3, 7, 3}) {
+        CObj<NDb::CRPGArmor> armor = new NDb::CRPGArmor;
+        CObj<NDb::CSpot> spot = new NDb::CSpot;
+        CObj<NDb::CRndTerrainSpot> spec = new NDb::CRndTerrainSpot;
+        spot->pMaterial = materials;
+        spot->pArmor = armor;
+        spec->pSpot = spot;
+        spec->ptPos = CVec2(8.f * FP_GRID_STEP, 8.f * FP_GRID_STEP);
+        spec->ptSize = CVec2(4.f * FP_GRID_STEP, 4.f * FP_GRID_STEP);
+        spec->nRotation = 0;
+        spec->nPriority = priority;
+        armors.push_back(armor);
+        spots.push_back(spot);
+        authored.push_back(spec);
+        variant->terrainSpots.push_back(spec.GetPtr());
+    }
+    STerrainInfo terrain;
+    terrain.typeMap.SetSizes(16, 16);
+    terrain.typeMap.FillZero();
+    SRand random(SRandomSeed(801));
+    LoadTerrSpots(810, &terrain, &random, {});
+    Require(terrain.spots.size() == 4, "native map build did not resolve all four terrain spots");
+    MakeSoundMap(&terrain);
+    const auto listener = terrain.GetStepSound(9, 9);
+    const size_t expected[] = {3, 1, 2, 0};
+    for (size_t index = 0; index < 4; ++index)
+        Require(terrain.spots[index].pMaterial.GetPtr() == material.GetPtr() &&
+            terrain.spots[index].stepSound.pArmor.GetPtr() == armors[expected[index]].GetPtr(),
+            "native terrain spots did not follow retail priority and equal-priority order");
+    Require(listener.pArmor.GetPtr() == armors.front().GetPtr(),
+        "overlapping terrain spots produced a different footstep surface");
+}
+
 static void PackedParticleColor()
 {
     NGScene::TParticleKey<DWORD> keys[] = {{0, 0xfe012ba7u}, {8, 0x1fa2f4dbu}};
@@ -144,6 +200,7 @@ static void NativeRasterGuardPlane(int mode)
 
 bool RunRenderTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "terrain-spot-tie-order") && argc == 3) { TerrainSpotTieOrder(argv[2]); return true; }
     if (!std::strcmp(mode, "packed-particle-color")) { PackedParticleColor(); return true; }
     if (!std::strcmp(mode, "fixed-raster-edge-reciprocal")) { FixedRasterEdgeReciprocal(); return true; }
     if (!std::strcmp(mode, "native-raster-guard-plane")) { Require(argc==3,"guard plane requires mode"); NativeRasterGuardPlane(std::atoi(argv[2])); return true; }

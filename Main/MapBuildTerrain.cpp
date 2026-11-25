@@ -14,6 +14,7 @@
 #include "../DBFormat/DataTerrain.h"
 #include "../DBFormat/DataFormat.h"
 #include "../Misc/BasicShare.h"
+#include "../Misc/RetailSort.h"
 #include "BuildingInfo.h"
 #include "PolyUtils.h"
 #include "METerrain.h"
@@ -178,8 +179,6 @@ static CMETerrainInfo* LoadTerrInfo( int nVarID, SRand *pRand, const vector<int>
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 inline bool SpotCmp( const NDb::CRndTerrainSpot *p1, const NDb::CRndTerrainSpot *p2 )
 {
-	if ( !p1 || !p2 )
-		return false;
 	return p1->nPriority < p2->nPriority;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -187,14 +186,15 @@ void LoadTerrSpots( int nVarID, STerrainInfo *pTerr, SRand *pRand, const vector<
 {
 	pTerr->spots.clear();
 	NDb::CTemplVariant *pVariant = NDb::GetTemplVariant( nVarID );
-	vector< CPtr<NDb::CRndTerrainSpot> > spots = pVariant->terrainSpots;
-	sort( spots.begin(), spots.end(), SpotCmp );
+	vector< CPtr<NDb::CRndTerrainSpot> > spots;
+	spots.reserve( pVariant->terrainSpots.size() );
+	for ( const auto &spot : pVariant->terrainSpots )
+		if ( IsValid( spot ) )
+			spots.push_back( spot );
+	NRetail::Sort( spots.begin(), spots.end(), SpotCmp );
 
 	for ( int k = 0; k < spots.size(); ++k )
 	{
-		if ( !IsValid( spots[k] ) )
-			continue;
-
 		CPtr<NDb::CTerrainSpot> p = spots[k]->CreateTerrainSpot( pRand, flags );
 		if ( !IsValid( p ) )
 			continue;
