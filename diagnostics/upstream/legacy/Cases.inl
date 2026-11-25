@@ -507,10 +507,6 @@ bool UpstreamTests::RunLegacyTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "mission-loading-input") && argc == 4) { MissionLoadingInput(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-save-policy") && argc==4) { MissionSavePolicy(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "mission-network-save-policy") && argc==4) { MissionSavePolicy(argv[2],argv[3],true); return true; }
-    if (!std::strcmp(mode, "side-menu-tooltips")) { Require(argc==5,"side-menu tooltips require db/resources/mode"); SideMenuTooltips(argv[2],argv[3],std::atoi(argv[4])); return true; }
-    if (!std::strcmp(mode, "side-menu-selected-style") && argc==4) { SideMenuSelectedStyle(argv[2],argv[3]); return true; }
-    if (!std::strcmp(mode, "side-menu-difficulty-mapping") && argc==4) { SideMenuDifficultyMapping(argv[2],argv[3]); return true; }
-    if (!std::strcmp(mode, "options-pen-cursor") && argc==4) { OptionsPenCursor(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "ai-unit-flash") && argc==4) { AIUnitFlash(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "body-hover-labels") && argc==4) { BodyHoverLabels(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "forced-state-cursor-caption") && argc==4) { ForcedAttackTooltip(argv[2],argv[3],true); return true; }

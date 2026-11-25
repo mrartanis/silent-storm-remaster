@@ -8,7 +8,7 @@ int main(int argc, char** argv)
     try {
         const char* mode = argc > 1 ? argv[1] : "temporary-groups";
         if (!RunAITests(mode, argc, argv) && !RunInventoryTests(mode, argc, argv) &&
-            !RunNavigationTests(mode) && !RunUITests(mode) &&
+            !RunNavigationTests(mode) && !RunUITests(mode, argc, argv) &&
             !RunBuildingTests(mode, argc, argv) && !RunDatabaseTests(mode, argc, argv) &&
             !RunRenderTests(mode, argc, argv) && !RunUnitTests(mode, argc, argv) &&
             !RunProjectileTests(mode, argc, argv) && !RunLegacyTests(mode, argc, argv))
