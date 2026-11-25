@@ -134,7 +134,7 @@ CAnimation::CAnimation( NDb::CAnimation *_pA, CPtrFuncBase<CFileSkeletonInfo> *_
 			nBoneIndices[ nIdx ] = i;
 	}
 
-	tLength = pData->hdr.fLength * 1000 / pData->hdr.fFrameRate;
+	tLength = pData->hdr.fLength / pData->hdr.fFrameRate * 1000.f;
 	tLength /= pA->fSpeed;
 	if ( pA->bReverse )
 		pFunc = new CAFunctionLinear( tStart, tStart + tLength, 1, 0 );
@@ -179,7 +179,7 @@ const STime CAnimation::GetOriginalTime()
 {
 	pAnim.Refresh();
 	CFileAnimationInfo *pData = pAnim->GetValue();
-	return (STime)(pData->hdr.fLength * 1000 / pData->hdr.fFrameRate);
+	return STime( pData->hdr.fLength / pData->hdr.fFrameRate * 1000.f );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 const STime CAnimation::GetTimeLabel1()

@@ -1,4 +1,6 @@
 #include "NativeCannonFixture.h"
+#include "../../Main/GAnimFormat.h"
+#include "../../Main/GAnimPath.h"
 #include "../../Main/GAnimTerrain.h"
 #include "../../Main/wUICommands.h"
 #include "../../Main/wUnitMove.h"
@@ -12,6 +14,57 @@ namespace UpstreamTests
 {
 namespace
 {
+void AnimationPathSmoothingOrder()
+{
+    using NAnimation::CPathInterpolator;
+    const vector<CVec3> controls = {CVec3(0x1.833e14p+1f, 0, 0), CVec3(0x1.8146e0p+1f, 0, 0),
+        CVec3(0x1.84c0dcp+1f, 0, 0)};
+    CObj<CPathInterpolator> path = new CPathInterpolator(controls);
+    CMemoryStream fields;
+    { CStructureSaver writer(fields, CStructureSaver::WRITE); path->operator&(writer); }
+    fields.Seek(0);
+    vector<CPathInterpolator::SPathPoint> points;
+    { CStructureSaver reader(fields, CStructureSaver::READ); reader.Add(1, &points); }
+    Require(points.size() == 5 && points.front().ptPos == controls.front() && points.back().ptPos == controls.back(),
+        "path smoothing fixture did not preserve the two endpoints in one subdivision");
+    Require(points[2].ptPos.x == 0x1.822f14p+1f,
+        "animation path smoothing stored the wrong center at the retail rounding boundary");
+}
+
+void ClipFrameDuration(const char* databasePath, const char* resourcePath)
+{
+    auto fixture = MakeNativeCannonFixture(databasePath, resourcePath);
+    auto* skeleton = fixture.actor->animator.GetSkeletonAnimator();
+    auto* record = NDb::GetAnimation(4437);
+    Require(IsValid(record) && IsValid(skeleton), "clip duration fixture needs an authored runtime clip and skeleton");
+    record->fSpeed = 1.f;
+    CObj<NAnimation::CAnimation> clip = skeleton->CreateAnimation(record, 1000);
+    Require(IsValid(clip), "native skeleton could not load the duration test clip");
+    CStructureNetworkContext refs;
+    auto fields = BorrowedObjectFields(clip, &refs);
+    CDGPtr<CPtrFuncBase<NAnimation::CFileAnimationInfo>> payload;
+    { CStructureSaver reader(fields, CStructureSaver::READ, &refs); reader.Add(5, &payload); }
+    payload.Refresh();
+    auto* info = payload->GetValue();
+    Require(IsValid(info) && info->hdr.fLength > 0, "native duration test clip has no authored frame length");
+    const float length = info->hdr.fLength;
+    for (int milliseconds = 200; milliseconds < 1500; ++milliseconds) {
+        float rate = std::nextafter(length * 1000.f / milliseconds, 0.f);
+        for (int step = 0; step < 4; ++step, rate = std::nextafter(rate, rate + 1.f)) {
+            const STime expected = STime((length / rate) * 1000.f);
+            const STime previous = STime((length * 1000.f) / rate);
+            if (expected == previous)
+                continue;
+            info->hdr.fFrameRate = rate;
+            CObj<NAnimation::CAnimation> retimed = skeleton->CreateAnimation(record, 1000);
+            Require(IsValid(retimed) && retimed->GetTime() == expected && clip->GetOriginalTime() == expected,
+                "native clip constructor or duration query used the old multiply-before-divide order");
+            return;
+        }
+    }
+    Require(false, "authored clip length did not supply a distinguishing frame rate");
+}
+
 struct AimTurnSample
 {
     CVec3 direction;
@@ -243,6 +296,8 @@ void MovementPresentationGuards(const char* databasePath, const char* resourcePa
 
 bool RunAnimationTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "animation-path-smoothing-order") && argc == 2) { AnimationPathSmoothingOrder(); return true; }
+    if (!std::strcmp(mode, "clip-frame-duration") && argc == 4) { ClipFrameDuration(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "aim-turn-duration") && argc == 5) { AimTurnDuration(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "attack-animation-fallback") && argc == 5) { AttackAnimationFallback(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "movement-presentation-guards") && argc == 5) { MovementPresentationGuards(argv[2], argv[3], std::atoi(argv[4])); return true; }
