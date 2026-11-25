@@ -802,6 +802,43 @@ void ReachableDestinationFilter()
     }
 }
 
+void ApproximateBlockedGoal()
+{
+    using namespace NAI;
+    CObj<CPathNetwork> network = new CPathNetwork;
+    network->CreateLayer(12, 8, VNULL2, 0.f, 0);
+    auto* layer = network->GetLayer(0);
+    layer->pGroup->bFreeze = true;
+    auto point = [](int x) { return SPathPlace(x, 4, 0, 0, CM_STAND, 0); };
+    const int right = network->GetDir(point(5), point(6));
+    const int left = (right + 4) & 7;
+    for (int x = 1; x <= 7; ++x) {
+        auto& tile = layer->tiles[4][x];
+        tile = STile{};
+        tile.nPassable = CP_STAND;
+        tile.nFlags = TF_STAND_PASSABLE;
+        tile.nMoveStand = (x > 1 ? 1 << left : 0) | (x < 7 ? 1 << right : 0);
+    }
+    int costs[N_MOVE_TYPES];
+    std::fill(std::begin(costs), std::end(costs), 20);
+    costs[MT_ZERO] = 0;
+    const auto valid = point(1), blocked = point(8), source = point(5);
+    Require(network->GetPassability(valid) == AIP_YES && network->GetPassability(blocked) == AIP_NOT_PASSABLE,
+        "approximate route fixture does not have a valid and a blocked goal");
+    auto find = [&](const vector<SPathPlace>& goals, int budget, bool approximate) {
+        return CObj<CPath>(FindPath(network, source, goals, costs, budget, false, {}, nullptr, true, true,
+            PF_USE_POSE, approximate));
+    };
+    auto exact = find({valid, blocked}, 90, false);
+    Require(IsValid(exact) && exact->points.back().GetX() == valid.GetX(),
+        "the blocked goal disturbed the native exact path control");
+    auto single = find({blocked}, 42, true);
+    Require(IsValid(single) && single->points.back().GetX() > source.GetX(),
+        "single blocked goal did not produce a native approximation control");
+    auto mixed = find({valid, blocked}, 42, true);
+    Require(IsValid(mixed) && mixed->points == single->points,
+        "adding an unreachable but passable goal removed the nearer blocked goal from the approximate search");
+}
 
 static void IsolatedSourcePath()
 {
@@ -1176,6 +1213,7 @@ static void FlyingShootDirection()
 bool RunNavigationTests(const char* mode)
 {
     if (!std::strcmp(mode, "reachable-destination-filter")) { ReachableDestinationFilter(); return true; }
+    if (!std::strcmp(mode, "approximate-blocked-goal")) { ApproximateBlockedGoal(); return true; }
     if (!std::strcmp(mode, "climb-displacement-halo")) { ClimbDisplacementHalo(); return true; }
     if (!std::strcmp(mode, "high-climb-probe-radius")) { HighClimbProbeRadius(); return true; }
     if (!std::strcmp(mode, "native-geometric-point-aliases")) { NativeGeometricPointAliases(); return true; }

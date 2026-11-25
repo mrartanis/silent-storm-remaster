@@ -251,6 +251,7 @@ add_test(NAME UpstreamAnimationPathSmoothingOrder COMMAND UpstreamBugTests anima
 add_test(NAME UpstreamClimbDisplacementHalo COMMAND UpstreamBugTests climb-displacement-halo)
 add_test(NAME UpstreamHighClimbProbeRadius COMMAND UpstreamBugTests high-climb-probe-radius)
 add_test(NAME UpstreamReachableDestinationFilter COMMAND UpstreamBugTests reachable-destination-filter)
+add_test(NAME UpstreamApproximateBlockedGoal COMMAND UpstreamBugTests approximate-blocked-goal)
 add_test(NAME UpstreamNativeGeometricPointAliases COMMAND UpstreamBugTests native-geometric-point-aliases)
 add_test(NAME UpstreamExplicitGrassVisionOverflow COMMAND UpstreamBugTests explicit-grass-vision-overflow)
 add_test(NAME UpstreamAIJobExternalCompletion COMMAND UpstreamBugTests ai-job-scheduler 0)

@@ -10,6 +10,7 @@
 #include "RPGUnitInfo.h"
 #include "wUnitServer.h"
 #include "wMainMoves.h"
+#include "aiMisc.h"
 namespace NWorld
 {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -17,6 +18,12 @@ void PrepareAllPaths( NAI::IPathNetwork *pPathNetwork, NAI::CMultiMovesTable *pT
 	list<NAI::SPathPlace> *pResult, CUnit *pWho, const NAI::SPathPlace &ptSrc,
 	int nPriceLimit, CUnit *pIgnore, bool bCheckSuicide, bool bNoDynamicLocks )
 {
+	if ( ptSrc.IsFinal() )
+	{
+		if ( pResult )
+			pResult->clear();
+		return;
+	}
 	static int nCosts[ NAI::N_MOVE_TYPES ];
 	vector<NAI::SPoint> points;
 	CUnitServer *pUS = dynamic_cast<CUnitServer*>( pWho );
@@ -133,7 +140,8 @@ NAI::CPath* FindPath( NAI::IPathNetwork *pPathNetwork, CUnit *pWho, const NAI::S
 	// move-only flag -- carrying a corpse, in a live PK, OR a script pose-lock (luaUnitLockPose). A
 	// move-only path never inserts pose transitions, so a locked unit keeps its pose along the walk.
 	bool bMoveOnly = pUS->CannotFreelyChangePoses();
-	if ( bCheckSuicide )
+	const bool bHuman = !NAI::IsAIPlayer( pUS->GetPlayer() );
+	if ( bCheckSuicide && bHuman )
 	{
 		int nMax = 10;
 		int nMaxDiag = 14;
@@ -173,7 +181,7 @@ NAI::CPath* FindPath( NAI::IPathNetwork *pPathNetwork, CUnit *pWho, const NAI::S
 			nDiagCost = pRPG->GetActionAP( curPose, NRPG::AC_MOVE_DIAGONAL );
 		int nAddStand = (curPose == NAI::WALK || curPose == NAI::RUN) ? 0 : 2;
 		int nAddCrouch = (curPose == NAI::CROUCH) ? 0 : 2;
-		int nAddCrawl = (curPose == NAI::CRAWL) ? 0 : 2;
+		int nAddCrawl = curPose == NAI::CRAWL ? 0 : curPose == NAI::CROUCH ? 2 : 3;
 		nCosts[ NAI::MT_POSE_WALK_CROUCH ] = nCosts[ NAI::MT_POSE_WALK_CRAWL ] 
 			= nCosts[ NAI::MT_POSE_CROUCH_CRAWL ] = 1;			
 		if ( curPose == NAI::CRAWL )
@@ -200,7 +208,7 @@ NAI::CPath* FindPath( NAI::IPathNetwork *pPathNetwork, CUnit *pWho, const NAI::S
 		nCosts[ NAI::MT_LADDER_MOVE ] = pRPG->GetActionAP( NAI::WALK, NRPG::AC_LADDER_MOVE );
 		nCosts[ NAI::MT_ZERO ] = 1;
 		pRes = NAI::FindPath( pPathNetwork, ptSrc, ptDst, nCosts, 
-			0x7FFFFFFF, bStrafe, vis, pWho, false, bMoveOnly, eParams, bCanFindNotExactPath );
+			0x7FFFFFFF, bStrafe, vis, pWho, false, bMoveOnly, eParams, bCanFindNotExactPath, !bHuman );
 	}
 
 	pPathNetwork->Lock( pWho, pUS->GetPosition().pos.p );
