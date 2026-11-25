@@ -7,6 +7,9 @@
 #include "../../Main/aiPath.h"
 #include "../../Main/aiSmoothPath.h"
 #include "../../Main/aiMoves.h"
+#include "../../Main/aiMovesCalcer.h"
+#include "../../Main/aiPassCalcer.h"
+#include "../../Main/aiDoorCollider.h"
 #include "../../Main/aiNearestPosition.h"
 #include "../../Main/PrecalcCollider.h"
 #include "../../Main/RPGBullet.h"
@@ -86,6 +89,84 @@ void ExplicitGrassVisionOverflow()
         "explicit grass changed empty, ordinary or signed-overflow control cells");
     Require(coverage[0][4] == 1 && coverage[0][5] == 1,
         "explicit grass did not restart vision coverage after the overflow reset");
+}
+
+void ClimbDisplacementHalo()
+{
+    using namespace NAI;
+    CArray2D<STile> tiles(5, 5);
+    tiles.FillEvery(STile{});
+    CArray2D<char> probeHeights(5, 5);
+    probeHeights.FillZero();
+    tiles[0][2].nPassable = CP_INACTIVE;
+    tiles[0][2].nFlags = TF_IS_LADDER_UP;
+    tiles[4][4].nPassable = CP_INACTIVE;
+    tiles[2][1].nPassable = CP_CROUCH;
+    tiles[2][2].nPassable = CP_INACTIVE;
+    tiles[2][2].nHeight = GetIHeight(F_MIN_CLIMB_HEIGHT);
+    tiles[2][3].nPassable = CP_CROUCH;
+    MarkCandidatesToDisplace(&probeHeights, tiles);
+    Require(probeHeights[2][1] == 3 && probeHeights[2][2] == 3 && probeHeights[2][3] == 3,
+        "interior ledge at the minimum climb height lost its displacement probes");
+    Require(probeHeights[0][2] == 3 && probeHeights[0][1] == 3 && probeHeights[0][3] == 3 &&
+        probeHeights[1][2] == 3 && probeHeights[4][4] == 3 && probeHeights[4][3] == 0,
+        "displacement pass missed the boundary ledge or the in-bounds ladder halo");
+}
+
+void HighClimbProbeRadius()
+{
+    using namespace NAI;
+    CObj<CPathNetwork> network = new CPathNetwork;
+    network->CreateLayer(9, 9, CVec2(-4 * FP_GRID_STEP, -4 * FP_GRID_STEP), 0.f, 0);
+    network->Freeze(true);
+    auto* layer = network->GetLayer(0);
+    CObj<NWorld::CWorld> world = new NWorld::CWorld;
+    CObj<IAIMap> map = CreateAIMap(world);
+    const CTRect<int> region(2, 2, 7, 7);
+    const auto center = layer->GetCPNoHeight(4, 4);
+    const float wallX = center.x + .3f, wallY = center.y;
+    const vector<CVec3> points{
+        CVec3(wallX,wallY-.06f,.92f),CVec3(wallX+.04f,wallY-.06f,.92f),CVec3(wallX+.04f,wallY+.06f,.92f),CVec3(wallX,wallY+.06f,.92f),
+        CVec3(wallX,wallY-.06f,1.16f),CVec3(wallX+.04f,wallY-.06f,1.16f),CVec3(wallX+.04f,wallY+.06f,1.16f),CVec3(wallX,wallY+.06f,1.16f)};
+    const vector<STriangle> triangles{
+        STriangle(0,2,1),STriangle(0,3,2),STriangle(4,5,6),STriangle(4,6,7),
+        STriangle(0,1,5),STriangle(0,5,4),STriangle(3,7,6),STriangle(3,6,2),
+        STriangle(0,4,7),STriangle(0,7,3),STriangle(1,2,6),STriangle(1,6,5)};
+    SBound volume, geometry;
+    volume.BoxInit(CVec3(center.x-3.71f,center.y-3.4f,-3.4f), CVec3(center.x+4.29f,center.y+4.6f,4.6f));
+    geometry.BoxInit(points[0], points[6]);
+    SHMatrix identity;
+    Identity(&identity);
+    CObj<CPrecalcSpheres> obstruction = new CPrecalcSpheres;
+    Require(!obstruction->Generate(points, triangles, 0), "high climb obstruction exceeds one collision block");
+    const SSourceInfo source(world, nullptr, 0, NWorld::TS_PASS_BLOCKER);
+    for (bool blocked : {false, true}) {
+        CObj<CCollider> collider = new CCollider;
+        collider->SetBoundAndResolution(volume, 1.f);
+        if (blocked) {
+            collider->AddEntity(identity, identity, vector<CPtr<CPrecalcSpheres>>{obstruction.GetPtr()}, false,
+                SColliderUserInfo(&source, 0), geometry);
+            const CVec3 sweep(center.x, center.y, GetFHeight(GetIHeight(1.2f)) + F_CHECK_HEIGHT + F_TEST_SPHERE_STEP);
+            const CVec3 down(0, 0, F_CHECK_HEIGHT - sweep.z);
+            SDoorColliderAnalyzer wide, narrow;
+            collider->CollideBool(SSphere(sweep, F_TEST_SPHERE_RADIUS), down, &wide);
+            collider->CollideBool(SSphere(sweep, 0.28f), down, &narrow);
+            Require(wide.IsCollided() && !narrow.IsCollided(), "high climb fixture lacks a distinguishing narrow collision gap");
+        }
+        STempArrayGroup<STile> buffers;
+        buffers.region = region;
+        auto& tiles = *buffers.GetArray(0, 0);
+        tiles.FillEvery(STile{});
+        auto& lower = tiles[2][2];
+        auto& upper = tiles[2][3];
+        lower.nPassable = CP_STAND | CP_CROUCH;
+        upper.nPassable = CP_INACTIVE;
+        upper.nHeight = GetIHeight(1.2f);
+        CMovesCalcer calcer(layer, map, region, buffers, 0, 0, collider);
+        calcer.Calc();
+        Require(((lower.nMoveHC & (1 << CD_R)) != 0) == !blocked && ((upper.nMoveHC & (1 << CD_L)) != 0) == !blocked,
+            "the native climb link crossed a collision caught by the original sphere radius");
+    }
 }
 
 void GeometricAliasColouring()
@@ -1068,6 +1149,8 @@ static void FlyingShootDirection()
 
 bool RunNavigationTests(const char* mode)
 {
+    if (!std::strcmp(mode, "climb-displacement-halo")) { ClimbDisplacementHalo(); return true; }
+    if (!std::strcmp(mode, "high-climb-probe-radius")) { HighClimbProbeRadius(); return true; }
     if (!std::strcmp(mode, "native-geometric-point-aliases")) { NativeGeometricPointAliases(); return true; }
     if (!std::strcmp(mode, "smooth-path-stance-boundary")) { SmoothPathStanceBoundary(); return true; }
     if (!std::strcmp(mode, "explicit-grass-vision-overflow")) { ExplicitGrassVisionOverflow(); return true; }

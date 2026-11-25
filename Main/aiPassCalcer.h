@@ -36,6 +36,7 @@ struct SPCHeight
 class CCollider;
 struct SDoorColliderAnalyzer;
 struct SDoorCollision;
+void MarkCandidatesToDisplace( CArray2D<char> *pSphereHeight, const CArray2D<STile> &tiles );
 class CPassCalcer
 {
 public:
