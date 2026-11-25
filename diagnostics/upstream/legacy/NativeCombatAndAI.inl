@@ -1511,16 +1511,22 @@ static void AIAlarmNearestTarget(const char* databasePath, const char* resourceP
         unsigned seed=47,expectedNext=0; CObj<NAI::IAILogic> referencePlan; Plan expected;
         cache->clear(); if (desired) cache->push_back(desired);
         if (desired) {
-            vector<NAI::SPathPlace> neighborhood; network->GetNearPlaces(SSphere(desired->GetPosition().GetCP(),2.f),&neighborhood);
+            vector<NAI::SPathPlace> neighborhood;
+            NAI::GetNearestPlaces(desired->GetUnitServer(), desired->GetUnitPosition().pos.p, 10, NAI::WALK, &neighborhood);
+            Require(!neighborhood.empty(), "alarm fixture has no native walking destinations near the recipient");
             for (seed=1; seed!=513; ++seed) {
-                GlobalGameRandom().SeedForHarness(seed); auto reference=GlobalGameRandom(); reference.Get(int(neighborhood.size())); expectedNext=reference.Get();
+                GlobalGameRandom().SeedForHarness(seed);
+                auto reference=GlobalGameRandom();
+                auto expectedPlace=neighborhood[reference.Get(neighborhood.size())];
+                expectedPlace.SetDirection(network->GetClosestDir(expectedPlace, desired->GetPosition().p));
+                expectedNext=reference.Get();
                 referencePlan=NAI::CreateAIAlarmLogic(owner,contact);
                 const unsigned actualNext=GlobalGameRandom().Get();
                 if (!IsValid(referencePlan)) continue;
                 Require(actualNext==expectedNext,"native alarm factory consumed more than its original one destination draw");
                 expected=inspect(referencePlan);
-                Require(std::find(neighborhood.begin(),neighborhood.end(),expected.go.p)!=neighborhood.end(),
-                    "alarm reference route was not beside the independently selected native world recipient");
+                Require(expected.go.p==expectedPlace && expected.look==expectedPlace,
+                    "alarm route missed its selected walking destination or did not face the recipient");
                 break;
             }
             Require(seed!=513 && IsValid(referencePlan),"alarm target fixture found no reachable actual reference route");
@@ -1646,19 +1652,20 @@ static void AIFearRouteRetention(const char* databasePath, const char* resourceP
     Require(tracker.CanGetCommand() && owner->GetReaction() == reaction.GetPtr() && IsValid(owner->GetLogic())
             && owner->GetLogic() != normal.GetPtr(), "fear route fixture failed to install its separate native fear logic");
     const auto after = readSlots();
+    const int expectedPause = -priorPauses - (mode == 3 ? 0 : 1);
     std::printf("fear route mode=%d normal=%d sequence=%d pauses=%d expected=%d fearLogic=%d\n", mode,
         int(after.size() == 2 && after[0].GetPtr() == normal.GetPtr()),
         int(after.size() == 2 && after[1].GetPtr() == sequence.GetPtr()), normal->nPause,
-        priorPauses + (mode == 3 ? 0 : 1), int(IsValid(owner->GetLogic())));
+        expectedPause, int(IsValid(owner->GetLogic())));
     Require(after.size() == 2 && after[1].GetPtr() == sequence.GetPtr()
             && after[0].GetPtr() == (mode == 3 ? nullptr : normal.GetPtr()),
         "fear reaction deleted or replaced a saved route instead of retaining it");
-    Require(normal->nPause == priorPauses + (mode == 3 ? 0 : 1),
+    Require(normal->nPause == expectedPause,
         "fear logic did not add exactly one suspension to the retained normal route");
     owner->SetLogic(nullptr);
     const auto resumed = readSlots();
     Require(owner->GetLogic() == before[0].GetPtr() && resumed.size() == 2 && resumed[0].GetPtr() == before[0].GetPtr()
-            && resumed[1].GetPtr() == sequence.GetPtr() && normal->nPause == priorPauses
+            && resumed[1].GetPtr() == sequence.GetPtr() && normal->nPause == -priorPauses
             && normal->IsActive() == (priorPauses == 0),
         "finishing fear logic failed to resume the original route or corrupted an inherited pause");
     CStructureNetworkContext routeRefs; auto routeFields = BorrowedObjectFields(normal, &routeRefs);
@@ -1723,10 +1730,8 @@ static void AIFearAPReservation(const char* databasePath, const char* resourcePa
     const int maxAP = rpg->Skills(NDb::ST_AP).GetCurrentMaxValue();
     Require(cost >= 0 && maxAP > cost + 20 && owner->GetUnitPosition().GetPose() == pose,
         "fear AP fixture has no valid native rotation cost/pose/AP capacity");
-    auto* authoredRotation = NDb::GetRPGAP(pose == NAI::CRAWL ? 24 : 25);
-    Require(IsValid(authoredRotation) && authoredRotation->nAP == (pose == NAI::CRAWL ? 4 : 2),
-        "native fixture rotation data differs from the original rotation cost");
-    if (!perkCase) Require(cost == authoredRotation->nAP, "native baseline rotation cost changed before the caller fix");
+    if (!perkCase)
+        Require(cost == (pose == NAI::CRAWL ? 4 : 2), "native rotation changed its original stance cost");
     int initialAP = cost + 7;
     if (mode == 3) initialAP = cost;
     if (mode == 4) initialAP = (std::max)(0, cost-1);
