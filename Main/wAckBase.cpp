@@ -310,16 +310,18 @@ NDb::CDBAckSequence *CGlobalAck::GetSequence( IPlayer *pPlayer, CUnitServer **pp
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CGlobalAck::SayAck( CUnitServer *pWho, int nConditionID )
 {
+	if ( !IsValid( pWho ) )
+		return;
 	CDBTable<NDb::CDBAck> *pDBTable = NDatabase::GetTable<NDb::CDBAck>();
+	if ( !pDBTable )
+		return;
 	CDBIterator<NDb::CDBAck> i(*pDBTable);
-	// retail GetAckHolder @0x2ba8f0: a hero's ack rows come from his VOICE-DONOR pers (the chargen
-	// voice pick), not his own single-voice persona
-	const int nAckPersID = pWho->GetUnitRPG()->GetRPGUnit()->GetAckPersID();
-	while ( pDBTable && i.MoveNext() )
+	const int nSpeakerPersID = pWho->GetUnitRPG()->GetRPGPersID();
+	while ( i.MoveNext() )
 	{
 		NDb::CDBAck *pDBAck = i.Get();
-		if ( pDBAck && pDBAck->nRPGPersID == nAckPersID &&
-				 pDBAck->nConditionID == nConditionID )
+		if ( IsValid( pDBAck ) && pDBAck->nRPGPersID == nSpeakerPersID &&
+				 IsValid( pDBAck->pCondition ) && pDBAck->pCondition->GetRecordID() == nConditionID )
 		{
 			AddAckSequence( pWho, pDBAck );
 		}

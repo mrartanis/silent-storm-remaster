@@ -16,6 +16,9 @@
 #include "../../Main/GAnimation.h"
 #include "../../Main/rpgPerk.h"
 #include "../../Main/rpgGlobal.h"
+#include "../../Main/A5Script.h"
+#include "../../Main/scriptPtr.h"
+#include "../../Main/wAckBase.h"
 #include "../../DBFormat/DataRPG.h"
 #include "../../MiscDll/LogStream.h"
 #include "../../Misc/RandomGen.h"
@@ -510,6 +513,81 @@ void ForcedFallPose(const char* databasePath, const char* resourcePath)
         "animated fall onto an inactive ledge enabled item activation");
 }
 
+void ScriptedAckSpeaker(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* speaker = nullptr;
+    for (const auto& unit : units) {
+        if (!IsValid(unit))
+            continue;
+        const auto* rpgUnit = unit->GetUnitRPG()->GetRPGUnit();
+        if (rpgUnit->GetRPGPersID() != rpgUnit->GetAckPersID()) {
+            speaker = unit;
+            break;
+        }
+    }
+    Require(speaker, "native acknowledgement fixture lacks a speaker with a separate voice donor");
+    const auto* rpgUnit = speaker->GetUnitRPG()->GetRPGUnit();
+    auto* table = NDatabase::GetTable<NDb::CDBAck>();
+    Require(table, "native acknowledgement fixture lacks its authored table");
+    vector<NDb::CDBAck*> rows;
+    CDBIterator<NDb::CDBAck> next(*table);
+    while (rows.size() < 2 && next.MoveNext()) {
+        auto* row = next.Get();
+        if (IsValid(row) && IsValid(row->pCondition) && IsValid(row->pAckSequence))
+            rows.push_back(row);
+    }
+    Require(rows.size() == 2, "native acknowledgement fixture needs separate speaker and donor rows");
+    auto* own = rows[0];
+    auto* donor = rows[1];
+    const int condition = own->pCondition->GetRecordID();
+    own->nRPGPersID = rpgUnit->GetRPGPersID();
+    own->nConditionID = -1;
+    donor->nRPGPersID = rpgUnit->GetAckPersID();
+    donor->nConditionID = condition;
+    donor->pCondition = own->pCondition;
+
+    struct QueuedAck {
+        CPtr<NWorld::CUnitServer> unit;
+        CDBPtr<NDb::CDBAck> row;
+        int operator&(CStructureSaver& fields) { fields.Add(2, &unit); fields.Add(3, &row); return 0; }
+    };
+    auto queueCounts = [&] {
+        CStructureNetworkContext refs;
+        auto fields = BorrowedObjectFields(world->GetGlobalAck(), &refs);
+        list<QueuedAck> queued;
+        CStructureSaver reader(fields, CStructureSaver::READ, &refs);
+        reader.Add(3, &queued);
+        std::pair<int, int> counts;
+        for (const auto& ack : queued) {
+            if (ack.unit.GetPtr() != speaker)
+                continue;
+            counts.first += ack.row.GetPtr() == own;
+            counts.second += ack.row.GetPtr() == donor;
+        }
+        return counts;
+    };
+    world->GetGlobalAck()->AddAckSequence(speaker, donor);
+    const auto before = queueCounts();
+    Require(before.second >= 1, "serialized acknowledgement queue lost its control speaker or row");
+    auto* script = world->GetOwnScript();
+    Require(IsValid(script), "native acknowledgement fixture lacks its Lua state");
+    NScript::luaPushCPtr(script->GetState(), speaker);
+    script->SetGlobal("TestAckSpeaker");
+    const string command = "UnitSayAck(TestAckSpeaker," + std::to_string(condition) + "); TestAckRan = 1";
+    Require(script->DoString(command.c_str()) == 0, "UnitSayAck could not run through Lua");
+    world->ExecuteOwnScript();
+    const auto ran = script->GetGlobal("TestAckRan");
+    Require(ran.IsNumber() && ran.GetNumber() == 1, "native Lua script did not reach the acknowledgement");
+    script->Pop(1);
+    const auto after = queueCounts();
+    std::printf("scripted acknowledgement own=%d donor=%d\n", after.first - before.first, after.second - before.second);
+    Require(after.first == before.first + 1 && after.second == before.second,
+        "UnitSayAck skipped its speaker's linked condition or queued the voice donor's phrase");
+}
+
 void CrouchedClimbIdle(const char* databasePath, const char* resourcePath)
 {
     LadderDescentFixture fixture(databasePath, resourcePath);
@@ -550,6 +628,7 @@ bool RunUnitTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ladder-descent-item-activation") && argc == 5) { LadderDescentItemActivation(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "forced-fall-pose") && argc == 4) { ForcedFallPose(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "crouched-climb-idle") && argc == 4) { CrouchedClimbIdle(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "scripted-ack-speaker") && argc == 4) { ScriptedAckSpeaker(argv[2], argv[3]); return true; }
     return false;
 }
 }
