@@ -395,6 +395,7 @@ add_test(NAME UpstreamConnectedAliasMoves COMMAND UpstreamBugTests connected-ali
 add_test(NAME UpstreamIsolatedSourceMoves COMMAND UpstreamBugTests isolated-source-moves)
 add_test(NAME UpstreamLockedAliasMoves COMMAND UpstreamBugTests locked-alias-moves)
 add_test(NAME UpstreamIsolatedSourcePath COMMAND UpstreamBugTests isolated-source-path)
+add_test(NAME UpstreamTiedApproximatePath COMMAND UpstreamBugTests tied-approximate-path)
 add_test(NAME UpstreamIsolatedTransitionLinkMatch COMMAND UpstreamBugTests isolated-transition-link-match)
 add_test(NAME UpstreamIsolatedTransitionShortcut COMMAND UpstreamBugTests isolated-transition-shortcut)
 add_test(NAME UpstreamIsolatedTransitionEntry COMMAND UpstreamBugTests isolated-transition-entry)

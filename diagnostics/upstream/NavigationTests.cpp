@@ -618,6 +618,50 @@ static void PronePoseChangeFacing()
     }
 }
 
+void TiedApproximatePath()
+{
+    using namespace NAI;
+    CObj<CPathNetwork> network = new CPathNetwork;
+    network->CreateLayer(20, 8, VNULL2, 0.f, 0);
+    auto* layer = network->GetLayer(0);
+    layer->pGroup->bFreeze = true;
+    auto point = [](int x) { return SPathPlace(x, 4, 0, 0, CM_STAND, 0); };
+    const int right = network->GetDir(point(10), point(11));
+    const int left = (right + 4) & 7;
+    for (int x = 9; x <= 17; ++x) {
+        auto& tile = layer->tiles[4][x];
+        tile = STile{};
+        tile.nPassable = CP_STAND;
+        tile.nFlags = TF_STAND_PASSABLE;
+        tile.nMoveStand = (x > 9 ? 1 << left : 0) | (x < 17 ? 1 << right : 0);
+    }
+    int costs[N_MOVE_TYPES];
+    std::fill(std::begin(costs), std::end(costs), 15);
+    costs[MT_ZERO] = 0;
+    const list<CObjectBase*> occupants;
+    auto find = [&](const vector<SPathPlace>& goals, int budget, bool approximate) {
+        return CObj<CPath>(FindPath(network, point(13), goals, costs, budget, false, occupants,
+            nullptr, true, true, PF_USE_POSE, approximate));
+    };
+    vector<SPathPlace> goals = {point(9), point(17)};
+    Require(!find(goals, 46, false), "exact wave unexpectedly reached a destination outside its budget");
+    for (const auto& goal : goals) {
+        const auto exact = find({goal}, 61, false);
+        Require(IsValid(exact) && !exact->points.empty() && exact->points.back().GetX() == goal.GetX(),
+            "both ends of the test corridor must be valid exact goals");
+    }
+    // Three steps reach x=10 or x=16 at the same price and distance from their goals.
+    // The original 13-bucket table visits the packed x=16 key in bucket 1 before x=10 in bucket 8.
+    for (int attempt = 0; attempt < 2; ++attempt) {
+        const auto route = find(goals, 46, true);
+        Require(IsValid(route) && route->points.size() >= 3 && route->points.front() == point(13),
+            "approximate route did not leave the source toward a tied endpoint");
+        // The current route builder stops one step before a fallback candidate.
+        Require(route->points.back().GetX() == 15, "tied approximate route used host hash iteration order");
+        std::reverse(goals.begin(), goals.end());
+    }
+}
+
 static void IsolatedSourcePath()
 {
     CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
@@ -1006,6 +1050,7 @@ bool RunNavigationTests(const char* mode)
     if (!std::strcmp(mode, "isolated-source-moves")) { ConnectedAliasMoves(true); return true; }
     if (!std::strcmp(mode, "locked-alias-moves")) { ConnectedAliasMoves(false,true); return true; }
     if (!std::strcmp(mode, "isolated-source-path")) { IsolatedSourcePath(); return true; }
+    if (!std::strcmp(mode, "tied-approximate-path")) { TiedApproximatePath(); return true; }
     if (!std::strcmp(mode, "prone-pose-change-facing")) { PronePoseChangeFacing(); return true; }
     if (!std::strcmp(mode, "simple-prone-pose-path")) { SimplePronePosePath(); return true; }
     if (!std::strcmp(mode, "isolated-transition-link-match")) { IsolatedTransitionLinkMatch(); return true; }

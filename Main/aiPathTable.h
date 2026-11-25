@@ -3,6 +3,7 @@
 #if _MSC_VER > 1000
 #pragma once
 #endif // _MSC_VER > 1000
+#include "../Misc/RetailHashOrder.h"
 
 namespace NAI 
 {
@@ -24,6 +25,26 @@ public:
 		return (i->second).cost;
 	}
 	void MakeInfinity(void) { data.clear(); }
+};
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// The route wave reuses this workspace. Saved reachable-area tables keep CPathPlaceTable's layout.
+class CPathSearchTable : public CPathPlaceTable
+{
+	NRetail::CIntHashOrder order;
+public:
+	SMove& operator[]( const SPathPlace &pt )
+	{
+		auto entry = data.try_emplace( pt );
+		if ( entry.second )
+			order.Insert( pt.GetData() );
+		return entry.first->second;
+	}
+	void MakeInfinity()
+	{
+		CPathPlaceTable::MakeInfinity();
+		order.Clear();
+	}
+	const NRetail::CIntHashOrder& GetSearchOrder() const { return order; }
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 }
