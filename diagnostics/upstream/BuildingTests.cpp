@@ -7,6 +7,11 @@
 #include "../../Main/MapBuild.h"
 #include "../../Main/GInit.h"
 #include "../../Main/aiGrid.h"
+#include "../../Main/aiMap.h"
+#include "../../Main/aiStability.h"
+#include "../../Main/rpgGlobal.h"
+#include "../../Main/wMain.h"
+#include "../../Main/wOSBase.h"
 #include "../../DBFormat/DataMap.h"
 #include "../../DBFormat/DataObject.h"
 #include "../../DBFormat/DataFormat.h"
@@ -152,6 +157,90 @@ void TransformedCellarJunctions(const char* databasePath, const char* resourcePa
     Require(farEnds > 0 && aboveGround > 0, "authored fixtures have no distinct cellar rod ends and above-ground junctions");
     Require(unmarked == 0, "a rod's unfilled end lost the cellar flag after transforming to a cellar boundary");
 }
+
+struct StabilityGridFields
+{
+    vector<CPtr<CObjectBase>> cells;
+    int width = 0, depth = 0, height = 0;
+    int operator&(CStructureSaver& reader)
+    {
+        reader.Add(2, &cells);
+        reader.Add(3, &width);
+        reader.Add(4, &depth);
+        reader.Add(5, &height);
+        return 0;
+    }
+};
+
+struct StabilityObjectFields
+{
+    CPtr<NWorld::CObjectServerBase> object;
+    int operator&(CStructureSaver& reader)
+    {
+        reader.Add(2, &object);
+        return 0;
+    }
+};
+
+void StabilityObjectCells(const char* databasePath, const char* resourcePath, int mode)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, false, &game, 4517);
+    NWorld::CObjectServerBase* object = nullptr;
+    SBound envelope;
+    for (const auto& candidate : world->GetObjectsForHarness()) {
+        NDb::CModel* model = nullptr;
+        SHMatrix transform;
+        if (!IsValid(candidate) || !candidate->GetCheckStabilityParams(&model, &transform))
+            continue;
+        CVec3 centerOfMass;
+        vector<SMassSphere> spheres;
+        NAI::GetSpheres(model, &spheres, &centerOfMass);
+        if (spheres.empty())
+            continue;
+        SBoundCalcer bounds;
+        for (const auto& sphere : spheres) {
+            CVec3 center;
+            transform.RotateHVector(&center, sphere.ptCenter);
+            bounds.Add(center, sphere.fRadius);
+        }
+        bounds.Make(&envelope);
+        if (envelope.ptHalfBox.x > 0.6f && envelope.ptHalfBox.x < 1.4f &&
+            envelope.ptHalfBox.y < 1.4f && envelope.ptHalfBox.z < 1.4f) {
+            object = candidate;
+            break;
+        }
+    }
+    Require(object, "stability fixture lacks an authored object that fits the grid boundaries");
+    const bool spanning = mode != 2;
+    const float centerOffset = spanning ? 1.5f : 0.5f;
+    const CVec3 minimum = envelope.s.ptCenter - CVec3(centerOffset, 1.45f, 1.45f);
+    const CVec3 maximum = minimum + CVec3(8.f, 2.9f, 2.9f);
+    CObj<NAI::IStabilityTrackers> trackers = NAI::CreateStabilityTrackers(world);
+    trackers->EnlargeMap(minimum, maximum);
+    if (mode != 0)
+        trackers->FinishConstruction();
+    object->RegisterForStability(trackers);
+    if (mode == 0)
+        trackers->FinishConstruction();
+
+    CStructureNetworkContext references;
+    auto fields = BorrowedObjectFields(trackers, &references);
+    StabilityGridFields grid;
+    { CStructureSaver reader(fields, CStructureSaver::READ, &references); reader.Add(2, &grid); }
+    Require(grid.width == 4 && grid.depth == 1 && grid.height == 1 && grid.cells.size() == 4,
+        "stability grid did not construct its four cell intervals");
+    for (size_t index = 0; index < grid.cells.size(); ++index) {
+        CStructureNetworkContext cellReferences;
+        auto cellFields = BorrowedObjectFields(grid.cells[index], &cellReferences);
+        vector<StabilityObjectFields> objects;
+        { CStructureSaver reader(cellFields, CStructureSaver::READ, &cellReferences); reader.Add(4, &objects); }
+        const size_t expected = index == 0 ? 1 : index == 1 && spanning ? 2 : 0;
+        Require(objects.size() == expected, "stability registration missed the containing cell or its upper corner");
+        for (const auto& registered : objects)
+            Require(registered.object == object, "stability registration recorded a different world object");
+    }
+}
 }
 
 bool RunBuildingTests(const char* mode, int argc, char** argv)
@@ -160,6 +249,7 @@ bool RunBuildingTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "building-damage-parts")) { BuildingDamageParts(); return true; }
     if (!std::strcmp(mode, "zero-scale-map-objects") && argc == 4) { ZeroScaleMapObjects(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "transformed-cellar-junctions") && argc == 4) { TransformedCellarJunctions(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "stability-object-cells") && argc == 5) { StabilityObjectCells(argv[2], argv[3], std::atoi(argv[4])); return true; }
     return false;
 }
 }

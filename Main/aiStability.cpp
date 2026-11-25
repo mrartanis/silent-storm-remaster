@@ -69,15 +69,13 @@ static bool GetObjSpheres( NDb::CModel *pModel, const SHMatrix &m, vector<SSpher
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// retail NAI::GetIdx @0xa52a0: which grid cell a coordinate falls into.
+// Retail NAI::GetIdx @0xa52a0 truncates the scaled coordinate to the containing cell.
 static int GetIdx( float fV, float fMin, float fMax, int n )
 {
-	int nIdx = Float2Int( ( fV - fMin ) * (float)n / ( fMax - fMin ) );
-	if ( nIdx >= n - 1 )
-		nIdx = n - 1;
-	if ( nIdx < 0 )
-		nIdx = 0;
-	return nIdx;
+	if ( n <= 1 )
+		return 0;
+	const float cell = ( fV - fMin ) * float(n) / ( fMax - fMin );
+	return static_cast<int>( Clamp( cell, 0.f, float(n - 1) ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail NAI::IsStableMine @0xa5300: trace straight down from the mine (IAIMap vtbl+0x18, mask
@@ -324,7 +322,15 @@ class CStabilityTrackers: public IStabilityTrackers
 	// retail AddObject(server, bound, id) @0xa6090.
 	void AddObjectBound( NWorld::CObjectServerBase *pObj, const SBound &b, int nID )
 	{
-		GetTracker( b.s.ptCenter )->AddObject( pObj, b );
+		CStabilityTracker *pCenter = GetTracker( b.s.ptCenter );
+		pCenter->AddObject( pObj, b );
+		CStabilityTracker *pUpper = GetTracker( b.s.ptCenter + b.ptHalfBox );
+		if ( pUpper != pCenter )
+		{
+			// Retail v1.2 registers the same upper corner in both of its corner checks.
+			pUpper->AddObject( pObj, b );
+			pUpper->AddObject( pObj, b );
+		}
 	}
 	// retail AddDebrisAfterConstruction @0xa5e60 / AddMineAfterConstruction @0xa5f80: stamp a
 	// 0.5-radius unit box at the object's position and file it in the owning grid cell.
