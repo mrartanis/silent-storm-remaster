@@ -3,6 +3,9 @@
 #include "../../Main/wMain.h"
 #include "../../Main/wExplTracker.h"
 #include "../../Main/wUnitServer.h"
+#include "../../Main/wMine.h"
+#include "../../Main/wObject.h"
+#include "../../Main/A5Script.h"
 #include "../../Main/wDebris.h"
 #include "../../Main/wOSBase.h"
 #include "../../Main/wMisc.h"
@@ -16,6 +19,8 @@
 #include "../../Main/RPGUnitMission.h"
 #include "../../Main/RPGItem.h"
 #include "../../Main/RPGItemSet.h"
+#include "../../Main/rpgGlobal.h"
+#include "../../Main/wUnitAttackExec.h"
 #include "../../DBFormat/DataRPG.h"
 #include "../../DBFormat/DataMap.h"
 #include "../../DBFormat/DataFormat.h"
@@ -31,6 +36,135 @@ namespace UpstreamTests
 {
 namespace
 {
+void DisarmCallback(const char* databasePath, const char* resourcePath, bool floorMine, bool succeeds)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* actor = MovementPolicyActor(world);
+    auto* rpg = actor->GetUnitRPG()->GetRPGUnit();
+    auto* inventory = rpg->GetInventory();
+    rpg->Skills(NDb::ST_ENGINEERING).SetConst(100);
+    CObj<NRPG::CToolItem> tool;
+    CDBIterator<NDb::CRPGTool> tools(*NDatabase::GetTable<NDb::CRPGTool>());
+    while (tools.MoveNext()) {
+        auto* record = tools.Get();
+        if (!record->pItem || !record->bCanUseForMineCleaning)
+            continue;
+        CObj<NRPG::CToolItem> candidate = new NRPG::CToolItem(record);
+        if (candidate->CanBeUsed(rpg) && candidate->GetIncQuantity() > 0) {
+            tool = candidate;
+            break;
+        }
+    }
+    Require(tool, "native disarm fixture lacks a usable mine-clearing tool");
+    if (inventory->Get(NDb::SLOT_1))
+        inventory->TakeOff(NDb::SLOT_1);
+    Require(inventory->Equip(NDb::SLOT_1, tool) && inventory->Activate(NDb::SLOT_1),
+        "native disarm fixture could not equip the mine-clearing tool");
+
+    const int difficulty = 20;
+    CObj<NWorld::CMine> mine;
+    CPtr<NWorld::CWindowDoor> door;
+    CObj<NWorld::CCommandExecute> executor;
+    const auto position = actor->GetPosition();
+    if (floorMine) {
+        NDb::CRPGMine* record = nullptr;
+        CDBIterator<NDb::CRPGMine> rows(*NDatabase::GetTable<NDb::CRPGMine>());
+        while (rows.MoveNext()) {
+            if (rows.Get()->pItem && rows.Get()->pItem->pModel && rows.Get()->pExplosion) {
+                record = rows.Get();
+                break;
+            }
+        }
+        Require(record, "native disarm fixture lacks an authored floor mine");
+        const CVec3 center = position.GetCP() + CVec3(0.6f, 0.f, 0.f);
+        mine = new NWorld::CMine(world, center, record, difficulty, position.pos.GetFloor(), actor, 0);
+        actor->AddToVisibleTraps(mine);
+        executor = new NWorld::CExecDisarmMine(actor, mine);
+    } else {
+        NDb::CRPGGrenade* record = nullptr;
+        CDBIterator<NDb::CRPGGrenade> rows(*NDatabase::GetTable<NDb::CRPGGrenade>());
+        while (rows.MoveNext()) {
+            if (rows.Get()->pItem && rows.Get()->pItem->pModel) {
+                record = rows.Get();
+                break;
+            }
+        }
+        Require(record, "native disarm fixture lacks an authored trap grenade");
+        for (const auto& object : world->GetObjectsForHarness()) {
+            auto* candidate = dynamic_cast<NWorld::CWindowDoor*>(object.GetPtr());
+            if (candidate && !candidate->IsBroken() && !candidate->IsMineSet() && world->GetAIMap()->GetHull(candidate)) {
+                door = candidate;
+                break;
+            }
+        }
+        Require(IsValid(door) && door->SetTrap(record, difficulty), "native disarm fixture could not arm its door");
+        actor->AddToVisibleTraps(door);
+        executor = new NWorld::CExecDisarmTrap(actor, door);
+    }
+    world->UpdateVisible(true);
+    const auto availability = floorMine ? static_cast<NWorld::CExecDisarmMine*>(executor.GetPtr())->CanDoIt(position) :
+        static_cast<NWorld::CExecDisarmTrap*>(executor.GetPtr())->CanDoIt(position);
+    Require(availability == NWorld::UCR_OK, "native disarm command is blocked before execution");
+
+    auto* script = world->GetOwnScript();
+    Require(IsValid(script) && script->DoString(
+        "TestDisarmCalls = 0; function OnMineDiffusion(obj, result) "
+        "TestDisarmCalls = TestDisarmCalls + 1; TestDisarmResult = result end") == 0,
+        "native disarm fixture could not install its mission callback");
+    world->ExecuteOwnScript();
+    auto readMedals = [&] {
+        struct MedalBook {
+            vector<NRPG::CMedalsGainer::SMedalInfo> entries;
+            int operator&(CStructureSaver& fields) { fields.Add(2, &entries); return 0; }
+        } medals;
+        CStructureNetworkContext refs;
+        auto fields = BorrowedObjectFields(rpg, &refs);
+        CStructureSaver reader(fields, CStructureSaver::READ, &refs);
+        reader.Add(20, &medals);
+        return medals.entries;
+    };
+    const auto before = readMedals();
+    const auto activeMedal = std::find_if(before.begin(), before.end(), [](const auto& medal) {
+        return medal.bIsCollectingPoints && !medal.bIsGained && !medal.bWillBeGiven && IsValid(medal.pMedal) &&
+            !medal.pMedal->bIsRussianOnly && medal.pMedal->nPointsToStart > 24 && medal.nProbability == 0;
+    });
+    Require(activeMedal != before.end(), "native disarm fixture lacks a medal collecting subthreshold points");
+    const auto medalIndex = activeMedal - before.begin();
+
+    unsigned seed = 0;
+    for (unsigned candidate = 1; candidate < 10000; ++candidate) {
+        auto random = GlobalGameRandom();
+        random.SeedForHarness(candidate);
+        if (random.Get(0, 100) == (succeeds ? 0u : 99u)) {
+            seed = candidate;
+            break;
+        }
+    }
+    Require(seed != 0, "native disarm fixture could not seed the boundary roll");
+    const int charges = tool->GetIncQuantity();
+    GlobalGameRandom().SeedForHarness(seed);
+    executor->TimeLabelReached();
+    world->ExecuteOwnScript();
+    const auto after = readMedals();
+    const int top = script->GetTop();
+    const auto calls = script->GetGlobal("TestDisarmCalls");
+    const auto result = script->GetGlobal("TestDisarmResult");
+    const bool called = calls.IsNumber() && calls.GetNumber() == 1;
+    const float delivered = result.IsNumber() ? result.GetNumber() : -1.f;
+    script->SetTop(top);
+    Require(called, "native disarm executor did not deliver exactly one mission callback");
+    Require(tool->GetIncQuantity() == charges - 1, "native disarm changed how the tool charge is consumed");
+    if (!floorMine)
+        Require(!door->IsMineSet(), "door trap remained armed after native disarm");
+    Require(after.size() == before.size(), "native disarm unexpectedly changed the medal book");
+    const float points = after[medalIndex].fPoints - before[medalIndex].fPoints;
+    std::printf("native disarm mine=%d success=%d callback=%.0f medal=%g\n", floorMine, succeeds, delivered, points);
+    const float expectedPoints = succeeds && !floorMine ? 24.f : 0.f;
+    Require(delivered == float(succeeds) && std::fabs(points - expectedPoints) < 1e-4f,
+        "native disarm delivered the wrong result or trap medal credit");
+}
+
 void CoverRayRowOrder(const char* databasePath, const char* resourcePath)
 {
     auto world = FixtureWorld(databasePath, resourcePath, true);
@@ -494,6 +628,7 @@ void RangedHitRollRange(const char* databasePath, const char* resourcePath)
 
 bool RunProjectileTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "disarm-callback") && argc == 6) { DisarmCallback(argv[2], argv[3], std::atoi(argv[4]) != 0, std::atoi(argv[5]) != 0); return true; }
     if (!std::strcmp(mode, "cover-ray-row-order") && argc == 4) { CoverRayRowOrder(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "equal-miss-ray-order") && argc == 2) { EqualMissRayOrder(); return true; }
     if (!std::strcmp(mode, "burst-ray-previous") && argc == 3) { BurstRayFollowsPrevious(std::atoi(argv[2]) != 0); return true; }
