@@ -380,7 +380,7 @@ public:
 	{
 		if ( !IsValid( pAttacker ) || !IsValid( pTarget ) )
 			return;
-		if ( GetUnit() == pAttacker && GetUnit()->GetPlayer() == pTarget->GetPlayer() )
+		if ( IsThis( pAttacker ) && IsFriend( pTarget ) )
 			PlayAck();
 	}
 };
@@ -610,7 +610,7 @@ public:
 	CAckHealOfFriendFinished( CUnitServer *_pUnit, NDb::CDBAck *_pDBAck ): CAckBase( _pUnit, _pDBAck ) {};
 	virtual void OnHealFinished( CUnitServer *pHealer, CUnitServer *pTarget )
 	{ 
-		if ( GetUnit() == pHealer && pTarget != GetUnit() ) 
+		if ( IsThis( pHealer ) && IsFriend( pTarget ) )
 			PlayAck();
 	}
 };
@@ -626,7 +626,7 @@ public:
 	CAckSelfHealFinished( CUnitServer *_pUnit, NDb::CDBAck *_pDBAck ): CAckBase( _pUnit, _pDBAck ) {};
 	virtual void OnHealFinished( CUnitServer *pHealer, CUnitServer *pTarget )
 	{ 
-		if ( GetUnit() == pHealer && pTarget == GetUnit() ) 
+		if ( IsThis( pHealer ) && IsThis( pTarget ) )
 			PlayAck();
 	}
 };
@@ -642,7 +642,7 @@ public:
 	CAckCannotFinishHeal( CUnitServer *_pUnit, NDb::CDBAck *_pDBAck ): CAckBase( _pUnit, _pDBAck ) {};
 	virtual void OnCannotFinishHeal( CUnitServer *pHealer, CUnitServer *pTarget )
 	{ 
-		if ( GetUnit() == pHealer && pTarget != GetUnit() ) 
+		if ( IsThis( pHealer ) && IsFriend( pTarget ) )
 			PlayAck();
 	}
 };
@@ -656,14 +656,30 @@ class CAckSuffersLightDamage: public CAckBase
 public:
 	CAckSuffersLightDamage() : CAckBase() {};
 	CAckSuffersLightDamage( CUnitServer *_pUnit, NDb::CDBAck *_pDBAck ): CAckBase( _pUnit, _pDBAck ) {};
-	virtual void OnCannotFinishHeal( CUnitServer *pHealer, CUnitServer *pTarget )
-	{ 
-		if ( GetUnit() == pHealer && pTarget == GetUnit() ) 
-			PlayAck();
-	}
 	virtual void OnSuffersLightDamage( CUnitServer *_pUnit )
 	{
-		if ( GetUnit() == _pUnit ) 
+		if ( IsThis( _pUnit ) )
+			PlayAck();
+	}
+};
+////////////////////////////////////////////////////////////////////////////////////////////////////
+class CAckSuffersHardDamage: public CAckBase
+{
+	OBJECT_BASIC_METHODS(CAckSuffersHardDamage);
+	ZDATA
+	ZPARENT( CAckBase );
+	ZEND int operator&( CStructureSaver &f ) { f.Add(2,(CAckBase *)this); return 0; }
+public:
+	CAckSuffersHardDamage() : CAckBase() {};
+	CAckSuffersHardDamage( CUnitServer *_pUnit, NDb::CDBAck *_pDBAck ): CAckBase( _pUnit, _pDBAck ) {};
+	virtual void OnCannotFinishHeal( CUnitServer *pHealer, CUnitServer *pTarget )
+	{ 
+		if ( IsThis( pHealer ) && IsThis( pTarget ) )
+			PlayAck();
+	}
+	virtual void OnSuffersHardDamage( CUnitServer *_pUnit )
+	{
+		if ( IsThis( _pUnit ) )
 			PlayAck();
 	}
 };
@@ -681,7 +697,7 @@ public:
 	//
 	void OnEvent( const CEventOnUnitLongBurst &event )
 	{
-		if ( GetUnit() == event.pWho )
+		if ( IsThis( event.pWho ) )
 			PlayAck();
 	}
 };
@@ -697,12 +713,12 @@ public:
 	CAckUnhide( CUnitServer *_pUnit = 0, NDb::CDBAck *_pDBAck = 0 ): 
 		registerEvent( this, &CAckUnhide::OnEvent ), CAckBase( _pUnit, _pDBAck ) {}
 	//
-	void OnEvent( const CEventOnUnitLongBurst &event )
+	void OnEvent( const CEventOnUnitUnhide &event )
 	{
 		CDynamicCast<NWorld::CUnitServer> pWho(event.pWho);
 		if (pWho)
 		{
-			if ( GetUnit() == pWho.GetPtr() )
+			if ( IsThis( pWho.GetPtr() ) )
 				PlayAck();
 		}
 	}
@@ -724,7 +740,7 @@ public:
 	//
 	void OnEvent( const CEventOnUnitSuccessfulMelee &event )
 	{
-		if ( GetUnit() == event.pWho )		// retail folds this through CAckBase::IsThis @0x331700
+		if ( IsThis( event.pWho ) )		// retail folds this through CAckBase::IsThis @0x331700
 			PlayAck();
 	}
 };
@@ -745,7 +761,7 @@ public:
 	//
 	void OnEvent( const CEventOnSpotMineOrTrap &event )
 	{
-		if ( GetUnit() == event.pWho )		// retail folds this through CAckBase::IsThis @0x331700
+		if ( IsThis( event.pWho ) )		// retail folds this through CAckBase::IsThis @0x331700
 			PlayAck();
 	}
 };
@@ -766,7 +782,7 @@ public:
 	//
 	void OnEvent( const CEventOnNotHeroWantsToTalk &event )
 	{
-		if ( GetUnit() == event.pWho )		// retail folds this through CAckBase::IsThis @0x331700
+		if ( IsThis( event.pWho ) )		// retail folds this through CAckBase::IsThis @0x331700
 			PlayAck();
 	}
 };
@@ -889,7 +905,7 @@ public:                                                                         
 	CAck##AckName( CUnitServer *_pUnit, NDb::CDBAck *_pDBAck ): CAckBase( _pUnit, _pDBAck ) {}; \
 	virtual void On##AckName( CUnitServer *_pUnit )                                             \
 	{                                                                                           \
-		if ( GetUnit() == _pUnit )                                                                \
+		if ( IsThis( _pUnit ) )                                                                \
 			PlayAck();                                                                              \
 	}                                                                                           \
 };                                                                                            
@@ -902,7 +918,6 @@ DEFINE_UNITSERVER_ACK( TargetHit );
 DEFINE_UNITSERVER_ACK( HardTargetHit );
 DEFINE_UNITSERVER_ACK( TargetMissed );
 DEFINE_UNITSERVER_ACK( UnitDied );
-DEFINE_UNITSERVER_ACK( SuffersHardDamage );
 DEFINE_UNITSERVER_ACK( SkillIncreased );
 // retail NWorld::CAckNoPlaceInInventory (release-added; factory case 104, ctors @0x333c40/@0x336150).
 // A bare CAckBase leaf: the unit barks when its inventory has no room for an offered item. Broadcast
@@ -955,7 +970,7 @@ const int N_ORDER_CONFIRMATION = 102;
 const int N_WEAPON_JAMMED = 103;
 const int N_ABOUT_TO_TAKE_AN_ENEMY_BY_SURPRISE = 105;
 const int N_LONG_BURST = 114;
-const int N_UNHIDE = 115;
+const int N_UNHIDE = 116;
 const int N_N_PERCENT_OF_GROUP_IS_KILLED = 118;	// retail CreateAck @0x330b10 case 0x76 -> CAckNPercentOfGroupIsKilled
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CAckBase *CreateAck( CUnitServer *_pUnit, NDb::CDBAck *_pDBAck )

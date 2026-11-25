@@ -92,6 +92,39 @@ void CursorTraceLatch(const char* databasePath, const char* resourcePath, bool p
     }
 }
 
+struct QueuedSpeech
+{
+    CPtr<NWorld::CUnitServer> unit;
+    CDBPtr<NDb::CDBAck> record;
+    int operator&(CStructureSaver& reader) { reader.Add(2, &unit); reader.Add(3, &record); return 0; }
+};
+
+auto CountSpeech(NWorld::CWorld* world, NWorld::CUnitServer* actor, NDb::CDBAck* row)
+{
+    CStructureNetworkContext refs;
+    auto fields = BorrowedObjectFields(world->GetGlobalAck(), &refs);
+    list<QueuedSpeech> queue;
+    CStructureSaver reader(fields, CStructureSaver::READ, &refs);
+    reader.Add(3, &queue);
+    return std::count_if(queue.begin(), queue.end(), [&](const auto& entry) {
+        return entry.unit == actor && entry.record == row;
+    });
+}
+
+NDb::CDBAck* FindTestSpeech(NWorld::CUnitServer* speaker)
+{
+    auto* table = NDatabase::GetTable<NDb::CDBAck>();
+    Require(table, "native speech fixture lacks the acknowledgement table");
+    CDBIterator<NDb::CDBAck> records(*table);
+    while (records.MoveNext()) {
+        auto* row = records.Get();
+        if (IsValid(row->pAckSequence) && row->nRPGPersID != speaker->GetUnitRPG()->GetRPGPersID())
+            return row;
+    }
+    Require(false, "native speech fixture has no independently owned authored sequence");
+    return nullptr;
+}
+
 void SpottingAcknowledgement(const char* databasePath, const char* resourcePath, bool classSpecific)
 {
     using namespace NWorld;
@@ -105,36 +138,13 @@ void SpottingAcknowledgement(const char* databasePath, const char* resourcePath,
     });
     Require(enemy != units.end(), "spotting speech fixture needs an enemy with a real RPG class");
     auto* target = enemy->GetPtr();
-    auto* table = NDatabase::GetTable<NDb::CDBAck>();
-    Require(table, "spotting speech fixture lacks the acknowledgement table");
-    NDb::CDBAck* row = nullptr;
-    CDBIterator<NDb::CDBAck> records(*table);
-    while (!row && records.MoveNext()) {
-        auto* candidate = records.Get();
-        if (IsValid(candidate->pAckSequence) && candidate->nRPGPersID != watcher->GetUnitRPG()->GetRPGPersID())
-            row = candidate;
-    }
-    Require(IsValid(row), "spotting speech fixture has no independently owned authored sequence");
+    auto* row = FindTestSpeech(watcher);
     row->nConditionID = classSpecific ? 71 : 72;
     row->sParam[0] = "-1";
     CObj<CAckBase> ack = CreateAck(watcher, row);
     Require(IsValid(ack), "the native speech factory did not create the spotting handler");
 
-    struct QueuedSpeech {
-        CPtr<CUnitServer> unit;
-        CDBPtr<NDb::CDBAck> record;
-        int operator&(CStructureSaver& reader) { reader.Add(2, &unit); reader.Add(3, &record); return 0; }
-    };
-    auto count = [&] {
-        CStructureNetworkContext refs;
-        auto fields = BorrowedObjectFields(world->GetGlobalAck(), &refs);
-        list<QueuedSpeech> queue;
-        CStructureSaver reader(fields, CStructureSaver::READ, &refs);
-        reader.Add(3, &queue);
-        return std::count_if(queue.begin(), queue.end(), [&](const auto& entry) {
-            return entry.unit == watcher && entry.record == row;
-        });
-    };
+    auto count = [&] { return CountSpeech(world, watcher, row); };
     const auto before = count();
     NGlobal::ThrowEvent(CEventOnSeeNewEnemy(watcher, target, true));
     Require(count() == before, "spotting speech ignored its turn-based or target-class gate");
@@ -145,6 +155,44 @@ void SpottingAcknowledgement(const char* databasePath, const char* resourcePath,
     Require(count() == before, "spotting speech was queued for the wrong speaker or a friendly unit");
     NGlobal::ThrowEvent(CEventOnSeeNewEnemy(watcher, target, classSpecific));
     Require(count() == before + 1, "native enemy sighting did not trigger its matching acknowledgement");
+}
+
+void ActorAcknowledgement(const char* databasePath, const char* resourcePath, int condition)
+{
+    using namespace NWorld;
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    list<CPtr<CUnitServer>> units;
+    world->GetAllUnits(&units);
+    const auto foreign = std::find_if(units.begin(), units.end(), [&](const auto& unit) {
+        return IsValid(unit) && unit->CanFight() && unit->GetPlayer() != actor->GetPlayer();
+    });
+    Require(foreign != units.end(), "actor speech fixture needs a unit from another player");
+    auto* row = FindTestSpeech(actor);
+    row->nConditionID = condition;
+    CObj<CAckBase> ack = CreateAck(actor, row);
+    Require(IsValid(ack), "native factory does not recognize the retail acknowledgement condition");
+    auto count = [&] { return CountSpeech(world, actor, row); };
+    const auto before = count();
+    if (condition == 116) {
+        NGlobal::ThrowEvent(CEventOnUnitLongBurst(actor));
+        NGlobal::ThrowEvent(CEventOnUnitUnhide(foreign->GetPtr()));
+        Require(count() == before, "unhide speech listened to a burst or a different actor");
+        actor->EnableHide();
+        actor->Hide(true, false);
+        Require(actor->IsHiding(), "native actor did not enter hiding before the reveal");
+        actor->Hide(false, true);
+        Require(!actor->IsHiding() && count() == before + 1, "leaving hiding did not queue the actor's speech");
+    } else if (condition == 92) {
+        ack->OnHealFinished(actor, foreign->GetPtr());
+        Require(count() == before, "heal-friend speech accepted a target belonging to a different player");
+    } else {
+        ack->OnCannotFinishHeal(actor, foreign->GetPtr());
+        ack->OnSuffersHardDamage(foreign->GetPtr());
+        Require(count() == before, "hard-damage speech accepted another actor");
+        ack->OnCannotFinishHeal(actor, actor);
+        Require(count() == before + 1, "failed self-treatment did not queue the hard-damage acknowledgement");
+    }
 }
 
 class AckSoundProbe : public NSound::ISoundScene
@@ -491,6 +539,10 @@ static void OptionsPenCursor(const char* databasePath,const char* resourcePath)
 
 bool RunUITests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "actor-acknowledgement") && argc == 5) {
+        ActorAcknowledgement(argv[2], argv[3], std::atoi(argv[4]));
+        return true;
+    }
     if (!std::strcmp(mode, "spotting-acknowledgement") && argc == 5) {
         SpottingAcknowledgement(argv[2], argv[3], std::atoi(argv[4]) != 0);
         return true;
