@@ -363,6 +363,65 @@ void InventoryCursorCommands(const char* databasePath, const char* resourcePath)
     Require(order && result == UCR_OK, "the unit ignored a valid order after releasing its cursor item");
 }
 
+void CursorClipOntoWeapon(const char* databasePath, const char* resourcePath, bool inactiveSlot)
+{
+    using namespace NWorld;
+    ReloadFixture fixture(databasePath, resourcePath);
+    auto* actor = fixture.actor;
+    fixture.world->GivePlayerTurn(actor->GetTBSPlayer());
+    const auto slot = inactiveSlot ? NDb::SLOT_2 : NDb::SLOT_1;
+    const auto other = inactiveSlot ? NDb::SLOT_1 : NDb::SLOT_2;
+    CObj<NRPG::CWeaponItem> target = fixture.weapon;
+    if (fixture.inventory->Get(NDb::SLOT_2))
+        fixture.inventory->TakeOff(NDb::SLOT_2);
+    if (inactiveSlot) {
+        target = new NRPG::CWeaponItem(fixture.weapon->GetDBWeapon());
+        Require(fixture.inventory->Equip(slot, target), "fixture cannot equip its off-hand firearm");
+    }
+    auto* installed = dynamic_cast<NRPG::CClipItem*>(target->GetInnerClip());
+    Require(installed && installed->GetItem(), "drop target has no compatible internal magazine");
+    const int capacity = installed->GetMaxIncQuantity();
+    installed->GetItem()->nQuantity = inactiveSlot ? capacity - 1 : 0;
+    const int starting = target->GetAmmoQuantity();
+    const int otherAmmo = fixture.weapon->GetAmmoQuantity();
+    auto held = fixture.StockClip(2);
+    auto stale = fixture.StockClip(2);
+    fixture.inventory->Take(held);
+    const SItem cursor(actor, SItem::HAND, held);
+    actor->GetTBSPlayer()->SetInHandItem(cursor);
+    const SItem destination(actor, SItem::SLOT, slot);
+
+    EUnitCommandResult result = UCR_UNAVAILABLE;
+    CObj<CCmdLoadWeapon> manual = new CCmdLoadWeapon(target, cursor);
+    CObj<CCommandExecute> order = actor->CreateExecutor(manual, &result);
+    Require(order && result == UCR_OK, "the normal manual load path rejected the fixture");
+    const int reloadCost = order->GetStartAP();
+    CObj<CCmdMoveInventoryItem> outdated = new CCmdMoveInventoryItem(SItem(actor, SItem::HAND, stale), destination);
+    order = actor->CreateExecutor(outdated, &result);
+    Require(!order && result != UCR_OK, "a drop accepted a magazine that was no longer on the cursor");
+    if (!inactiveSlot) {
+        CObj<CCmdMoveInventoryItem> empty = new CCmdMoveInventoryItem(cursor, SItem(actor, SItem::SLOT, other));
+        order = actor->CreateExecutor(empty, &result);
+        Require(!order && result != UCR_OK, "a magazine became directly equippable in an empty slot");
+    }
+    CObj<CCmdMoveInventoryItem> drop = new CCmdMoveInventoryItem(cursor, destination);
+    order = actor->CreateExecutor(drop, &result);
+    Require(dynamic_cast<CExecLoadWeapon*>(order.GetPtr()) && result == UCR_OK && order->GetStartAP() == reloadCost,
+        "dropping a cursor clip onto an equipped firearm did not produce the normal load order");
+    Require(target->GetAmmoQuantity() == starting && held->GetIncQuantity() == 2,
+        "accepting the drop mutated ammunition before the load label");
+    order->TimeLabelReached();
+    const int remaining = inactiveSlot ? 1 : 0;
+    SItem after;
+    Require(target->GetAmmoQuantity() == (inactiveSlot ? capacity : 2) && held->GetIncQuantity() == remaining &&
+        stale->GetIncQuantity() == 2 &&
+        (inactiveSlot ? actor->GetTBSPlayer()->GetInHandItem(&after) && after.pItem == held
+                      : !actor->GetTBSPlayer()->GetInHandItem(&after)),
+        "the load label consumed the wrong clip, lost a partial clip, or retained an empty cursor item");
+    Require(fixture.inventory->GetActive() == fixture.weapon && (!inactiveSlot || fixture.weapon->GetAmmoQuantity() == otherAmmo),
+        "the drop changed the active slot or loaded a different firearm");
+}
+
 static void InventoryWithoutUniform()
 {
     CObj<NRPG::CUnit> owner = new NRPG::CUnit;
@@ -774,6 +833,7 @@ bool RunInventoryTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "queued-reload-magazine") && argc == 4) { QueuedReloadMagazine(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "queued-reload-removed-magazine") && argc == 4) { QueuedReloadMagazine(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "inventory-cursor-commands") && argc == 4) { InventoryCursorCommands(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "cursor-clip-onto-weapon") && argc == 5) { CursorClipOntoWeapon(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "inventory-without-uniform")) { InventoryWithoutUniform(); return true; }
     if (!std::strcmp(mode, "weapon-clip-archive-valid") && argc==3) { WeaponClipArchive(argv[2],false); return true; }
     if (!std::strcmp(mode, "weapon-clip-archive-legacy") && argc==3) { WeaponClipArchive(argv[2],true); return true; }

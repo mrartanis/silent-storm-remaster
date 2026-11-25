@@ -941,6 +941,17 @@ CCommandExecute* CreateActionExecutor( CUnitServer *pUS, CCmd *pCmd, EUnitComman
 													CDynamicCast<CCmdMoveInventoryItem> pMoveItem(pCmd);
 													if (pMoveItem)
 													{
+																const SItem &source = pMoveItem->GetSource();
+																const SItem &target = pMoveItem->GetTarget();
+																if ( source.eType == SItem::HAND && target.eType == SItem::SLOT &&
+																	target.pUnit == pUS && target.nSlot >= 0 && target.nSlot < NDb::N_SLOTS &&
+																	CDynamicCast<NRPG::IClipItem>( source.pItem ) )
+																{
+																	CDynamicCast<NRPG::IWeaponItemInfo> pWeapon(
+																		pUS->GetUnitRPG()->GetInventory()->Get( NDb::ESlot( target.nSlot ) ) );
+																	if ( IsValid( pWeapon ) )
+																		return pUS->CreateExecutor( new CCmdLoadWeapon( pWeapon, source ), pError );
+																}
 														if (pMoveItem->GetSource().eType == SItem::GROUND)
 															return CreateActionQueue(pUS, pMoveItem.GetPtr(), new CExecMoveInventoryItem(pUS, pMoveItem), ITEM_NO_MATTER, pError, true);
 														else if ((pMoveItem->GetSource().eType == SItem::STORAGE) || (pMoveItem->GetTarget().eType == SItem::STORAGE))
