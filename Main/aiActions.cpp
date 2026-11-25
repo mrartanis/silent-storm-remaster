@@ -8,6 +8,7 @@
 //
 #include "../DBFormat/DataRPG.h"
 #include "aiPosition.h"
+#include "aiMisc.h"
 #include "aiUnit.h"
 #include "aistate.h"
 #include "aiNearestPosition.h" // NAI::GetNearestPosition (TerrorPK rampage target)
@@ -148,6 +149,16 @@ bool CAIShootAction::ComparePlaces( const SPlaceWithAP &p1, const SPlaceWithAP &
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CAIThrowGrenadeAction - enemy-group helpers (carried over verbatim from dev aiAttackAction.cpp)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+static bool AllyNearRocketPoint( NWorld::CUnitServer *pUS, const CVec3 &point )
+{
+	IAIUnit *pUnit = GetAIUnit( pUS );
+	SAIState *pState = IsValid( pUnit ) ? pUnit->GetAIState() : 0;
+	if ( !pState )
+		return false;
+	IAIUnit *pAlly = pState->GetNearestUnit( point, true, true, 0 );
+	return IsValid( pAlly ) && fabs( pAlly->GetPosition().GetCP() - point ) < 2.f;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 static bool IsGoodGroup( NWorld::CUnitServer *pUS, const SUnitPosition &pos, CAIFireArmsWeapon *pLauncher, const SAIUnitGroup &group, CVec3 *pTarget )
 {
 	if ( !IsValid( pLauncher ) )
@@ -160,13 +171,13 @@ static bool IsGoodGroup( NWorld::CUnitServer *pUS, const SUnitPosition &pos, CAI
 	if ( !IsValid( pItem ) )
 		return false;
 	*pTarget = group.ptCenter;
-	if ( !NRPG::CanShootRocketSafely( pUS, pos, *pTarget, pItem ) )
+	if ( AllyNearRocketPoint( pUS, *pTarget ) || !NRPG::CanShootRocketSafely( pUS, pos, *pTarget, pItem ) )
 	{
 		*pTarget = group.ptCenter + CVec3( 0, 0, 0.6f );
 		CVec3 ptDir = pos.GetCP() - *pTarget;
 		Normalize( &ptDir );
 		*pTarget += ptDir * 1.7f;
-		if ( !NRPG::CanShootRocketSafely( pUS, pos, *pTarget, pItem ) )
+		if ( AllyNearRocketPoint( pUS, *pTarget ) || !NRPG::CanShootRocketSafely( pUS, pos, *pTarget, pItem ) )
 			return false;
 	}
 	return true;

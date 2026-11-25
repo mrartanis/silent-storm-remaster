@@ -491,7 +491,7 @@ void AICandidateClearance(const char* databasePath, const char* resourcePath)
     Require(false, "candidate-clearance fixture found no distinguishing native blocked target");
 }
 
-void AIRocketCandidateSafety(const char* databasePath, const char* resourcePath)
+void AIRocketCandidateSafety(const char* databasePath, const char* resourcePath, bool checkFallbackAlly)
 {
     CObj<NRPG::CGlobalGame> game;
     auto world = FixtureWorld(databasePath, resourcePath, true, &game);
@@ -526,6 +526,7 @@ void AIRocketCandidateSafety(const char* databasePath, const char* resourcePath)
     state.pWorld = world.GetPtr();
     state.pPlayer = actor->GetPlayer();
     ai->SetAIState(&state);
+    struct RestoreAIState { NAI::IAIUnit* ai; ~RestoreAIState() { ai->SetAIState(nullptr); } } restore{ai};
     NAI::SAIUnitGroup group;
     group.AddUnit(NAI::GetAIUnit(*hostile));
     group.fNearestAlly = 8.f;
@@ -538,6 +539,22 @@ void AIRocketCandidateSafety(const char* databasePath, const char* resourcePath)
     bool verified = false;
     actor->SetScriptToHit(100);
     for (const auto& direction : {CVec3(1,0,0),CVec3(-1,0,0),CVec3(0,1,0),CVec3(0,-1,0)}) {
+        if (checkFallbackAlly) {
+            rocket->nMaxRange = 5;
+            const CVec3 primary = position.GetCP() + direction * 3.6f - CVec3(0, 0, 0.6f);
+            const CVec3 fallback = position.GetCP() + direction * 1.9f;
+            const auto* ally = state.GetNearestUnit(fallback, true, true, nullptr);
+            Require(ally == ai, "rocket fallback fixture needs a live friendly unit inside the fallback radius");
+            if (!NRPG::CanShootRocketSafely(actor, position, fallback, candidate))
+                continue;
+            Require(!NRPG::CanShootRocketSafely(actor, position, primary, candidate), "primary rocket point should be beyond the authored range");
+            state.enemyGroups.front().ptCenter = primary;
+            NAI::CAILaunchRocketAction::SInfo info;
+            aim->GetInfoInner(place, &info);
+            Require(!info.bCanDo && inventory->GetActive() == active, "AI accepted an otherwise clear rocket fallback beside a friendly unit");
+            verified = true;
+            break;
+        }
         const CVec3 point = position.GetCenter() + direction * 6.f;
         inventory->Activate(NDb::SLOT_2);
         if (NWorld::CanUnitLaunchRocket(actor, position, point, 0, candidate) != NWorld::UCR_OK) {
@@ -550,21 +567,23 @@ void AIRocketCandidateSafety(const char* databasePath, const char* resourcePath)
         NAI::CAILaunchRocketAction::SInfo info;
         aim->GetInfoInner(place, &info);
         rifle->nMaxRange = rifleRange;
-        ai->SetAIState(nullptr);
         Require(info.bCanDo && info.pWeapon->GetItem() == candidate && info.ptTarget == point && inventory->GetActive() == active,
             "AI rejected an open candidate rocket shot using the range of the weapon in its hand");
         verified = true;
         break;
     }
-    ai->SetAIState(nullptr);
     Require(verified, "rocket planning fixture could not find an open native launch ray");
 }
+
 }
 
 bool RunAccuracyTests(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "ai-candidate-clearance") && argc == 4) { AICandidateClearance(argv[2], argv[3]); return true; }
-    if (!std::strcmp(mode, "ai-rocket-candidate-safety") && argc == 4) { AIRocketCandidateSafety(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "ai-rocket-candidate-safety") && (argc == 4 || argc == 5)) {
+        AIRocketCandidateSafety(argv[2], argv[3], argc == 5);
+        return true;
+    }
     if (!std::strcmp(mode, "ai-exposed-head-accuracy") && argc == 4) { AIExposedHeadAccuracy(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-nearby-enemy-threat") && argc == 4) { AINearbyEnemyThreat(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-firearm-budget") && argc == 5) {
