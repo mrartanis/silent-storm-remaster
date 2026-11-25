@@ -327,16 +327,16 @@ public:
 class CAckEnemyBecomesVisibleInTurnbased: public CAckBase
 {	
 	OBJECT_BASIC_METHODS(CAckEnemyBecomesVisibleInTurnbased);
+	NGlobal::CEventRegister<CAckEnemyBecomesVisibleInTurnbased, CEventOnSeeNewEnemy> registerEvent;
 	ZDATA
 	ZPARENT( CAckBase );
 	ZEND int operator&( CStructureSaver &f ) { f.Add(2,(CAckBase *)this); return 0; }
 public:
-	CAckEnemyBecomesVisibleInTurnbased() : CAckBase() {};
-	CAckEnemyBecomesVisibleInTurnbased( CUnitServer *_pUnit, NDb::CDBAck *_pDBAck ): CAckBase( _pUnit, _pDBAck ) {};
-	//
-	virtual void OnEnemyBecomesVisible( CUnitServer *pWatcher, CUnitServer *pTarget, bool bRealTime )
+	CAckEnemyBecomesVisibleInTurnbased( CUnitServer *pUnit = 0, NDb::CDBAck *pAck = 0 ):
+		CAckBase( pUnit, pAck ), registerEvent( this, &CAckEnemyBecomesVisibleInTurnbased::OnEvent ) {}
+	void OnEvent( const CEventOnSeeNewEnemy &event )
 	{
-		if ( GetUnit() == pWatcher && !bRealTime )
+		if ( IsThis( event.pWatcher ) && IsEnemy( event.pTarget ) && !event.bRealTime )
 			PlayAck();
 	}
 };
@@ -344,19 +344,19 @@ public:
 class CAckCertainTypeEnemyBecomesVisible: public CAckBase
 {	
 	OBJECT_BASIC_METHODS(CAckCertainTypeEnemyBecomesVisible);
+	NGlobal::CEventRegister<CAckCertainTypeEnemyBecomesVisible, CEventOnSeeNewEnemy> registerEvent;
 	ZDATA
 	ZPARENT( CAckBase );
 	ZEND int operator&( CStructureSaver &f ) { f.Add(2,(CAckBase *)this); return 0; }
 public:
-	CAckCertainTypeEnemyBecomesVisible() : CAckBase() {};
-	CAckCertainTypeEnemyBecomesVisible( CUnitServer *_pUnit, NDb::CDBAck *_pDBAck ): CAckBase( _pUnit, _pDBAck ) {};
-	//
-	virtual void OnEnemyBecomesVisible( CUnitServer *pWatcher, CUnitServer *pTarget, bool bRealTime )
+	CAckCertainTypeEnemyBecomesVisible( CUnitServer *pUnit = 0, NDb::CDBAck *pAck = 0 ):
+		CAckBase( pUnit, pAck ), registerEvent( this, &CAckCertainTypeEnemyBecomesVisible::OnEvent ) {}
+	void OnEvent( const CEventOnSeeNewEnemy &event )
 	{
-		if ( GetUnit() == pWatcher )
+		if ( IsThis( event.pWatcher ) && IsEnemy( event.pTarget ) )
 		{
-			NDb::CRPGClass *pClass = pTarget->GetUnitRPG()->GetRPGUnit()->pClass;
-			if ( !pClass )
+			NDb::CRPGClass *pClass = event.pTarget->GetUnitRPG()->GetRPGUnit()->pClass;
+			if ( !IsValid( pClass ) )
 				return;
 			int nTargetClass = pClass->GetRecordID();
 			int nClass = atoi( GetDBAck()->sParam[0].c_str() );

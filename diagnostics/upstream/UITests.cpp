@@ -2,6 +2,9 @@
 #include "NativeDisplayContext.h"
 #include "../../Main/wMain.h"
 #include "../../Main/wUnitServer.h"
+#include "../../Main/wAck.h"
+#include "../../Main/wAckBase.h"
+#include "../../Main/eventUnit.h"
 #include "../../Main/rpgGlobal.h"
 #include "../../Main/RPGItem.h"
 #include "../../Main/Sound.h"
@@ -23,6 +26,7 @@
 #include "../../Main/GfxBuffers.h"
 #include "../../DBFormat/DataInterface.h"
 #include "../../DBFormat/DataAck.h"
+#include "../../DBFormat/DataMap.h"
 #include "../../DBFormat/DataRPG.h"
 #include "../../Input/Bind.h"
 #include "../../MiscDll/Commands.h"
@@ -86,6 +90,61 @@ void CursorTraceLatch(const char* databasePath, const char* resourcePath, bool p
         CVec3 preview;
         Require(!mission->GetTracePosition(&preview), "cursor exposed a point with its frame latch cleared");
     }
+}
+
+void SpottingAcknowledgement(const char* databasePath, const char* resourcePath, bool classSpecific)
+{
+    using namespace NWorld;
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* watcher = MovementPolicyActor(world);
+    list<CPtr<CUnitServer>> units;
+    world->GetAllUnits(&units);
+    const auto enemy = std::find_if(units.begin(), units.end(), [&](const auto& unit) {
+        return IsValid(unit) && unit->CanFight() && watcher->GetDiplomacyState(unit) == NDb::DS_ENEMY &&
+            IsValid(unit->GetUnitRPG()->GetRPGUnit()->pClass);
+    });
+    Require(enemy != units.end(), "spotting speech fixture needs an enemy with a real RPG class");
+    auto* target = enemy->GetPtr();
+    auto* table = NDatabase::GetTable<NDb::CDBAck>();
+    Require(table, "spotting speech fixture lacks the acknowledgement table");
+    NDb::CDBAck* row = nullptr;
+    CDBIterator<NDb::CDBAck> records(*table);
+    while (!row && records.MoveNext()) {
+        auto* candidate = records.Get();
+        if (IsValid(candidate->pAckSequence) && candidate->nRPGPersID != watcher->GetUnitRPG()->GetRPGPersID())
+            row = candidate;
+    }
+    Require(IsValid(row), "spotting speech fixture has no independently owned authored sequence");
+    row->nConditionID = classSpecific ? 71 : 72;
+    row->sParam[0] = "-1";
+    CObj<CAckBase> ack = CreateAck(watcher, row);
+    Require(IsValid(ack), "the native speech factory did not create the spotting handler");
+
+    struct QueuedSpeech {
+        CPtr<CUnitServer> unit;
+        CDBPtr<NDb::CDBAck> record;
+        int operator&(CStructureSaver& reader) { reader.Add(2, &unit); reader.Add(3, &record); return 0; }
+    };
+    auto count = [&] {
+        CStructureNetworkContext refs;
+        auto fields = BorrowedObjectFields(world->GetGlobalAck(), &refs);
+        list<QueuedSpeech> queue;
+        CStructureSaver reader(fields, CStructureSaver::READ, &refs);
+        reader.Add(3, &queue);
+        return std::count_if(queue.begin(), queue.end(), [&](const auto& entry) {
+            return entry.unit == watcher && entry.record == row;
+        });
+    };
+    const auto before = count();
+    NGlobal::ThrowEvent(CEventOnSeeNewEnemy(watcher, target, true));
+    Require(count() == before, "spotting speech ignored its turn-based or target-class gate");
+    if (classSpecific)
+        row->sParam[0] = std::to_string(target->GetUnitRPG()->GetRPGUnit()->pClass->GetRecordID());
+    NGlobal::ThrowEvent(CEventOnSeeNewEnemy(target, watcher, false));
+    NGlobal::ThrowEvent(CEventOnSeeNewEnemy(watcher, watcher, false));
+    Require(count() == before, "spotting speech was queued for the wrong speaker or a friendly unit");
+    NGlobal::ThrowEvent(CEventOnSeeNewEnemy(watcher, target, classSpecific));
+    Require(count() == before + 1, "native enemy sighting did not trigger its matching acknowledgement");
 }
 
 class AckSoundProbe : public NSound::ISoundScene
@@ -432,6 +491,10 @@ static void OptionsPenCursor(const char* databasePath,const char* resourcePath)
 
 bool RunUITests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "spotting-acknowledgement") && argc == 5) {
+        SpottingAcknowledgement(argv[2], argv[3], std::atoi(argv[4]) != 0);
+        return true;
+    }
     if (!std::strcmp(mode, "cursor-trace-latch") && argc == 5) {
         CursorTraceLatch(argv[2], argv[3], std::atoi(argv[4]) != 0);
         return true;

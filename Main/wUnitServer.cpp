@@ -1348,10 +1348,7 @@ void CUnitServer::UpdateVisible( SInterruptInfo *pRes )
 			{
 				lostUnits.erase( remove( lostUnits.begin(), lostUnits.end(), pEnemy ), lostUnits.end() );
 				if ( pEnemy->CanFight() && GetDiplomacyState( pEnemy ) == NDb::DS_ENEMY )
-				{
-					GetWorld()->GetGlobalAck()->OnEnemyBecomesVisible( this, pEnemy, GetWorld()->IsRealTime() );
 					pRes->AddEvent( this, pEnemy );
-				}
 			}
 			//
 			// retail CUnitServer::UpdateVisible: a unit that NEWLY sees an enemy raises CEventOnSeeNewEnemy, whose
