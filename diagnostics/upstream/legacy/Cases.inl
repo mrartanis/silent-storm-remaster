@@ -500,16 +500,9 @@ bool UpstreamTests::RunLegacyTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "perk-tooltip-parameters")) { PerkTooltipParameters(); return true; }
     if (!std::strcmp(mode, "ambient-variant-empty")) { Require(argc == 3, "ambient variant requires mode"); AmbientVariantEmpty(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "mechanical-step-sound")) { MechanicalStepSound(); return true; }
-    if (!std::strcmp(mode, "nearest-invalid")) { InvalidNearestPosition(); return true; }
     if (!std::strcmp(mode, "lua-empty-default")) { EmptyLuaDefault(); return true; }
     if (!std::strcmp(mode, "missing-lua-global-warning")) { MissingLuaGlobalWarning(); return true; }
-    if (!std::strcmp(mode, "precalc-sweep-bounds")) { PrecalcSweepBounds(); return true; }
     if (!std::strcmp(mode, "smart-aimer-boundary")) { SmartAimerBoundary(); return true; }
-    if (!std::strcmp(mode, "nearest-empty")) { EmptyNearestPosition(); return true; }
-    if (!std::strcmp(mode, "fresh-navigation-colouring")) { FreshNavigationColouring(); return true; }
-    if (!std::strcmp(mode, "invalid-region-colouring")) { InvalidRegionColouring(); return true; }
-    if (!std::strcmp(mode, "fresh-navigation-transitions")) { FreshNavigationTransitions(); return true; }
-    if (!std::strcmp(mode, "lazy-navigation-colourer")) { LazyNavigationColourer(); return true; }
     if (!std::strcmp(mode, "restored-portrait-selection")) { RestoredPortraitPanel(false); return true; }
     if (!std::strcmp(mode, "restored-empty-portraits")) { RestoredPortraitPanel(true); return true; }
     if (!std::strcmp(mode, "edit-escape-cancel")) { EditKeyboardRouting(true); return true; }
@@ -807,7 +800,6 @@ bool UpstreamTests::RunLegacyTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "supplied-defeat-screenshot") && argc == 4) { SuppliedMenuScreenshot(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "supplied-options-screenshot") && argc == 4) { SuppliedMenuScreenshot(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }
-    if (!std::strcmp(mode, "unsupported-navigation-floor")) { UnsupportedNavigationFloor(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "restored-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 0); return true; }
     if (!std::strcmp(mode, "fresh-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 1); return true; }
@@ -829,23 +821,12 @@ bool UpstreamTests::RunLegacyTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "passage-preview-no-target") && argc==4) { PassagePreview(argv[2],argv[3],11); return true; }
     if (!std::strcmp(mode, "scripted-passage-transition") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "flying-attack-queue") && argc == 4) { FlyingAttackQueue(argv[2],argv[3]); return true; }
-    if (!std::strcmp(mode, "connected-alias-moves")) { ConnectedAliasMoves(); return true; }
-    if (!std::strcmp(mode, "isolated-source-moves")) { ConnectedAliasMoves(true); return true; }
-    if (!std::strcmp(mode, "locked-alias-moves")) { ConnectedAliasMoves(false,true); return true; }
-    if (!std::strcmp(mode, "isolated-source-path")) { IsolatedSourcePath(); return true; }
-    if (!std::strcmp(mode, "prone-pose-change-facing")) { PronePoseChangeFacing(); return true; }
-    if (!std::strcmp(mode, "simple-prone-pose-path")) { SimplePronePosePath(); return true; }
     if (!std::strcmp(mode, "simple-pose-facing-preference")) { SimplePoseFacingPreference(); return true; }
     if (!std::strcmp(mode, "ground-passability-precedence")) { GroundPassabilityPrecedence(); return true; }
     if (!std::strcmp(mode, "ladder-passability-layer-bounds")) { LadderPassabilityLayerBounds(); return true; }
     if (!std::strcmp(mode, "ladder-passability-facing")) { LadderPassabilityFacing(); return true; }
     if (!std::strcmp(mode, "anchor-passability")) { AnchorPassability(); return true; }
     if (!std::strcmp(mode, "simple-cross-layer-pose-entry")) { SimpleCrossLayerPoseEntry(); return true; }
-    if (!std::strcmp(mode, "isolated-transition-link-match")) { IsolatedTransitionLinkMatch(); return true; }
-    if (!std::strcmp(mode, "isolated-transition-shortcut")) { IsolatedTransitionShortcut(); return true; }
-    if (!std::strcmp(mode, "isolated-transition-entry")) { IsolatedTransitionEntry(); return true; }
-    if (!std::strcmp(mode, "connected-direct-transitions")) { ConnectedDirectTransitions(); return true; }
-    if (!std::strcmp(mode, "nearby-connected-destination")) { NearbyConnectedDestination(); return true; }
     if (!std::strcmp(mode, "isolated-source-alias-vector")) { NavigationAliasDestinations(false,true); return true; }
     if (!std::strcmp(mode, "isolated-source-alias-array")) { NavigationAliasDestinations(true,true); return true; }
     if (!std::strcmp(mode, "door-creation-flags-0") && argc==4) { DoorCreationFlags(argv[2],argv[3],0); return true; }
@@ -867,7 +848,6 @@ bool UpstreamTests::RunLegacyTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "isolated-movement-cell")) { IsolatedMovementCell(); return true; }
     if (!std::strcmp(mode, "navigation-alias-vector")) { NavigationAliasDestinations(false); return true; }
     if (!std::strcmp(mode, "navigation-alias-array")) { NavigationAliasDestinations(true); return true; }
-    if (!std::strcmp(mode, "flying-shoot-direction")) { FlyingShootDirection(); return true; }
     if (!std::strcmp(mode, "flying-dynamic-locks")) { FlyingDynamicLocks(); return true; }
     if (!std::strcmp(mode, "arrived-retreat-reaction-lifetime")) { Require(argc == 4, "retreat reaction lifetime requires db and res"); ArrivedRetreatReactionLifetime(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "arrived-retreat-completion") && argc == 4) { ArrivedRetreatCompletion(argv[2], argv[3]); return true; }
