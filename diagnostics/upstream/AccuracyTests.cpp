@@ -12,6 +12,8 @@
 #include "../../Main/wMain.h"
 #include "../../Main/wUnitServer.h"
 #include "../../DBFormat/DataRPG.h"
+#include "../../Main/wUnitAttack.h"
+#include "../../Main/wUnitAttackExec.h"
 #include "../../Main/aiInventory.h"
 #include "../../Main/aiMisc.h"
 #include "../../Main/aiUnit.h"
@@ -22,6 +24,31 @@ namespace UpstreamTests
 {
 namespace
 {
+void DistantMeleeApproach(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    auto* network = world->GetPathNetwork();
+    const auto origin = actor->GetPosition().GetCP();
+    vector<NAI::SPathPlace> nearby;
+    network->GetNearPlaces(SSphere(origin, 15.f), &nearby);
+    const auto farPlace = std::find_if(nearby.begin(), nearby.end(), [&](auto& place) {
+        place.SetPose(NAI::CM_STAND);
+        const auto offset = NAI::SPosition(place, network).GetCP() - origin;
+        return fabs(offset.z) < 0.1f && fabs(offset) > 8.f && network->IsPassable(place);
+    });
+    Require(farPlace != nearby.end(), "distant melee fixture needs free ground beyond the attacker search radius");
+    const auto destination = NAI::SPosition(*farPlace, network).GetCP();
+    vector<NAI::SPathPlace> approaches;
+    NWorld::GetMeleeAttackPlaces(actor, origin, &approaches);
+    Require(!approaches.empty(), "nearby melee target has no approaches in the native control");
+    approaches.clear();
+    NWorld::GetMeleeAttackPlaces(actor, destination, &approaches);
+    Require(!approaches.empty(), "distant melee target has no approaches because search is centered on the attacker");
+    Require(std::all_of(approaches.begin(), approaches.end(), [&](const auto& place) {
+        return NWorld::IsWithinHumanReach(NAI::SPosition(place, network).GetCP(), destination, F_MELEE_DISTANCE);
+    }), "melee approach search returned a point outside the attacker's reach from the target");
+}
 NWorld::CUnitServer* EquipAccuracyActor(NWorld::CWorld* world, NDb::CRPGWeapon* weaponRecord = nullptr)
 {
     auto* actor = MovementPolicyActor(world);
@@ -243,6 +270,10 @@ void NativeAIShotInput(const char* databasePath, const char* resourcePath, bool 
 
 bool RunAccuracyTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "distant-melee-approach") && argc == 4) {
+        DistantMeleeApproach(argv[2], argv[3]);
+        return true;
+    }
     if (!std::strcmp(mode, "fractional-unit-cover") && argc == 4) {
         FractionalUnitCover(argv[2], argv[3]);
         return true;

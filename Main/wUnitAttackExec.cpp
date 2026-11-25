@@ -58,12 +58,11 @@ static CRandomGenerator &AttackExecRandom() { return s2_game_random; }
 namespace NWorld
 {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// retail @0x3a1db0: reach gate for a melee swing -- F_MELEE_DISTANCE, doubled when the unit
-// carries a reach extender (docked PK cannon).
+// Retail 0x7a2660 doubles the reach of a unit wearing a Panzerklein.
 bool CanMeleeAttack( CUnitServer *pUS, const NAI::SUnitPosition &from, const CVec3 &ptTarget )
 {
 	float fReach = F_MELEE_DISTANCE;
-	if ( IsValid( pUS ) && IsValid( pUS->animator.GetCannon() ) )
+	if ( IsValid( pUS ) && IsValid( pUS->GetWearingDBPK() ) )
 		fReach += fReach;
 	return IsWithinHumanReach( from.GetCP(), ptTarget, fReach );
 }

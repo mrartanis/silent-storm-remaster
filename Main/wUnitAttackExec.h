@@ -42,7 +42,7 @@ float GetHealOrRepairPKDistance( CUnitServer *pTarget );
 EUnitCommandResult CanDoFirstAid( CUnitServer *pUS, const NAI::SUnitPosition &from,
 	CUnitServer *pTarget, const NAI::SUnitPosition &targetPosition, NRPG::CFirstAidItem *pItem = 0 );
 // NWorld::CanMeleeAttack @0x3a1db0: pure reach gate for a melee swing from `from` at ptTarget --
-// F_MELEE_DISTANCE, doubled when the unit carries a reach extender (docked PK cannon). No pose/AP
+// F_MELEE_DISTANCE, doubled when the unit wears a Panzerklein. No pose/AP
 // checks here (CExecMelee::CanDoIt @0x3a2180 layers those); the composite tile to-hit (@0x2b54a0)
 // calls this straight and maps a miss to the -1 "no percentage" sentinel.
 bool CanMeleeAttack( CUnitServer *pUS, const NAI::SUnitPosition &from, const CVec3 &ptTarget );
