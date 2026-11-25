@@ -141,37 +141,35 @@ static void RetailAmmoSubtypes(const char* databasePath)
     Require(matches > 0, "database has no authored ammunition subtype to check");
 }
 
-static void UITextureFallbackDimensions()
+CObj<CObjectBase> ColumnFixtureTable(vector<string> fields, vector<vector<int>> rows,
+    vector<string> stringFields = {}, vector<vector<wstring>> strings = {})
 {
-    auto storage = [](vector<string> fields, vector<vector<int>> rows) {
-        CObj<CObjectBase> table = pSSClasses->CreateObject(int(0xa1843130u));
-        Require(IsValid(table), "columnar database storage is missing");
-        vector<NativeContextColumn> columns;
-        for (const auto& field : fields) columns.push_back({field, 0});
-        vector<vector<float>> floats;
-        vector<vector<wstring>> strings;
-        vector<string> emptyNames;
-        CMemoryStream serialized;
-        {
-            CStructureSaver writer(serialized, CStructureSaver::WRITE);
-            writer.Add(2, &rows);
-            writer.Add(3, &floats);
-            writer.Add(4, &strings);
-            writer.Add(5, &columns);
-            writer.Add(6, &fields);
-            writer.Add(7, &emptyNames);
-            writer.Add(8, &emptyNames);
-        }
-        serialized.Seek(0);
-        CStructureSaver reader(serialized, CStructureSaver::READ);
-        table->operator&(reader);
-        return table;
-    };
-    unordered_map<int, CObj<CObjectBase>> tables;
-    tables[2] = storage({"ID"}, {});
-    tables[3] = storage({"ID", "Width", "Height"}, {{1, 100, 100}, {2, 240, 180}});
-    tables[49] = storage({"ID", "R_800x600", "R_1024x768", "R_1280x960", "R_1600x1200"},
-        {{1, 0, 0, 2, 0}, {2, 0, 1, 2, 0}});
+    CObj<CObjectBase> table = pSSClasses->CreateObject(int(0xa1843130u));
+    Require(IsValid(table), "columnar database storage is missing");
+    vector<NativeContextColumn> columns;
+    for (const auto& field : fields) columns.push_back({field, 0});
+    for (const auto& field : stringFields) columns.push_back({field, 2});
+    vector<vector<float>> floats;
+    vector<string> floatFields;
+    CMemoryStream serialized;
+    {
+        CStructureSaver writer(serialized, CStructureSaver::WRITE);
+        writer.Add(2, &rows);
+        writer.Add(3, &floats);
+        writer.Add(4, &strings);
+        writer.Add(5, &columns);
+        writer.Add(6, &fields);
+        writer.Add(7, &floatFields);
+        writer.Add(8, &stringFields);
+    }
+    serialized.Seek(0);
+    CStructureSaver reader(serialized, CStructureSaver::READ);
+    table->operator&(reader);
+    return table;
+}
+
+void LoadColumnFixture(unordered_map<int, CObj<CObjectBase>> tables)
+{
     list<NativeContextEmptyRelation> relations;
     CMemoryStream database;
     {
@@ -185,6 +183,35 @@ static void UITextureFallbackDimensions()
     } catch (const SFileIOError& error) {
         throw std::runtime_error(error.szError);
     }
+}
+
+void BossWeaponNames()
+{
+    const auto tableID = NDatabase::GetRecordTypes().GetTypeID(static_cast<NDb::CAnimWeaponType*>(nullptr));
+    LoadColumnFixture({
+        {2, ColumnFixtureTable({"ID"}, {})},
+        {tableID, ColumnFixtureTable({"ID"}, {{1}, {2}, {3}, {4}, {5}},
+            {"AnimationWeaponType"}, {{L"Rifle"}, {L"BossPlazmagun"}, {L"TerrorShooter"},
+                {L"TerrorSpecialGun"}, {L"unknown-fixture-weapon"}})}
+    });
+    auto* table = NDatabase::GetTable<NDb::CAnimWeaponType>();
+    Require(table, "native database did not create its animation weapon types");
+    const NDb::EWeaponType expected[] = {NDb::WT_RIFLE, NDb::WT_BOSS_PLAZMAGUN, NDb::WT_TERROR_SHOOTER,
+        NDb::WT_TERROR_SPECIAL_GUN, NDb::WT_DEFAULT};
+    for (int id = 1; id <= 5; ++id) {
+        const auto* record = table->GetRecord(id);
+        Require(record && record->type == expected[id - 1], "native database imported the wrong named weapon type");
+    }
+}
+
+static void UITextureFallbackDimensions()
+{
+    LoadColumnFixture({
+        {2, ColumnFixtureTable({"ID"}, {})},
+        {3, ColumnFixtureTable({"ID", "Width", "Height"}, {{1, 100, 100}, {2, 240, 180}})},
+        {49, ColumnFixtureTable({"ID", "R_800x600", "R_1024x768", "R_1280x960", "R_1600x1200"},
+            {{1, 0, 0, 2, 0}, {2, 0, 1, 2, 0}})}
+    });
     const auto* preferred = NDb::GetUITexture(2);
     Require(preferred && preferred->nWidth == 100 && preferred->nHeight == 100,
         "the 1024x768 texture did not retain priority and its authored size");
@@ -247,6 +274,7 @@ bool RunDatabaseTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "critical-tables-follow-mods") && argc == 3) { CriticalTablesFollowMods(argv[2]); return true; }
     if (!std::strcmp(mode, "retail-ammo-subtypes") && argc == 3) { RetailAmmoSubtypes(argv[2]); return true; }
     if (!std::strcmp(mode, "ui-texture-fallback-dimensions")) { UITextureFallbackDimensions(); return true; }
+    if (!std::strcmp(mode, "boss-weapon-names") && argc == 2) { BossWeaponNames(); return true; }
     if (!std::strcmp(mode, "firearm-attack-creation") && argc == 3) { FirearmAttackCreationResult(argv[2]); return true; }
     return false;
 }

@@ -36,6 +36,37 @@ namespace UpstreamTests
 {
 namespace
 {
+void BossWeaponState(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    auto* inventory = actor->GetUnitRPG()->GetInventory();
+    NDb::CRPGWeapon* record = nullptr;
+    CDBIterator<NDb::CRPGWeapon> rows(*NDatabase::GetTable<NDb::CRPGWeapon>());
+    while (rows.MoveNext()) {
+        if (rows.Get()->pItem && rows.Get()->pWeaponType && !rows.Get()->bBazookaLogic && !rows.Get()->nPanzerkleinType) {
+            record = rows.Get();
+            break;
+        }
+    }
+    Require(record, "boss weapon fixture lacks a native firearm");
+    if (inventory->Get(NDb::SLOT_1))
+        inventory->TakeOff(NDb::SLOT_1);
+    CObj<NRPG::CWeaponItem> weapon = new NRPG::CWeaponItem(record);
+    Require(inventory->Equip(NDb::SLOT_1, weapon) && inventory->Activate(NDb::SLOT_1),
+        "boss weapon fixture could not equip the native firearm");
+    auto check = [&](NDb::EWeaponType type, NWorld::CUnit::EState expected) {
+        record->eWeaponType = type;
+        Require(actor->GetUnitRPG()->GetWeaponType() == type, "native firearm did not present its animation type");
+        Require(actor->GetState() == expected, "native unit classified the active weapon as the wrong state");
+    };
+    check(NDb::WT_RIFLE, NWorld::CUnit::ST_NORMAL_RIFLE);
+    check(NDb::WT_PK_PLAZMAGUN, NWorld::CUnit::ST_NORMAL_HAND_MACHINE_GUN);
+    check(NDb::WT_BOSS_PLAZMAGUN, NWorld::CUnit::ST_NORMAL_HAND_MACHINE_GUN);
+    check(NDb::WT_TERROR_SHOOTER, NWorld::CUnit::ST_NORMAL_HAND_MACHINE_GUN);
+    check(NDb::WT_TERROR_SPECIAL_GUN, NWorld::CUnit::ST_NORMAL_DEFAULT);
+}
+
 void DisarmCallback(const char* databasePath, const char* resourcePath, bool floorMine, bool succeeds)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -628,6 +659,7 @@ void RangedHitRollRange(const char* databasePath, const char* resourcePath)
 
 bool RunProjectileTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "boss-weapon-state") && argc == 4) { BossWeaponState(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "disarm-callback") && argc == 6) { DisarmCallback(argv[2], argv[3], std::atoi(argv[4]) != 0, std::atoi(argv[5]) != 0); return true; }
     if (!std::strcmp(mode, "cover-ray-row-order") && argc == 4) { CoverRayRowOrder(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "equal-miss-ray-order") && argc == 2) { EqualMissRayOrder(); return true; }
