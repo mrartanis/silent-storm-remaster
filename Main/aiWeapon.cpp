@@ -319,7 +319,7 @@ int CAIFireArmsWeapon::GetAmmoCountPerAP( int _nAP ) const
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAIFireArmsWeapon::GetShotParameters( const NAI::SUnitPosition &pos, IAIUnit *pTarget, 
-	int nHitCover, int nAvailableAP, int *nAP, int *nAmmo, int *nDamage, bool *bNeedReload ) const
+	float nHitCover, int nAvailableAP, int *nAP, int *nAmmo, int *nDamage, bool *bNeedReload ) const
 {
 	*nAP = 0;
 	*nAmmo = 0;
@@ -361,7 +361,7 @@ void CAIFireArmsWeapon::GetShotParameters( const NAI::SUnitPosition &pos, IAIUni
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CAIFireArmsWeapon::GetDamage( const NAI::SUnitPosition &pos, IAIUnit *pTarget,
-	int nHitCover, NAI::EPose ePose, int nAP, NDb::EShootMode eShootMode, int *nMaxToHit ) const
+	float nHitCover, NAI::EPose ePose, int nAP, NDb::EShootMode eShootMode, int *nMaxToHit ) const
 {
 	int nRes = 0;
 	NDb::EShootMode eTmpShootMode = pWeaponItem->GetShootMode();

@@ -12,11 +12,14 @@
 #include "../../Main/wMain.h"
 #include "../../Main/wUnitServer.h"
 #include "../../DBFormat/DataRPG.h"
+#include "../../DBFormat/DataMap.h"
 #include "../../Main/wUnitAttack.h"
 #include "../../Main/wUnitAttackExec.h"
 #include "../../Main/aiInventory.h"
+#include "../../Main/aiActions.h"
 #include "../../Main/aiMisc.h"
 #include "../../Main/aiUnit.h"
+#include "../../Main/aiUnitState.h"
 #include "../../Main/aiWeapon.h"
 #include <cstring>
 
@@ -328,9 +331,117 @@ void AIFirearmBudget(const char* databasePath, const char* resourcePath, bool pa
     Require(inventory->GetActive() == held, "AI budget evaluation equipped the candidate prematurely");
 }
 
+void AIExposedHeadAccuracy(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = EquipAccuracyActor(world);
+    auto* shooter = NAI::GetAIUnit(actor);
+    auto* mission = actor->GetUnitRPG();
+    auto* held = dynamic_cast<NRPG::CWeaponItem*>(mission->GetInventory()->GetActive());
+    Require(IsValid(shooter) && shooter->GetAIUnitState() && IsValid(held), "AI head-shot fixture needs a real firearm and threat state");
+    mission->GetRPGUnit()->Skills(NDb::ST_SHOOTING).SetConst(150);
+    shooter->Synchronize(false);
+    CObj<NAI::CAIShootAction> action = new NAI::CAIShootAction(shooter);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    const NAI::SPlaceWithAP place(actor->GetPosition(), 80);
+    for (const auto& target : units) {
+        auto* enemy = NAI::GetAIUnit(target);
+        if (!IsValid(target) || target == actor || !target->CanFight() || !IsValid(enemy))
+            continue;
+        shooter->GetAIUnitState()->pEnemy = enemy;
+        NAI::CAIShootAction::SInfo shot;
+        action->GetInfoInner(place, &shot);
+        if (!shot.bCanDo || shot.nToHit <= 50)
+            continue;
+        vector<NRPG::CAttackPortion> portions;
+        shot.pWeapon->GetItem()->CreateNewAttackPortion(&portions, false);
+        Require(!portions.empty(), "AI head-shot fixture needs an actual candidate attack portion");
+        const auto origin = actor->GetAttackOrigin(place.place, false);
+        const float head = world->GetGame()->GetCoverForAIUnitPrecise(origin, actor, target, portions.front(), NAI::HL_HEAD);
+        if (head <= 5.f)
+            continue;
+        const float body = world->GetGame()->GetCoverForAIUnitPrecise(origin, actor, target, portions.front(), NAI::HL_ANY);
+        Require(shot.fCover == body && shot.hitLocation == NAI::HL_HEAD,
+            "AI discarded native coverage precision or failed to aim at an exposed head");
+        return;
+    }
+    Require(false, "AI head-shot fixture found no affordable shot above the head exposure and accuracy thresholds");
+}
+
+void AINearbyEnemyThreat(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    auto* observer = NAI::GetAIUnit(actor);
+    Require(IsValid(observer) && observer->GetAIUnitState(), "threat ranking fixture needs a native observer state");
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    vector<NWorld::CUnitServer*> enemies;
+    for (const auto& unit : units) {
+        if (IsValid(unit) && unit->CanFight() && actor->GetDiplomacyState(unit) == NDb::DS_ENEMY && IsValid(NAI::GetAIUnit(unit)))
+            enemies.push_back(unit.GetPtr());
+    }
+    Require(enemies.size() >= 2, "threat ranking fixture needs at least two hostile native units");
+    auto clear = [](NWorld::CUnitServer* unit) {
+        auto* inventory = unit->GetUnitRPG()->GetInventory();
+        for (auto slot : {NDb::SLOT_1, NDb::SLOT_2})
+            if (inventory->Get(slot))
+                inventory->TakeOff(slot);
+        while (!inventory->GetItems().empty())
+            inventory->Take(inventory->GetItems().front().pItem);
+    };
+    clear(actor);
+    clear(enemies[0]);
+    clear(enemies[1]);
+    CObj<NRPG::CWeaponItem> rifle = new NRPG::CWeaponItem(NDb::GetWeapon(26));
+    auto* strongInventory = enemies[1]->GetUnitRPG()->GetInventory();
+    Require(strongInventory->Equip(NDb::SLOT_1, rifle) && strongInventory->Activate(NDb::SLOT_1) && rifle->GetAmmoQuantity() > 0,
+        "threat ranking fixture could not equip the second hostile with a loaded firearm");
+    auto* network = world->GetPathNetwork();
+    const auto origin = actor->GetPosition().GetCP();
+    vector<NAI::SPathPlace> nearby;
+    network->GetNearPlaces(SSphere(origin, 6.f), &nearby);
+    for (auto* enemy : {enemies[0], enemies[1]}) {
+        const auto found = std::find_if(nearby.begin(), nearby.end(), [&](auto& point) {
+            point.SetPose(NAI::CM_STAND);
+            const auto delta = NAI::SPosition(point, network).GetCP() - origin;
+            return fabs(delta.z) < 0.1f && fabs(delta) >= 4.f && fabs(delta) < 5.f && network->IsPassable(point) && !network->IsLocked(point);
+        });
+        Require(found != nearby.end(), "threat ranking fixture needs living hostiles inside the same nearest cluster");
+        auto pose = enemy->GetPosition();
+        pose.pos.p = *found;
+        pose.pos.p.SetDirection(NRPG::GetShootDirection(network, pose.pos.p, origin));
+        network->Unlock(enemy);
+        enemy->SetPosition(pose);
+        enemy->animator.PlaceUnit(pose);
+        network->Lock(enemy, pose.pos.p);
+    }
+    MarkNewDGFrame();
+    world->GetAIMap()->Sync();
+    auto* weak = NAI::GetAIUnit(enemies[0]);
+    auto* strong = NAI::GetAIUnit(enemies[1]);
+    enemies[1]->GetRPG()->GetRPGUnit()->Skills(NDb::ST_SHOOTING).SetConst(150);
+    enemies[1]->GetUnitRPG()->SpendAP(enemies[1]->GetAP());
+    for (auto* unit : {observer, weak, strong})
+        unit->Synchronize(false);
+    Require(strong->GetAP() == 0 && strong->GetMaxAP() > 20 &&
+        IsValid(strong->GetAIInventory()->GetCurrentFireArms()),
+        "threat ranking fixture lost the candidate firearm or its maximum-versus-live AP distinction");
+    auto* state = observer->GetAIUnitState();
+    state->enemies.data.units = {weak, strong};
+    state->enemies.bModified = true;
+    state->Update();
+    Require(state->pEnemy == strong, "AI ranked enemies from the observer weapon rather than the hostile candidate's firearm and maximum AP");
+}
+
+
+}
 
 bool RunAccuracyTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "ai-exposed-head-accuracy") && argc == 4) { AIExposedHeadAccuracy(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "ai-nearby-enemy-threat") && argc == 4) { AINearbyEnemyThreat(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-firearm-budget") && argc == 5) {
         AIFirearmBudget(argv[2], argv[3], std::atoi(argv[4]) != 0);
         return true;

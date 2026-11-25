@@ -35,8 +35,10 @@ void CAIShootAction::GetInfo( const SPlaceWithAP &place, SAIShootActionInfo *pIn
 	if ( !IsValid( GetUnit() ) || !IsValid( GetEnemy() ) )
 		return;
 	//
-	pInfo->pWeapon = 
-		GetUnit()->GetAIInventory()->GetBestFireArms( place.place, GetEnemy(), place.nUnitAP, &pInfo->nCover, &pInfo->nDamage, &pInfo->shootMode, &pInfo->nToHit );
+	float cover = 0.f;
+	pInfo->pWeapon =
+		GetUnit()->GetAIInventory()->GetBestFireArms( place.place, GetEnemy(), place.nUnitAP, &cover, &pInfo->nDamage, &pInfo->shootMode, &pInfo->nToHit );
+	pInfo->nCover = int( cover );
 	if ( IsValid( pInfo->pWeapon ) )
 	{
 		pInfo->bCanDo = true;

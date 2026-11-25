@@ -86,6 +86,11 @@ public:
 	virtual void SetHurtHP( int _nHurtHP ) = 0;
 	virtual int GetCoverForFixedUnit( const NAI::SUnitPosition &pos,
 		NWorld::CUnitServer *pTarget, NRPG::CWeaponItem *pWeaponItem, NAI::EHitLocation HitLocation ) = 0;
+	virtual float GetCoverForFixedUnitPrecise( const NAI::SUnitPosition &pos,
+		NWorld::CUnitServer *pTarget, NRPG::CWeaponItem *pWeaponItem, NAI::EHitLocation HitLocation )
+	{
+		return float( GetCoverForFixedUnit( pos, pTarget, pWeaponItem, HitLocation ) );
+	}
 	virtual bool HasInactivePose() = 0;
 	virtual void AssignControl( IAIControl *pAIControl ) = 0;
 	virtual CTask* GetRoute() const = 0;

@@ -1946,7 +1946,8 @@ static void InvalidAIWeapon()
         firearm->SetItem(stale ? weapon.GetPtr() : nullptr);
         weapon = nullptr;
         Require(!IsValid(firearm->GetItem()), "fixture weapon should be missing or invalid");
-        int cover = 123, quality = 123, hit = 123;
+        float cover = 123.f;
+        int quality = 123, hit = 123;
         NDb::EShootMode mode = NDb::SM_Snap;
         auto* best = inventory->GetBestFireArms(NAI::SUnitPosition(), target, 30,
             &cover, &quality, &mode, &hit);

@@ -203,7 +203,7 @@ public:
 	virtual int GetCoverForFixedUnit( const NAI::SUnitPosition &pos,
 		NWorld::CUnitServer *pTarget, NRPG::CWeaponItem *pWeaponItem, NAI::EHitLocation HitLocation );
 	float GetCoverForFixedUnitPrecise( const NAI::SUnitPosition &pos,
-		NWorld::CUnitServer *pTarget, NRPG::CWeaponItem *pWeaponItem, NAI::EHitLocation HitLocation );
+		NWorld::CUnitServer *pTarget, NRPG::CWeaponItem *pWeaponItem, NAI::EHitLocation HitLocation ) override;
 	virtual bool HasInactivePose();
 	virtual void AssignControl( IAIControl *pAIControl );
 	virtual void OnControlFinished();
