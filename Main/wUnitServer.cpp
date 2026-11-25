@@ -1603,9 +1603,13 @@ CVec3 CUnitServer::GetAttackOrigin() const
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CVec3 CUnitServer::GetAttackOrigin( const NAI::SUnitPosition &from, bool bLeftHand ) const
 {
+	return GetAttackOrigin( from, bLeftHand, GetUnitRPG()->GetDBAnimWeapon() );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+CVec3 CUnitServer::GetAttackOrigin( const NAI::SUnitPosition &from, bool bLeftHand, const NDb::CAnimWeaponType *pType ) const
+{
 	if ( CCannon *pCannon = animator.GetCannon() )
 		return pCannon->GetPosition() + pCannon->GetCannonAttackOrigin();   // retail @0x3bf8d0: cannon pos + DB muzzle offset (CCannon+0xb4)
-	NDb::CAnimWeaponType *pType = GetUnitRPG()->GetDBAnimWeapon();
 	if ( !pType )
 		return GetPosition().GetEyePosition();
 	CVec3 rel;

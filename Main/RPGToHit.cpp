@@ -278,7 +278,6 @@ void CToHitCalcer::Prepare()
 float CToHitCalcer::GetStance()
 {
 	int nStance = 0;
-	CPtr<CWeaponItem> pWeaponItem = pUnitMission->GetRPGUnit()->GetWeaponItem();
 	if ( IsValid( pWeaponItem ) )
 	{
 		NAI::EPose pose = eCurPose;

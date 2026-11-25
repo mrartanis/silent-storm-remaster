@@ -256,6 +256,7 @@ public:
 	virtual bool GetCurrentCommandName( string *pName ) const;
 	virtual CVec3 GetAttackOrigin() const;
 	virtual CVec3 GetAttackOrigin( const NAI::SUnitPosition &from, bool bLeftHand = false ) const;
+	CVec3 GetAttackOrigin( const NAI::SUnitPosition &from, bool bLeftHand, const NDb::CAnimWeaponType *pType ) const;
 	virtual float GetMinClearDistance() const;
 	virtual const CObjectBase* GetAttackIgnore() const;
 	virtual CObjectBase* GetDecalsRef();

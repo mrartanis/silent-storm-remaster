@@ -20,6 +20,7 @@
 #include "wUnitServer.h"
 #include "wUnitCommands.h"
 #include "RPGItem.h"
+#include "RPGGame.h"
 #include "RPGItemSet.h"       // full NRPG::CGrenadeItem / CWeaponItem defs (the IGrenadeItem/IWeaponItem
                               // bases must be VISIBLE here, else the item->interface upcast silently fails)
 #include "RPGUnitMission.h"
@@ -39,7 +40,6 @@
 namespace NWorld
 {
 	EUnitCommandResult CanUnitThrowGrenade( CUnitServer *pUS, const NAI::SUnitPosition &from, const CVec3 &ptTarget, NRPG::IGrenadeItem *pGrenade );
-	EUnitCommandResult CanUnitLaunchRocket( CUnitServer *pUS, const NAI::SUnitPosition &from, const CVec3 &ptTarget, int nExtraAP, NRPG::IWeaponItem *pBazooka );
 	EUnitCommandResult CanUnitThrowKnife( CUnitServer *pUS, const NAI::SUnitPosition &from, const CVec3 &ptTarget, NRPG::IMeleeWeaponItem *pMelee );
 	bool IsWithinHumanReach( const CVec3 &ptFrom, const CVec3 &ptTarget, float fPlaneDist );
 }
@@ -160,13 +160,13 @@ static bool IsGoodGroup( NWorld::CUnitServer *pUS, const SUnitPosition &pos, CAI
 	if ( !IsValid( pItem ) )
 		return false;
 	*pTarget = group.ptCenter;
-	if ( NWorld::CanUnitLaunchRocket( pUS, pos, *pTarget, 0, pItem ) != NWorld::UCR_OK )
+	if ( !NRPG::CanShootRocketSafely( pUS, pos, *pTarget, pItem ) )
 	{
 		*pTarget = group.ptCenter + CVec3( 0, 0, 0.6f );
 		CVec3 ptDir = pos.GetCP() - *pTarget;
 		Normalize( &ptDir );
 		*pTarget += ptDir * 1.7f;
-		if ( NWorld::CanUnitLaunchRocket( pUS, pos, *pTarget, 0, pItem ) != NWorld::UCR_OK )
+		if ( !NRPG::CanShootRocketSafely( pUS, pos, *pTarget, pItem ) )
 			return false;
 	}
 	return true;

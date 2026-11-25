@@ -31,6 +31,7 @@
 #include "rpgCheatConstants.h"
 
 #include "../DBFormat/DataRPG.h"
+#include "../DBFormat/DataAnimation.h"
 #include "../DBFormat/DataMap.h"
 #include "../DBFormat/DataDifficulty.h"   // NDb::CDBDifficulty::nHideProbability (ctor hide-prob seed)
 
@@ -707,9 +708,15 @@ float CAIUnit::GetCoverForFixedUnitPrecise( const NAI::SUnitPosition &pos,
 	ASSERT( !atts.empty() );
 	if ( !atts.empty() )
 	{
-		CVec3 ptOrigin = GetUnitServer()->GetAttackOrigin( pos, false );
-		CPtr<NRPG::IGame> pGame = GetUnitServer()->GetWorld()->GetGame();
-		return pGame->GetCoverForAIUnitPrecise( ptOrigin, GetUnitServer(), pTarget, atts.front(), HitLocation );
+		NWorld::CUnitServer *pServer = GetUnitServer();
+		CVec3 ptOrigin = pServer->GetAttackOrigin( pos, false );
+		float fClearance = 1.f;
+		if ( IsValid( pWeaponItem ) )
+		{
+			const NDb::CAnimWeaponType *pType = pWeaponItem->GetDBWeapon()->pAnimWeaponType;
+			fClearance = pServer->animator.GetCannon() ? pServer->GetMinClearDistance() : pType ? pType->fMinDistance : 0.f;
+		}
+		return pServer->GetWorld()->GetGame()->GetCoverForAIUnitPrecise( ptOrigin, pServer, pTarget, atts.front(), HitLocation, fClearance );
 	}
 	return 0;
 }

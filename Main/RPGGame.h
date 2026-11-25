@@ -20,6 +20,7 @@ namespace NAI
 namespace NWorld
 {
 	class CUnit;
+	class CUnitServer;
 }
 namespace NBuilding
 {
@@ -36,6 +37,7 @@ namespace NRPG
 {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CUnit;
+class CWeaponItem;
 class CCoverInfo;
 class IUnitMission;
 class IObject;
@@ -167,7 +169,8 @@ public:
 	virtual void SetMaxCriticalSeverity( int n ) = 0;
 	// Appended precision entry preserves existing slots and legacy providers.
 	virtual float GetCoverForAIUnitPrecise( CVec3 ptFrom, NWorld::CUnit *pIgnore,
-		NWorld::CUnit *pTarget, const NRPG::CAttackPortion &AttackPortion, NAI::EHitLocation HitLocation )
+		NWorld::CUnit *pTarget, const NRPG::CAttackPortion &AttackPortion, NAI::EHitLocation HitLocation,
+		float fMinClearDistance = 1.f )
 	{ return static_cast<float>( GetCoverForAIUnit( ptFrom, pIgnore, pTarget, AttackPortion, HitLocation ) ); }
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -182,6 +185,8 @@ CObjectBase* CreateBuilding( NBuilding::CBuildingGrid *pGrid );
 NDb::CRPGArmor* GetTerrainArmor();
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CanShoot( CCoverInfo *pCover );
+bool CanShootRocketSafely( NWorld::CUnitServer *pShooter, const NAI::SUnitPosition &from,
+	const CVec3 &target, CWeaponItem *pWeapon );
 bool PeekRay( CCoverInfo *pCover, CRay *pRes, float fHit, bool *bIsMiss, bool bStickTo_pRes = false );
 // retail @0x2b5220/@0x2b53d0: the check fns carry the burst bullet index (default 0 -- one-shot
 // weapons and the callers that predate the exec-side cursor).

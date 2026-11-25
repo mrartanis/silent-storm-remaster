@@ -19,8 +19,10 @@
 #include "wMain.h"
 #include "RPGUnitMission.h"
 #include "RPGItemInfo.h"
+#include "RPGItemSet.h"
 #include "RPGToHit.h"
 #include "../DBFormat/DataRPG.h"
+#include "../DBFormat/DataAnimation.h"
 #include "../DBFormat/DataMap.h"   // NDb::EDiplomacyState / DS_ALLY -- friendly-fire ally check in cover penetration
 #include "../MiscDll/LogStream.h"
 #include "aiGrid.h"
@@ -53,6 +55,7 @@ const int N_TILE_LOW_HALF_GRID = 10;
 const int N_TILE_HIT_HALF_GRID = 2;
 static const int N_TILE_DELTA_MINUS = N_TILE_LOW_HALF_GRID - N_TILE_HIT_HALF_GRID - 1;
 static const int N_TILE_DELTA_PLUS = N_TILE_LOW_HALF_GRID + N_TILE_HIT_HALF_GRID;
+static constexpr float F_TILE_TARGET_PULLBACK = 0.625f;
 
 
 const float FP_TAN_PI8 = tan( FP_PI8 );
@@ -80,6 +83,7 @@ public:
 	struct SRay: SStoredRay
 	{
 		int nGrid = -1, nX = -1, nY = -1;
+		float fAllyEntry = -1.f;
 	};
 	static_assert( sizeof(SStoredRay) == 20, "legacy cover ray payload" );
 	struct SGrids { NAI::CFastRenderer grids[2]; };
@@ -97,6 +101,7 @@ public:
 			{
 				std::memcpy( static_cast<SStoredRay*>( &(*pRays)[i] ), &stored[i], sizeof(SStoredRay) );
 				(*pRays)[i].nGrid = (*pRays)[i].nX = (*pRays)[i].nY = -1;
+				(*pRays)[i].fAllyEntry = -1.f;
 			}
 		}
 	}
@@ -175,7 +180,8 @@ public:
 	virtual int GetCoverForAIUnit( CVec3 ptFrom, NWorld::CUnit *pIgnore, 
 		NWorld::CUnit *pTarget, const NRPG::CAttackPortion &AttackPortion, NAI::EHitLocation HitLocation );
 	virtual float GetCoverForAIUnitPrecise( CVec3 ptFrom, NWorld::CUnit *pIgnore,
-		NWorld::CUnit *pTarget, const NRPG::CAttackPortion &AttackPortion, NAI::EHitLocation HitLocation );
+		NWorld::CUnit *pTarget, const NRPG::CAttackPortion &AttackPortion, NAI::EHitLocation HitLocation,
+		float fMinClearDistance = 1.f );
 
 	virtual CVec3 GetIllumination( const vector<CVec3> &unit ) { return CVec3(1,1,1); }
 	virtual IVisionTracker* GetVisionTracker() { return pVision; }
@@ -338,6 +344,7 @@ static void AddGridToCovers( CCoverInfo *pRes, const NAI::CFastRenderer &res, co
 						{
 							// Steam 0x690a08 clears the target-hit output for an ally.
 							bHitTarget = false;
+							ray.fAllyEntry = p->fEnter;
 							bBlocked = true;
 							break;
 						}
@@ -405,9 +412,9 @@ static float GetPenetrationCover( const CCoverInfo &cover, int nPiercing, float 
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 float CGame::GetCoverForAIUnitPrecise( CVec3 ptFrom, NWorld::CUnit *pIgnore,
-	NWorld::CUnit *pTarget, const NRPG::CAttackPortion &AttackPortion, NAI::EHitLocation HitLocation )
+	NWorld::CUnit *pTarget, const NRPG::CAttackPortion &AttackPortion, NAI::EHitLocation HitLocation, float fMinClearDistance )
 {
-	CObj<CCoverInfo> pCover = CalcCovers( ptFrom, AttackPortion, pIgnore, pTarget, HitLocation, 1.f, true );
+	CObj<CCoverInfo> pCover = CalcCovers( ptFrom, AttackPortion, pIgnore, pTarget, HitLocation, fMinClearDistance, true );
 	return GetPenetrationCover( *pCover, AttackPortion.nK, 0.f );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -470,12 +477,11 @@ CCoverInfo* CGame::CalcCoversForTile( const CVec3 &src, const CAttackPortion &at
 {
 	// trace some rays and calc covers
 	// Steam 0x693d29: stop the penetration walk 0.625 before the tile.
-	const float fDelta = 0.625f;
 	CCoverInfo *pRes = new CCoverInfo;
 	pRes->fSummAPA = 0;
 	CVec3 ptFrom = src;
 	CVec3 vTargetDir = ptTarget - ptFrom;
-	float fDistance = fabs( vTargetDir ) - fDelta;
+	float fDistance = fabs( vTargetDir ) - F_TILE_TARGET_PULLBACK;
 	Normalize( &vTargetDir );
 	float fProjectionDistance = Max( 0.1f, Max( float(N_WEAPONTRAIL_MAXDISTANCE), fDistance + 2 ) );
 	CVec3 ptRealTarget = src + vTargetDir * fProjectionDistance;
@@ -1009,6 +1015,63 @@ static int GetRandomForToHit( const NWorld::CUnit *pAttacker )
 	int nRnd;
 	while ( abs( (nRnd = RPGGameRandom().Get(1,100)) - nLastRndForToHit ) < 6 );
 	return nLastRndForToHit = nRnd;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+static float GetLooseRocketClearance( const CCoverInfo &cover, const CCoverInfo::SRay &ray,
+	float fTestDistance, float fMinClearDistance )
+{
+	if ( ray.fAllyEntry >= 0.f )
+		return ray.fAllyEntry;
+	const auto *pHead = cover.runtimeGrids->grids[ray.nGrid].resGrid[ray.nY][ray.nX];
+	for ( const auto *p = pHead; p && p->fEnter < fTestDistance; p = p->pNext )
+		if ( p->fExit >= fMinClearDistance && ( p->GetInfo().nTSFlags & NWorld::TS_COVER ) )
+			return pHead->fEnter; // Retail 0x6937ea uses the original cell head.
+	return fTestDistance;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+bool CanShootRocketSafely( NWorld::CUnitServer *pShooter, const NAI::SUnitPosition &from,
+	const CVec3 &target, CWeaponItem *pWeapon )
+{
+	if ( !IsValid( pShooter ) || !IsValid( pWeapon ) || !IsValid( pWeapon->GetDBWeapon() ) ||
+		!pWeapon->GetDBWeapon()->bBazookaLogic )
+		return false;
+	const int nRange = int( fabs( target - from.GetCP() ) * FP_INV_GRID_STEP );
+	if ( nRange < 3 || nRange >= pWeapon->GetDBWeapon()->nMaxRange )
+		return false;
+	vector<CAttackPortion> attacks;
+	pWeapon->CreateNewAttackPortion( &attacks, false );
+	if ( attacks.empty() )
+		return false;
+	CAttackPortion &attack = attacks.front();
+	attack.nK = 1;
+	attack.pAttacker = pShooter->GetUnitRPG();
+	const NDb::CAnimWeaponType *pType = pWeapon->GetDBWeapon()->pAnimWeaponType;
+	const float fMinClearance = pType ? pType->fMinDistance : 0.f;
+	const CVec3 origin = pShooter->GetAttackOrigin( from, false, pType );
+	CObj<CCoverInfo> cover = pShooter->GetWorld()->GetGame()->CalcCoversForTile( origin, attack, pShooter, target, fMinClearance );
+	if ( !IsValid( cover ) || cover->hitRays.empty() )
+		return false;
+	if ( cover->looseRays.empty() )
+		return true;
+	if ( !cover->runtimeGrids )
+		return false;
+
+	CVec3 direction = target - origin;
+	const float fDistance = fabs( direction );
+	Normalize( &direction );
+	const float fCover = GetPenetrationCover( *cover, attack.nK, -1.f );
+	CObj<CRLauncherToHitCalcer> aim = new CRLauncherToHitCalcer( pShooter, from.GetPose(),
+		int( fDistance * FP_INV_GRID_STEP ), origin, fCover, 0, false, false, CVec3( 1, 1, 1 ), target );
+	aim->pWeaponItem = pWeapon;
+	const int nChance = pShooter->GetScriptToHit() >= 0 ? pShooter->GetScriptToHit() : aim->GetToHit();
+	GetRandomForToHit( pShooter );
+
+	const float fTraceDistance = Min( fDistance - F_TILE_TARGET_PULLBACK, float( N_WEAPONTRAIL_MAXDISTANCE ) );
+	const int nFar = std::count_if( cover->looseRays.begin(), cover->looseRays.end(), [&]( const auto &ray ) {
+		const float fProjection = direction * ray.ptDir;
+		return fProjection > 0.f && GetLooseRocketClearance( *cover, ray, fTraceDistance / fProjection, fMinClearance ) > 3.f;
+	} );
+	return nChance + ( 100 - nChance ) * nFar / int( cover->looseRays.size() ) >= 70;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 float CheckToHit( NWorld::CUnit *pAttacker, NWorld::CUnit *pTarget, int nExtraAP, NAI::EHitLocation eHL,

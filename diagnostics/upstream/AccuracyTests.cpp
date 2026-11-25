@@ -21,7 +21,14 @@
 #include "../../Main/aiUnit.h"
 #include "../../Main/aiUnitState.h"
 #include "../../Main/aiWeapon.h"
+#include "../../Main/aistate.h"
+#include "../../DBFormat/DataAnimation.h"
 #include <cstring>
+
+namespace NWorld
+{
+EUnitCommandResult CanUnitLaunchRocket(CUnitServer*, const NAI::SUnitPosition&, const CVec3&, int, NRPG::IWeaponItem*);
+}
 
 namespace UpstreamTests
 {
@@ -358,10 +365,12 @@ void AIExposedHeadAccuracy(const char* databasePath, const char* resourcePath)
         shot.pWeapon->GetItem()->CreateNewAttackPortion(&portions, false);
         Require(!portions.empty(), "AI head-shot fixture needs an actual candidate attack portion");
         const auto origin = actor->GetAttackOrigin(place.place, false);
-        const float head = world->GetGame()->GetCoverForAIUnitPrecise(origin, actor, target, portions.front(), NAI::HL_HEAD);
+        const auto* type = shot.pWeapon->GetItem()->GetDBWeapon()->pAnimWeaponType.GetPtr();
+        const float clearance = type ? type->fMinDistance : 0.f;
+        const float head = world->GetGame()->GetCoverForAIUnitPrecise(origin, actor, target, portions.front(), NAI::HL_HEAD, clearance);
         if (head <= 5.f)
             continue;
-        const float body = world->GetGame()->GetCoverForAIUnitPrecise(origin, actor, target, portions.front(), NAI::HL_ANY);
+        const float body = world->GetGame()->GetCoverForAIUnitPrecise(origin, actor, target, portions.front(), NAI::HL_ANY, clearance);
         Require(shot.fCover == body && shot.hitLocation == NAI::HL_HEAD,
             "AI discarded native coverage precision or failed to aim at an exposed head");
         return;
@@ -435,11 +444,127 @@ void AINearbyEnemyThreat(const char* databasePath, const char* resourcePath)
     Require(state->pEnemy == strong, "AI ranked enemies from the observer weapon rather than the hostile candidate's firearm and maximum AP");
 }
 
+void AICandidateClearance(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = EquipAccuracyActor(world);
+    auto* ai = NAI::GetAIUnit(actor);
+    auto* active = dynamic_cast<NRPG::CWeaponItem*>(actor->GetUnitRPG()->GetInventory()->GetActive());
+    Require(IsValid(ai) && IsValid(active), "candidate-clearance fixture needs a native shooter and carried weapon");
+    NDb::CRPGWeapon* record = nullptr;
+    CDBIterator<NDb::CRPGWeapon> weapons(*NDatabase::GetTable<NDb::CRPGWeapon>());
+    while (!record && weapons.MoveNext()) {
+        auto* candidate = weapons.Get();
+        if (!candidate->bBazookaLogic && !candidate->nPanzerkleinType && IsValid(candidate->pInnerClip) &&
+            IsValid(candidate->pAnimWeaponType) && candidate->pAnimWeaponType != active->GetDBWeapon()->pAnimWeaponType &&
+            candidate->shootModes[NDb::SM_Snap])
+            record = candidate;
+    }
+    Require(IsValid(record), "candidate-clearance fixture needs another authored weapon clearance record");
+    CObj<NRPG::CWeaponItem> weapon = new NRPG::CWeaponItem(record);
+    const auto position = actor->GetPosition();
+    const auto origin = actor->GetAttackOrigin(position, false);
+    vector<NRPG::CAttackPortion> attack;
+    weapon->CreateNewAttackPortion(&attack, false);
+    Require(!attack.empty(), "candidate-clearance fixture needs an actual loaded attack");
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    for (const auto& target : units) {
+        if (!IsValid(target) || target == actor || !target->CanFight())
+            continue;
+        auto* type = record->pAnimWeaponType.GetPtr();
+        type->fMinDistance = 1.f;
+        const float clear = ai->GetCoverForFixedUnitPrecise(position, target, weapon, NAI::HL_ANY);
+        if (clear <= 0.f)
+            continue;
+        type->fMinDistance = fabs(target->GetPosition().GetCP() - origin) + 3.f;
+        CObj<NRPG::CCoverInfo> cover = world->GetGame()->CalcCovers(origin, attack.front(), actor, target,
+            NAI::HL_ANY, type->fMinDistance, true);
+        const auto source = CoverSnapshot(cover);
+        if (std::any_of(source.hits.begin(), source.hits.end(), [](const auto& ray) { return ray.penetrate; }))
+            continue;
+        Require(ai->GetCoverForFixedUnitPrecise(position, target, weapon, NAI::HL_ANY) <= 0.f &&
+            actor->GetUnitRPG()->GetInventory()->GetActive() == active,
+            "AI accepted a shot blocked by the candidate weapon's clearance while another weapon was active");
+        return;
+    }
+    Require(false, "candidate-clearance fixture found no distinguishing native blocked target");
+}
 
+void AIRocketCandidateSafety(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* actor = EquipAccuracyActor(world);
+    auto* ai = NAI::GetAIUnit(actor);
+    auto* inventory = actor->GetUnitRPG()->GetInventory();
+    auto* active = dynamic_cast<NRPG::CWeaponItem*>(inventory->GetActive());
+    NDb::CRPGWeapon* rocket = nullptr;
+    CDBIterator<NDb::CRPGWeapon> weapons(*NDatabase::GetTable<NDb::CRPGWeapon>());
+    while (!rocket && weapons.MoveNext()) {
+        auto* candidate = weapons.Get();
+        if (candidate->bBazookaLogic && !candidate->nPanzerkleinType && IsValid(candidate->pInnerClip) &&
+            IsValid(candidate->pAnimWeaponType) && candidate->shootModes[NDb::SM_Snap] && candidate->nMaxRange > 12)
+            rocket = candidate;
+    }
+    Require(IsValid(rocket) && IsValid(active) && IsValid(ai), "rocket planning fixture lacks a loaded launcher and ordinary short-range weapon");
+    if (inventory->Get(NDb::SLOT_2))
+        inventory->TakeOff(NDb::SLOT_2);
+    CObj<NRPG::CWeaponItem> candidate = new NRPG::CWeaponItem(rocket);
+    Require(inventory->Equip(NDb::SLOT_2, candidate) && candidate->SetShootMode(NDb::SM_Snap) && candidate->GetAmmoQuantity() > 0,
+        "rocket planning fixture could not install the inactive native launcher");
+    ai->Synchronize(false);
+    Require(ai->GetAIInventory()->GetBestRocketLaunchers() && ai->GetAIInventory()->GetBestRocketLaunchers()->GetItem() == candidate,
+        "native AI inventory did not choose the loaded candidate launcher");
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    const auto hostile = std::find_if(units.begin(), units.end(), [&](const auto& unit) {
+        return IsValid(unit) && unit->CanFight() && actor->GetDiplomacyState(unit) == NDb::DS_ENEMY && IsValid(NAI::GetAIUnit(unit));
+    });
+    Require(hostile != units.end(), "rocket planning fixture needs a native hostile group representative");
+    NAI::SAIState state;
+    state.pWorld = world.GetPtr();
+    state.pPlayer = actor->GetPlayer();
+    ai->SetAIState(&state);
+    NAI::SAIUnitGroup group;
+    group.AddUnit(NAI::GetAIUnit(*hostile));
+    group.fNearestAlly = 8.f;
+    state.enemyGroups = {group};
+    const auto position = actor->GetPosition();
+    const NAI::SPlaceWithAP place(position, 100);
+    CObj<NAI::CAILaunchRocketAction> aim = new NAI::CAILaunchRocketAction(ai);
+    auto* rifle = active->GetDBWeapon();
+    const int rifleRange = rifle->nMaxRange;
+    bool verified = false;
+    actor->SetScriptToHit(100);
+    for (const auto& direction : {CVec3(1,0,0),CVec3(-1,0,0),CVec3(0,1,0),CVec3(0,-1,0)}) {
+        const CVec3 point = position.GetCenter() + direction * 6.f;
+        inventory->Activate(NDb::SLOT_2);
+        if (NWorld::CanUnitLaunchRocket(actor, position, point, 0, candidate) != NWorld::UCR_OK) {
+            inventory->Activate(NDb::SLOT_1);
+            continue;
+        }
+        inventory->Activate(NDb::SLOT_1);
+        state.enemyGroups.front().ptCenter = point;
+        rifle->nMaxRange = 2;
+        NAI::CAILaunchRocketAction::SInfo info;
+        aim->GetInfoInner(place, &info);
+        rifle->nMaxRange = rifleRange;
+        ai->SetAIState(nullptr);
+        Require(info.bCanDo && info.pWeapon->GetItem() == candidate && info.ptTarget == point && inventory->GetActive() == active,
+            "AI rejected an open candidate rocket shot using the range of the weapon in its hand");
+        verified = true;
+        break;
+    }
+    ai->SetAIState(nullptr);
+    Require(verified, "rocket planning fixture could not find an open native launch ray");
+}
 }
 
 bool RunAccuracyTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "ai-candidate-clearance") && argc == 4) { AICandidateClearance(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "ai-rocket-candidate-safety") && argc == 4) { AIRocketCandidateSafety(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-exposed-head-accuracy") && argc == 4) { AIExposedHeadAccuracy(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-nearby-enemy-threat") && argc == 4) { AINearbyEnemyThreat(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-firearm-budget") && argc == 5) {
