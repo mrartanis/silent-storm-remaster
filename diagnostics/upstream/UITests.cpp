@@ -27,6 +27,40 @@ namespace UpstreamTests
 {
 namespace
 {
+void TemplateControlTieOrder()
+{
+    CObj<NDb::CUIContainer> menu = new NDb::CUIContainer;
+    menu->nWidth = 320;
+    menu->nHeight = 200;
+    vector<CObj<NDb::CUIControl>> authored;
+    const int depths[] = {3, 7, 3, 7};
+    for (int index = 0; index < 4; ++index) {
+        CObj<NDb::CUIControl> control = new NDb::CUIControl;
+        control->type = NDb::UI_WINDOW;
+        control->szID = "choice" + std::to_string(index);
+        control->rect = CTRect<int>(0, 0, 100, 30);
+        control->nDepth = depths[index];
+        control->bVisible = true;
+        control->bDefault = control->bTopmost = control->bBottommost = control->bTransparent = false;
+        control->toolTipAnchorType = NDb::UIA_NONE;
+        control->sToolTipAnchor = CTPoint<int>(0, 0);
+        menu->controls.push_back(control.GetPtr());
+        authored.push_back(control);
+    }
+    CObj<NUI::CWindow> window = new NUI::CWindow(NUI::SWindowInfo(nullptr,
+        NUI::SPoint(0, 0), NUI::SPoint(320, 200), "root", NUI::STYLE_ENABLED | NUI::STYLE_VISIBLE));
+    NUI::LoadTemplate(window, menu);
+    list<CPtr<NUI::CWindow>> children;
+    window->GetChildrenList(&children);
+    Require(children.size() == 4, "native template did not create all overlapping controls");
+    const int expected[] = {3, 1, 2, 0};
+    size_t index = 0;
+    for (const auto& child : children) {
+        const auto& id = authored[expected[index++]]->szID;
+        Require(child->GetWindowID() == id, "overlapping native controls did not take retail depth and equal-depth order");
+    }
+}
+
 class WaitMission : public NGame::CMissionBase
 {
     OBJECT_NOCOPY_METHODS(WaitMission);
@@ -275,6 +309,7 @@ static void OptionsPenCursor(const char* databasePath,const char* resourcePath)
 
 bool RunUITests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "template-control-tie-order") && argc == 2) { TemplateControlTieOrder(); return true; }
     if (!std::strcmp(mode, "inventory-drag-during-action")) { InventoryDragDuringAction(); return true; }
     if (!std::strcmp(mode, "inventory-wait-ends-when-ready")) { InventoryWaitEndsWhenReady(); return true; }
     if (!std::strcmp(mode, "side-menu-tooltips")) { Require(argc==5,"side-menu tooltips require db/resources/mode"); SideMenuTooltips(argv[2],argv[3],std::atoi(argv[4])); return true; }

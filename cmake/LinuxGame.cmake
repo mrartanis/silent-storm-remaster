@@ -415,6 +415,7 @@ add_test(NAME UpstreamIsolatedMovementCell COMMAND UpstreamBugTests isolated-mov
 add_test(NAME UpstreamKnownMinePathReservations COMMAND UpstreamBugTests known-mine-path-reservations)
 add_test(NAME UpstreamDifficultySkillScaling COMMAND UpstreamBugTests difficulty-skill-scaling)
 add_test(NAME UpstreamInventoryDragDuringAction COMMAND UpstreamBugTests inventory-drag-during-action)
+add_test(NAME UpstreamTemplateControlTieOrder COMMAND UpstreamBugTests template-control-tie-order)
 add_test(NAME UpstreamInventoryWaitEndsWhenReady COMMAND UpstreamBugTests inventory-wait-ends-when-ready)
 add_test(NAME UpstreamFlyingShootDirection COMMAND UpstreamBugTests flying-shoot-direction)
 add_test(NAME UpstreamFlyingDynamicLocks COMMAND UpstreamBugTests flying-dynamic-locks)

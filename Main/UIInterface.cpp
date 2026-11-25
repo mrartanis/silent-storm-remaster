@@ -1,4 +1,5 @@
 #include "StdAfx.h"
+#include "../Misc/RetailSort.h"
 #include <cstdint>
 #include "DisplayLayout.h"
 #include "../Game/Platform.h"
@@ -147,7 +148,7 @@ void CLoader::Load( CWindow* _pParent, NDb::CUIContainer *pTemplate )
 		pParent->EnableAdaptiveLayout();
 
 		vector< CPtr<NDb::CUIControl> > controls( pTemplate->controls );
-		sort( controls.begin(), controls.end(), SControlsSort() );
+		NRetail::Sort( controls.begin(), controls.end(), SControlsSort() );
 
 		windowsSet.resize( controls.size() );
 		for ( int nTemp = 0; nTemp < controls.size(); nTemp++ )

@@ -6,7 +6,6 @@
 namespace NRetail
 {
 // Retail's strided merge sort takes equal keys from the second chain first.
-// Position within tied ranks influences the roulette weights of missed shots.
 template<class TIterator, class TLess>
 void Sort( TIterator first, TIterator last, TLess less )
 {
