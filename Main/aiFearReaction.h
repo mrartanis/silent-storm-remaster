@@ -15,10 +15,8 @@ class IAIUnit;
 // Each think: a live known enemy -> flee toward a place away from the crowd (a hidden one first when
 // bUseCover), crouch-watching if already standing on it; only a SUSPECTED contact -> glance toward it from
 // where it stands; nobody about -> a roaming civilian wanders nRadius, everyone else crouches and looks round.
-// Installed from script by UnitSetFearLogic / UnitSetPanicLogic (the cover-flee variant: bUseCover=true,
-// bRoaming=false, nRadius=0 -- the two commands are byte-identical in retail) and UnitSetCivilianLogic (the
-// roaming-civilian variant: bUseCover=false, bRoaming=true, nRadius=script arg). Retail-NEW; absent from the
-// dev tree.
+// UnitSetFearLogic enables cover seeking and UnitSetPanicLogic disables it. Both use a zero roaming
+// radius. UnitSetCivilianLogic enables roaming with a script-supplied radius and disables cover seeking.
 //
 // TRANSIENT like the other dev reactions (CAINormalReaction / CAIGuardReaction / CAIDefenceReaction):
 // registered with BASIC_REGISTER_CLASS (cast-only), NOT saveload-serialized. The release IS saveload-

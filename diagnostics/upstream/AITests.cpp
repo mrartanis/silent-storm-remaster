@@ -21,6 +21,7 @@
 #include "../../Main/aiWeapon.h"
 #include "../../Main/aiActionPlaceSource.h"
 #include "../../Main/aiEvent.h"
+#include "../../Main/aiFearReaction.h"
 #include "../../Main/aiGrid.h"
 #include "../../Main/aiReaction.h"
 #include "../../Main/aiReactions.h"
@@ -30,6 +31,8 @@
 #include "../../Main/aiTaskCommand.h"
 #include "../../Main/aiThreatTracker.h"
 #include "../../Main/eventUnit.h"
+#include "../../Main/A5Script.h"
+#include "../../Main/scriptPtr.h"
 #include "../../Misc/RandomGen.h"
 #include "../AIUnitFixture.h"
 #include "../../DBFormat/DataRPG.h"
@@ -42,6 +45,43 @@ namespace UpstreamTests
 {
 namespace
 {
+void ScriptedFearReaction(const char* databasePath, const char* resourcePath, bool panic)
+{
+    auto world = FixtureWorld(databasePath, resourcePath);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    NAI::IAIUnit* brain = nullptr;
+    for (const auto& unit : units) {
+        if (!IsValid(unit) || !unit->IsAIUnit() || !unit->CanFight())
+            continue;
+        brain = NAI::GetAIUnit(unit);
+        if (IsValid(brain))
+            break;
+    }
+    Require(IsValid(brain), "scripted reaction fixture lacks a deployed AI unit");
+    auto* script = world->GetOwnScript();
+    Require(IsValid(script), "scripted reaction fixture lacks its mission Lua state");
+    NScript::luaPushCPtr(script->GetState(), brain->GetUnitServer());
+    script->SetGlobal("TestFearUnit");
+    Require(script->DoString(panic ? "UnitSetPanicLogic(TestFearUnit)" : "UnitSetFearLogic(TestFearUnit)") == 0,
+        "native Lua reaction command could not be queued");
+    world->ExecuteOwnScript();
+
+    auto* reaction = dynamic_cast<NAI::CAIFearReaction*>(brain->GetReaction());
+    Require(IsValid(reaction), "native Lua command failed to install a fear reaction");
+    CStructureNetworkContext refs;
+    auto fields = BorrowedObjectFields(reaction, &refs);
+    CStructureSaver reader(fields, CStructureSaver::READ, &refs);
+    bool seeksCover = false;
+    bool roams = true;
+    int radius = -1;
+    reader.Add(3, &seeksCover);
+    reader.Add(4, &roams);
+    reader.Add(5, &radius);
+    Require(seeksCover == !panic && !roams && radius == 0,
+        "native Lua panic and fear commands did not select their original cover and roaming policies");
+}
+
 class SchedulerProbe : public NAI::CAIJob
 {
     OBJECT_NOCOPY_METHODS(SchedulerProbe);
@@ -1118,6 +1158,7 @@ static void OwnedAIEnemySelection(bool placeSource)
 
 bool RunAITests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "scripted-fear-reaction") && argc == 5) { ScriptedFearReaction(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "ai-job-scheduler") && argc == 3) { AIJobScheduler(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "ai-alarm-without-route") && argc == 4) { AIAlarmWithoutRoute(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-weapon-switch-order") && argc == 5) { AIWeaponSwitchOrder(argv[2], argv[3], std::atoi(argv[4])); return true; }

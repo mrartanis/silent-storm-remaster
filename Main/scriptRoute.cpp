@@ -259,9 +259,7 @@ BEGIN_SCRIPT_COMMAND( UnitSetRetreatLogic, "us" )
 	return 0;
 END_SCRIPT_COMMAND
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// retail @0x2eb380 ("u"): install the panic/fear reaction -- a unit that flees a known enemy toward cover
-// (CreateAIFearReaction(ai, /*bUseCover*/true, /*bRoaming*/false, /*nRadius*/0)). UnitSetFearLogic and
-// UnitSetPanicLogic are byte-identical in retail (only the registered command name differs).
+// Retail @0x2eb380: seek cover before fleeing a known enemy.
 BEGIN_SCRIPT_COMMAND( UnitSetFearLogic, "u" )
 	CDynamicCast<NWorld::CUnitServer> pUS( luaParams[ 0 ].p );
 	if ( pUS )
@@ -273,14 +271,14 @@ BEGIN_SCRIPT_COMMAND( UnitSetFearLogic, "u" )
 	return 0;
 END_SCRIPT_COMMAND
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// retail @0x2eb4d0 ("u"): identical to UnitSetFearLogic (same CreateAIFearReaction args in retail).
+// Retail @0x2eb4d0: flee directly with cover seeking disabled.
 BEGIN_SCRIPT_COMMAND( UnitSetPanicLogic, "u" )
 	CDynamicCast<NWorld::CUnitServer> pUS( luaParams[ 0 ].p );
 	if ( pUS )
 	{
 		NAI::IAIUnit *pAI = NAI::GetAIUnit( pUS );
 		if ( IsValid( pAI ) )
-			pAI->SetReaction( NAI::CreateAIFearReaction( pAI, true, false, 0 ) );
+			pAI->SetReaction( NAI::CreateAIFearReaction( pAI, false, false, 0 ) );
 	}
 	return 0;
 END_SCRIPT_COMMAND
