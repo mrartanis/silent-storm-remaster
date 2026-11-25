@@ -244,6 +244,12 @@ void CVisionTracker::CalcGrassInfo( const STerrainInfo &info )
 	const int nHeight = info.nHeight;
 	grassHeight.SetSizes( nWidth, nHeight );
 	grassHeight.FillEvery( 0 );
+	// The accumulator uses signed-byte arithmetic even when plain char is unsigned.
+	auto signedHeight = []( char value )
+	{
+		const int byte = static_cast<unsigned char>( value );
+		return byte < 128 ? byte : byte - 256;
+	};
 	for ( int nLayer = 0; nLayer < info.grass.size(); ++nLayer )
 	{
 		const SGrassLayer &layer = info.grass[nLayer];
@@ -251,20 +257,20 @@ void CVisionTracker::CalcGrassInfo( const STerrainInfo &info )
 		for ( int y = 0; y < nHeight; ++y )
 			for ( int x = 0; x < nWidth; ++x )
 			{
-				int nValue = grassHeight[y][x] + Float2Int( layer.grass[y][x] * fScale );
+				int nValue = signedHeight( grassHeight[y][x] ) + Float2Int( layer.grass[y][x] * fScale );
 				grassHeight[y][x] = (char)Clamp( nValue, 0, 255 );
 			}
 		for ( int nBlade = 0; nBlade < layer.blades.size(); ++nBlade )
 		{
 			int x = Clamp( Float2Int( layer.blades[nBlade].x * FP_INV_GRID_STEP ), 0, nWidth - 1 );
 			int y = Clamp( Float2Int( layer.blades[nBlade].y * FP_INV_GRID_STEP ), 0, nHeight - 1 );
-			int nValue = grassHeight[y][x] + 10;
-			grassHeight[y][x] = (char)Min( nValue, 255 );
+			int nValue = signedHeight( grassHeight[y][x] ) + 10;
+			grassHeight[y][x] = (char)Clamp( nValue, 0, 255 );
 		}
 	}
 	for ( int y = 0; y < nHeight; ++y )
 		for ( int x = 0; x < nWidth; ++x )
-			grassHeight[y][x] = ( grassHeight[y][x] >= 7 ) ? 1 : 0;
+			grassHeight[y][x] = ( signedHeight( grassHeight[y][x] ) >= 7 ) ? 1 : 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CVisionTracker::CVisionTracker( NAI::IAIMap *_pAIMap, const STerrainInfo &terrainInfo ): pAIMap(_pAIMap)

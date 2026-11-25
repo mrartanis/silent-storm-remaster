@@ -238,6 +238,7 @@ add_test(NAME UpstreamFreshNavigationColouring COMMAND UpstreamBugTests fresh-na
 add_test(NAME UpstreamInvalidRegionColouring COMMAND UpstreamBugTests invalid-region-colouring)
 add_test(NAME UpstreamFreshNavigationTransitions COMMAND UpstreamBugTests fresh-navigation-transitions)
 add_test(NAME UpstreamGeometricAliasColouring COMMAND UpstreamBugTests geometric-alias-colouring)
+add_test(NAME UpstreamExplicitGrassVisionOverflow COMMAND UpstreamBugTests explicit-grass-vision-overflow)
 add_test(NAME UpstreamNavigationColouringOccupancy COMMAND UpstreamBugTests navigation-colouring-occupancy)
 add_test(NAME UpstreamMissingNavigationColourer COMMAND UpstreamBugTests missing-navigation-colourer)
 add_test(NAME UpstreamStaleNavigationColourer COMMAND UpstreamBugTests stale-navigation-colourer)

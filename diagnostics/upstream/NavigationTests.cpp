@@ -9,6 +9,9 @@
 #include "../../Main/aiNearestPosition.h"
 #include "../../Main/PrecalcCollider.h"
 #include "../../Main/RPGBullet.h"
+#include "../../Main/RPGVision.h"
+#include "../../Main/TerrainInfo.h"
+#include "../../Main/wMain.h"
 #include "../../Main/wUnitServer.h"
 #include "../../Main/wMine.h"
 #include <cmath>
@@ -20,6 +23,35 @@ namespace UpstreamTests
 {
 namespace
 {
+void ExplicitGrassVisionOverflow()
+{
+    STerrainInfo terrain;
+    terrain.nWidth = 6;
+    terrain.nHeight = 1;
+    terrain.grass.resize(1);
+    auto& layer = terrain.grass.front();
+    layer.fMaxDensity = 0.f;
+    layer.grass.SetSizes(terrain.nWidth, terrain.nHeight);
+    layer.grass.FillEvery(0);
+    const int counts[] = {0, 1, 13, 14, 15, 16};
+    for (int tile = 0; tile < terrain.nWidth; ++tile)
+        for (int blade = 0; blade < counts[tile]; ++blade)
+            layer.blades.push_back(CVec2(float(tile) / FP_INV_GRID_STEP, 0.f));
+    CObj<NWorld::CWorld> world = new NWorld::CWorld;
+    CObj<NAI::IAIMap> map = NAI::CreateAIMap(world);
+    CObj<NRPG::IVisionTracker> vision = NRPG::CreateVisionTracker(map, terrain);
+    CStructureNetworkContext refs;
+    auto fields = BorrowedObjectFields(vision, &refs);
+    CArray2D<char> coverage;
+    { CStructureSaver reader(fields, CStructureSaver::READ, &refs); reader.Add(5, &coverage); }
+    Require(coverage.GetXSize() == terrain.nWidth && coverage.GetYSize() == 1,
+        "native vision grass grid lost its authored dimensions");
+    Require(coverage[0][0] == 0 && coverage[0][1] == 1 && coverage[0][2] == 0 && coverage[0][3] == 0,
+        "explicit grass changed empty, ordinary or signed-overflow control cells");
+    Require(coverage[0][4] == 1 && coverage[0][5] == 1,
+        "explicit grass did not restart vision coverage after the overflow reset");
+}
+
 void GeometricAliasColouring()
 {
     using namespace NAI;
@@ -922,6 +954,7 @@ static void FlyingShootDirection()
 
 bool RunNavigationTests(const char* mode)
 {
+    if (!std::strcmp(mode, "explicit-grass-vision-overflow")) { ExplicitGrassVisionOverflow(); return true; }
     if (!std::strcmp(mode, "geometric-alias-colouring")) { GeometricAliasColouring(); return true; }
     if (!std::strcmp(mode, "known-mine-path-reservations")) { KnownMinePathReservations(); return true; }
     if (!std::strcmp(mode, "nearest-invalid")) { InvalidNearestPosition(); return true; }
