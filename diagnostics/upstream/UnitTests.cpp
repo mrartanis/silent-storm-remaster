@@ -35,6 +35,41 @@ namespace UpstreamTests
 {
 namespace
 {
+void CombatActionPractice(const char* databasePath, const char* resourcePath, bool movement)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    auto* mission = actor->GetUnitRPG();
+    auto* unit = mission->GetRPGUnit();
+    world->GivePlayerTurn(actor->GetTBSPlayer());
+    mission->StartNewTurn(actor->GetPosition().GetCP());
+    unit->fXP = 1000.f;
+    auto& skill = unit->Skills(movement ? NDb::ST_AP : NDb::ST_BURST);
+    skill.SetXPPart(0);
+    skill.SetProgress(0.f);
+    const auto practice = [&] { return skill.GetXPPart() + skill.GetProgress(); };
+    const float initial = practice();
+    if (movement) {
+        actor->DoAction(NRPG::AC_MOVE_SIDE);
+        const float afterSideStep = practice();
+        Require(afterSideStep > initial, "side step failed to practice the native AP skill");
+        const int ap = actor->GetAP();
+        const int cost = actor->GetActionAP(NRPG::AC_MOVE_DIAGONAL);
+        actor->DoAction(NRPG::AC_MOVE_DIAGONAL);
+        Require(actor->GetAP() == ap - cost, "diagonal movement changed its native AP cost");
+        Require(practice() == afterSideStep, "diagonal movement incorrectly trained the native AP skill");
+        return;
+    }
+    actor->DoAction(NRPG::AC_BURST);
+    const float first = practice();
+    Require(first > initial, "first burst action did not practice the native burst skill");
+    actor->DoAction(NRPG::AC_BURST);
+    Require(practice() == first, "a consecutive bullet trained the native burst skill again");
+    actor->DoAction(NRPG::AC_END_SHOOT);
+    actor->DoAction(NRPG::AC_BURST);
+    Require(practice() > first, "the next burst did not resume the native skill practice");
+}
+
 void CriticalLifetime()
 {
     CObj<NRPG::CCritical> timed = NRPG::CreateCritical(NRPG::SCritical(NDb::CL_ANY, NDb::C_MOTIONLESS, 2));
@@ -947,6 +982,7 @@ void CrouchedClimbIdle(const char* databasePath, const char* resourcePath)
 
 bool RunUnitTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "combat-action-practice") && argc == 5) { CombatActionPractice(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "critical-lifetime") && argc == 2) { CriticalLifetime(); return true; }
     if (!std::strcmp(mode, "critical-health-and-session") && argc == 5) { CriticalHealthAndSession(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "corpse-density") && argc == 5) { CorpseDensity(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }

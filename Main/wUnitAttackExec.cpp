@@ -1463,12 +1463,7 @@ int CExecShoot::GetShortBurstLength() const
 	return 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// @0x3a20e0 -- advance a bullet timestamp by one inter-bullet period = round(60000/BPM) ms (the disasm computes
-// t -= round(-60000.0f/rec[+0x9c]), and +0x9c is nBPM -- bullets per MINUTE. NOT nRoF, which is the full-burst
-// bullet COUNT: dividing by nRoF (~12-30) gave multi-second gaps between burst bullets). Unchanged t on a
-// missing weapon/record.
-// v1.2 @0x7a23f0: a multi-bullet shot (ShotsInOne > 1) has NO inter-bullet interval -- the timestamp is
-// returned unchanged, so all pellets share one time (Segment's catch-up loop fires them in a single tick).
+// Patch 1 @0x7a20e0 truncates the interval in milliseconds. All pellets of a single shot share one time.
 STime CExecShoot::GetNextBulletTime( STime t ) const
 {
 	NRPG::IWeaponItem *pWeapon = pUS->GetUnitRPG()->GetWeaponItem();
@@ -1478,7 +1473,7 @@ STime CExecShoot::GetNextBulletTime( STime t ) const
 		if ( pDB && pDB->nShotsInOne > 1 )
 			return t;   // v1.2: all bullets of the shot go at once
 		if ( pDB && pDB->nBPM != 0 )
-			t += ( STime )( int )( 60000.0f / ( float )pDB->nBPM + 0.5f );
+			t += 60000 / pDB->nBPM;
 	}
 	return t;
 }

@@ -91,12 +91,14 @@ void ShootingCompletion(const char* databasePath, const char* resourcePath, int 
     if (inventory->Get(NDb::SLOT_1))
         inventory->TakeOff(NDb::SLOT_1);
     CObj<NRPG::CWeaponItem> weapon = new NRPG::CWeaponItem(record);
-    const bool delayedBurst = mode == 3;
+    const bool delayedBurst = mode == 3 || mode == 4;
     if (delayedBurst) {
         Require(record->pAnimWeaponType, "completion fixture lacks native firing animation settings");
         record->shootModes[NDb::SM_LongBurst] = true;
         record->pAnimWeaponType->nBulletDelay = 100;
     }
+    if (mode == 4)
+        record->nBPM = 725;
     Require(inventory->Equip(NDb::SLOT_1, weapon) && inventory->Activate(NDb::SLOT_1) &&
         weapon->SetShootMode(delayedBurst ? NDb::SM_LongBurst : NDb::SM_Snap),
         "shot completion fixture failed to activate its loaded gun");
@@ -177,6 +179,11 @@ void ShootingCompletion(const char* databasePath, const char* resourcePath, int 
     if (delayedBurst) {
         Require(keepLabels && shot->GetNextLaunch() > world->GetTime()->GetValue(),
             "delayed burst did not separate its first label from the last projectile");
+        if (mode == 4) {
+            Require(shot->GetNextLaunch() == world->GetTime()->GetValue() + 100 + 82,
+                "native burst launch rounded up its fractional 82-millisecond interval");
+            return;
+        }
         CObj<NDb::CSound> burstSound = new NDb::CSound;
         burstSound->nEndingSamples = 1;
         CObj<NWorld::C3DSound> sound = new NWorld::C3DSound(position.GetCP(), burstSound);

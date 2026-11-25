@@ -506,8 +506,6 @@ void CUnitMission::RegisterAction( EAction action )
 		action = AC_SHOOT;
 		nLastActionTimes = 0;
 	}
-    eLastAction = action;
-
 	if ( action != AC_END_SHOOT && action != AC_SHOOT && action != AC_BURST )
 		nLastActionTimes = 0;
 
@@ -528,7 +526,8 @@ void CUnitMission::RegisterAction( EAction action )
 			UseSkill( NDb::ST_SHOOTING );
 			break;
 		case AC_BURST:
-			UseSkill( NDb::ST_BURST );
+			if ( eLastAction != AC_BURST )
+				UseSkill( NDb::ST_BURST );
 			break;
 		case AC_HIDE:
 			// Original Steam 1.2 RegisterAction 0x6c213f: practice on Hide entry.
@@ -547,14 +546,11 @@ void CUnitMission::RegisterAction( EAction action )
 			// These six original action codes share the engineering handler at 0x6c2151.
 			UseSkill( NDb::ST_ENGINEERING );
 			break;
-		case AC_MOVE_DIAGONAL:
 		case AC_MOVE_SIDE:
-			// retail @0x34edb0: the nMoveInLastTurn accounting moved to DoAction (gated on RUN pose); here we
-			// only spend the AP-skill use. (Old code added it unconditionally here, with a diagonal fall-through
-			// bug that summed +3 -- both are corrected by the relocation.)
 			UseSkill( NDb::ST_AP );
 			break;
 	}
+	eLastAction = action;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitMission::GetFallDamage( float fHDiff ) 
