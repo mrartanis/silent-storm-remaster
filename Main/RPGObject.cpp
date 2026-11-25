@@ -81,7 +81,11 @@ void CObject::SetDestroyStage( int _nStage )
 {
 	ASSERT( _nStage >= 0 && _nStage <= nDestroyStages );
 	int nTmpStage = Clamp( _nStage, 0, nDestroyStages );
-	nVP = nMaxVP - ( nDestroyStages > 0 ? ( nTmpStage * nMaxVP ) / nDestroyStages : 0 );
+	// Retail v1.2 0x6ad3ad adds a half before storing to float and applying FISTP.
+	const int nDamage = nDestroyStages > 0
+		? Float2Int( float( double(nTmpStage) * nMaxVP / nDestroyStages + 0.5 ) )
+		: 0;
+	nVP = nMaxVP - nDamage;
 	nStage = nTmpStage;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

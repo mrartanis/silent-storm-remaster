@@ -10,12 +10,15 @@
 #include "../../Main/aiMap.h"
 #include "../../Main/aiStability.h"
 #include "../../Main/rpgGlobal.h"
+#include "../../Main/RPGGame.h"
+#include "../../Main/RPGObject.h"
 #include "../../Main/wMain.h"
 #include "../../Main/wOSBase.h"
 #include "../../DBFormat/DataMap.h"
 #include "../../DBFormat/DataObject.h"
 #include "../../DBFormat/DataFormat.h"
 #include "../../Misc/BasicShare.h"
+#include <cstdio>
 #include <cstring>
 
 namespace NGScene
@@ -32,6 +35,34 @@ namespace UpstreamTests
 {
 namespace
 {
+void ObjectDestroyStageVitality()
+{
+    struct Case { int stages, maximum, stage, expected; };
+    for (auto test : {Case{4, 15, 1, 11}, Case{3, 15, 1, 9}, Case{3, 12, 1, 8},
+        Case{3, 15, 0, 15}, Case{0, 15, 0, 15}, Case{3, 15, 3, -1}}) {
+        CObj<NRPG::IObject> object = NRPG::CreateObject(test.stages, nullptr);
+        CMemoryStream saved;
+        int initialStage = 0;
+        {
+            CStructureSaver writer(saved, CStructureSaver::WRITE);
+            writer.Add(2, &test.maximum);
+            writer.Add(3, &test.stages);
+            writer.Add(4, &initialStage);
+            writer.Add(5, &test.maximum);
+        }
+        saved.Seek(0);
+        {
+            CStructureSaver reader(saved, CStructureSaver::READ);
+            object->operator&(reader);
+        }
+        object->SetDestroyStage(test.stage);
+        std::printf("object vitality stages=%d maximum=%d stage=%d actualStage=%d vitality=%d expected=%d\n",
+            test.stages, test.maximum, test.stage, object->GetDestroyStage(), object->GetHP(), test.expected);
+        Require(object->GetDestroyStage() == test.stage && object->GetHP() == test.expected,
+            "native object stage did not round the vitality loss like the retail x87 calculation");
+    }
+}
+
 static void BuildingIndestructibleHP()
 {
     CObj<NBuilding::CBuildingGrid> grid = new NBuilding::CBuildingGrid;
@@ -245,6 +276,7 @@ void StabilityObjectCells(const char* databasePath, const char* resourcePath, in
 
 bool RunBuildingTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "object-destroy-stage-vitality")) { ObjectDestroyStageVitality(); return true; }
     if (!std::strcmp(mode, "building-indestructible-hp")) { BuildingIndestructibleHP(); return true; }
     if (!std::strcmp(mode, "building-damage-parts")) { BuildingDamageParts(); return true; }
     if (!std::strcmp(mode, "zero-scale-map-objects") && argc == 4) { ZeroScaleMapObjects(argv[2], argv[3]); return true; }
