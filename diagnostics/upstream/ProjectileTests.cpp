@@ -22,6 +22,7 @@
 #include "../../Main/RPGItem.h"
 #include "../../Main/RPGItemSet.h"
 #include "../../Main/rpgGlobal.h"
+#include "../../Main/rpgPerk.h"
 #include "../../Main/wUnitAttackExec.h"
 #include "../../DBFormat/DataRPG.h"
 #include "../../DBFormat/DataMap.h"
@@ -29,6 +30,7 @@
 #include "../../DBFormat/DataSound.h"
 #include "../../DBFormat/DataGeometry.h"
 #include "../../DBFormat/DataObject.h"
+#include "../../DBFormat/DataPerk.h"
 #include "../../Misc/RandomGen.h"
 #include "SoundVisitor.h"
 #include <set>
@@ -455,6 +457,99 @@ NDb::CRPGGrenade* FindModelledGrenade()
     return authored;
 }
 
+void ExplosionModifierOwnership(const char* databasePath, const char* resourcePath, int mode)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    auto* unit = actor->GetUnitRPG()->GetRPGUnit();
+    auto* tree = unit->GetPerksTree();
+    auto* perk = NDb::GetDBPerk(0x30);
+    Require(tree && perk && !perk->params.empty() && perk->params.front() != 1.f,
+        "explosive perk fixture lacks its authored structure modifier");
+    CObj<NRPG::CPerk> learned = new NRPG::CPerk(perk);
+    learned->Take();
+    unordered_map<int, CObj<NRPG::CPerk>> perks{{perk->GetRecordID(), learned}};
+    CMemoryStream perkFields;
+    { CStructureSaver writer(perkFields, CStructureSaver::WRITE); writer.Add(2, &perks); }
+    perkFields.Seek(0);
+    { CStructureSaver reader(perkFields, CStructureSaver::READ); static_cast<CObjectBase*>(tree)->operator&(reader); }
+    Require(unit->HasPerk(perk->GetRecordID()), "native RPG unit did not recover the saved explosive perk");
+
+    auto* master = world->GetExplosionMasterForHarness();
+    Require(IsValid(master), "explosive perk fixture lacks a native blast scheduler");
+    auto queue = [&] {
+        list<NWorld::CExplosionMaster::SStartInfo> pending;
+        CStructureNetworkContext refs;
+        auto fields = BorrowedObjectFields(master, &refs);
+        CStructureSaver reader(fields, CStructureSaver::READ, &refs);
+        reader.Add(5, &pending);
+        return pending;
+    };
+    const auto before = queue().size();
+    NWorld::SPerkMineModifiers placed;
+    placed.fStructureDmgModifier = 0.5f;
+    placed.fAEDmgModifier = 1.25f;
+    placed.bAlwaysHumanCritical = true;
+    auto* regular = FindModelledGrenade();
+    NDb::CRPGEngGrenade* engineer = nullptr;
+    CDBIterator<NDb::CRPGEngGrenade> engineers(*NDatabase::GetTable<NDb::CRPGEngGrenade>());
+    if (engineers.MoveNext())
+        engineer = engineers.Get();
+    Require(regular && engineer, "explosive perk fixture lacks authored blast records");
+    const auto origin = actor->GetPosition().GetCP() + CVec3(0.6f, 0.f, 1.f);
+    if (mode == 0) {
+        NDb::CRPGMine* record = nullptr;
+        CDBIterator<NDb::CRPGMine> mines(*NDatabase::GetTable<NDb::CRPGMine>());
+        while (mines.MoveNext()) {
+            if (mines.Get()->pItem && mines.Get()->pItem->pModel && mines.Get()->pExplosion) {
+                record = mines.Get();
+                break;
+            }
+        }
+        Require(record, "explosive perk fixture lacks an authored mine");
+        CObj<NWorld::CMine> mine = new NWorld::CMine(world, origin, record, 20,
+            actor->GetPosition().pos.GetFloor(), actor, 0);
+        mine->SetPerkModifiers(placed);
+        mine->GoBoom();
+    } else if (mode == 1) {
+        world->AddGrenadeExplosion(origin, engineer, 57, actor, nullptr, &placed);
+    } else if (mode == 2) {
+        world->AddGrenadeExplosion(origin, regular, actor);
+    } else {
+        SRand random(SRandomSeed(303));
+        CObj<NDb::CModel> model = regular->pItem->pModel->CreateModel(&random);
+        const auto release = world->GetTime()->GetValue();
+        const bool timed = mode == 3;
+        regular->nMaxDelay = 1;
+        CObj<NWorld::IDynamicObject> grenade = dynamic_cast<NWorld::IDynamicObject*>(world->ThrowGrenade(
+            origin, CVec3(0, 0, -3), release, 1.f, model, timed ? regular : nullptr, actor,
+            timed ? nullptr : engineer));
+        Require(grenade, "native world could not launch the perk-bearing grenade");
+        bool finished = false;
+        for (int elapsed = 0; elapsed <= 4000 && !finished; elapsed += 100) {
+            world->GetTime()->Set(release + elapsed);
+            MarkNewDGFrame();
+            finished = grenade->Segment();
+        }
+        Require(finished, "native grenade never reached its detonation condition");
+    }
+    const auto pending = queue();
+    Require(pending.size() == before + 1 && pending.back().pThrower.GetPtr() == actor,
+        "native blast queue lost the detonation or its attribution");
+    const auto& modifiers = pending.back().modifiers;
+    const float expectedStructure = mode <= 1 ? placed.fStructureDmgModifier :
+        mode == 2 ? 1.f : perk->params.front();
+    std::printf("native blast source=%d structure=%g area=%g critical=%d\n",
+        mode, modifiers.fStructureDmgModifier, modifiers.fAEDmgModifier, modifiers.bAlwaysHumanCritical);
+    Require(modifiers.fStructureDmgModifier == expectedStructure &&
+        modifiers.fAEDmgModifier == (mode <= 1 ? placed.fAEDmgModifier : 1.f) &&
+        modifiers.bAlwaysHumanCritical == (mode <= 1),
+        "native blast queue replaced the caller's stored or default explosive modifiers");
+    if (mode == 1)
+        Require(pending.back().pEngGrenade.GetPtr() == engineer && pending.back().nEngSkill == 57,
+            "native engineer blast changed its record or engineering skill");
+}
+
 static void FlyingGrenadeLifetime(const char* databasePath, const char* resourcePath)
 {
     auto world = FixtureWorld(databasePath, resourcePath, true);
@@ -723,6 +818,7 @@ bool RunProjectileTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "boss-weapon-state") && argc == 4) { BossWeaponState(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "sniper-target-policy") && argc == 5) { SniperTargetPolicy(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "disarm-callback") && argc == 6) { DisarmCallback(argv[2], argv[3], std::atoi(argv[4]) != 0, std::atoi(argv[5]) != 0); return true; }
+    if (!std::strcmp(mode, "explosion-modifier-ownership") && argc == 5) { ExplosionModifierOwnership(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "cover-ray-row-order") && argc == 4) { CoverRayRowOrder(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "equal-miss-ray-order") && argc == 2) { EqualMissRayOrder(); return true; }
     if (!std::strcmp(mode, "burst-ray-previous") && argc == 3) { BurstRayFollowsPrevious(std::atoi(argv[2]) != 0); return true; }

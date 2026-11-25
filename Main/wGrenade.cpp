@@ -6,6 +6,7 @@
 #include "../Misc/Geom.h"
 #endif
 #include "wGrenade.h"
+#include "wExplosionPerks.h"
 #include "wInterfaceVisitors.h"
 #include "Sync.h"
 #include "wDynObject.h"
@@ -17,6 +18,7 @@
 #include "../DBFormat/DataRPG.h"
 #include "aiMap.h"
 #include "RPGAttackMech.h"
+#include "RPGUnitInfo.h"
 #include "wUnitServer.h"    // complete CUnitServer: the thrower->CObjectBase cast (CASphereSet pIgnore) needs the real bases
 
 namespace NWorld
@@ -177,12 +179,15 @@ bool CGrenadeServer::Segment()
 	bool bIsTimeToExplode = bTimeDelayGrenade && IsTimeToExplode( pWorld->GetTime()->GetValue() );
 	if ( bIsTimeToExplode || bCollisionExplode )
 	{
+		SPerkMineModifiers modifiers;
+		if ( IsValid( pUnitServer ) )
+			modifiers.Fill( pUnitServer->GetRPG()->GetRPGUnit() );
 		// retail Segment @0x75c5e0 explosion dispatch: a live regular record -> world vtbl+0x124
 		// (regular blast); else the engineer record + thrower's ENG skill -> vtbl+0x120.
 		if ( IsValid( pRPGGrenade ) )
-			pWorld->AddGrenadeExplosion( GetPosition(), pRPGGrenade, pUnitServer );
+			pWorld->AddGrenadeExplosion( GetPosition(), pRPGGrenade, pUnitServer, 0, &modifiers );
 		else
-			pWorld->AddGrenadeExplosion( GetPosition(), pRPGEngGrenade, nThrowerEngSkill, pUnitServer );
+			pWorld->AddGrenadeExplosion( GetPosition(), pRPGEngGrenade, nThrowerEngSkill, pUnitServer, 0, &modifiers );
 		return true; // = erase
 	}
 	return false;

@@ -3311,16 +3311,11 @@ void CWorld::AddGrenadeExplosion( const CVec3 &vStartPosition, NDb::CRPGGrenade 
 	//AttachMiscObject( new CDFlash( vStartPosition + CVec3(0,0,5), CVec3(1,1,1), 10, 3 ) );
 	if ( pRPGGrenade->pSound.p[ nSoundType ] )
 		MakeSound( vStartPosition, pRPGGrenade->pSound.p[ nSoundType ]->GetSound( &rnd )->pSound );
-	// retail @0x364610: the blast is ENQUEUED into the explosion master (IExplosionMaster vtbl+0x14)
-	// with an already-FILLED modifiers struct -- a pre-placed source (mine / trapped door) passes the
-	// PLACER's stored modifiers via pMods (the placer may be gone by detonation); a live thrower's
-	// explosive perks are Filled HERE (W5: moved from the dev tracker ctor -- retail's ctor @0x356ff0
-	// receives the struct filled).
+	// Retail @0x364610 receives modifiers finalized by the caller. Mines and
+	// trapped doors pass their saved modifiers, and flying grenades supply the thrower's perks.
 	SPerkMineModifiers sModifiers;
 	if ( pMods )
 		sModifiers = *pMods;
-	if ( IsValid( pUnitServer ) )
-		sModifiers.Fill( pUnitServer->GetRPG()->GetRPGUnit() );
 	if ( IsValid( pExplosionMaster ) )
 		pExplosionMaster->AddExplosion( vStartPosition, pIgnitionObject, pRPGGrenade, pUnitServer, sModifiers );
 	// retail tail @0x764739..0x764898: the camera-shake event (gated on game_eq_on_grenades,
@@ -3355,13 +3350,10 @@ void CWorld::AddGrenadeExplosion( const CVec3 &vStartPosition, NDb::CRPGEngGrena
 		CreateParticle( vStartPosition, CQuat(GameRandom().GetFloat(0,10000),CVec3(0,0,1)), pRPGEngGrenade->pEffect.p[ nEffectType ]->GetEffect( &rnd ) );
 	if ( pRPGEngGrenade->pSound.p[ nSoundType ] )
 		MakeSound( vStartPosition, pRPGEngGrenade->pSound.p[ nSoundType ]->GetSound( &rnd )->pSound );
-	// retail @0x3648c0: enqueue into the explosion master (IExplosionMaster vtbl+0x10, the ENG
-	// overload) with the modifiers Filled here like the regular overload (W5).
+	// Retail @0x3648c0 queues the finalized modifiers for engineer blasts as well.
 	SPerkMineModifiers sModifiers;
 	if ( pMods )
 		sModifiers = *pMods;
-	if ( IsValid( pUnitServer ) )
-		sModifiers.Fill( pUnitServer->GetRPG()->GetRPGUnit() );
 	if ( IsValid( pExplosionMaster ) )
 		pExplosionMaster->AddExplosion( vStartPosition, pIgnitionObject, pRPGEngGrenade, pUnitServer, sModifiers, nEngSkill );
 	// retail tail @0x7649ee..0x764b4d: byte-for-byte the regular overload's shape, off the eng record
