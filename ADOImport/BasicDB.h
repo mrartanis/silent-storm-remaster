@@ -89,6 +89,7 @@ class CDBTableBase
 	typedef std::unordered_map<int, CObj<CDBRecord> > CRecordHash;
 	CRecordHash records;
 	NRetail::CIntHashOrder recordOrder;
+	void ClearRecords() { records.clear(); recordOrder.Clear(); }
 	void SetRecord( int nID, CDBRecord *pRecord );
 	struct SRecordArchive
 	{
@@ -109,6 +110,52 @@ public:
 	friend void NDatabase::Serialize( CDataStream &file, CStructureSaver::EMode mode, bool overlay, bool buildBaseLinks, NDatabase::SDatabaseLoadContext *loadContext );
   friend class CDBIteratorBase;
 };
+////////////////////////////////////////////////////////////////////////////////////////////////////
+inline void CDBTableBase::SetRecord( int nID, CDBRecord *pRecord )
+{
+	if ( records.find( nID ) == records.end() )
+		recordOrder.Insert( nID );
+	records[nID] = pRecord;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+inline int CDBTableBase::SRecordArchive::operator&( CStructureSaver &f )
+{
+	// Legacy tables use repeated key and value chunks. Replay their insertion
+	// order so a typed database round trip keeps the collision chains.
+	if ( f.IsReading() )
+	{
+		table.ClearRecords();
+		const int nRecords = f.CountChunks( 1 );
+		vector<int> ids( nRecords );
+		for ( int i = 0; i < nRecords; ++i )
+			f.Add( 1, &ids[i], i + 1 );
+		for ( int i = 0; i < nRecords; ++i )
+		{
+			auto entry = table.records.emplace( ids[i], CObj<CDBRecord>() );
+			if ( entry.second )
+				table.recordOrder.Insert( ids[i] );
+			f.Add( 2, &entry.first->second, i + 1 );
+		}
+	}
+	else
+	{
+		const int nRecords = static_cast<int>( table.records.size() );
+		for ( int i = 0; i < nRecords; ++i )
+		{
+			int id = table.recordOrder.GetInsertedKey( i );
+			f.Add( 1, &id, i + 1 );
+			f.Add( 2, &table.records.find( id )->second, i + 1 );
+		}
+	}
+	return 0;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+inline int CDBTableBase::operator&( CStructureSaver &f )
+{
+	SRecordArchive contents{ *this };
+	f.Add( 1, &contents );
+	return 0;
+}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T>
 class CDBTable: public CDBTableBase

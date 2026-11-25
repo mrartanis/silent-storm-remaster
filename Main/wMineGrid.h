@@ -5,7 +5,7 @@
 
 namespace NWorld
 {
-inline constexpr float F_MINE_GRID_STEP = 0.25f;
+constexpr float F_MINE_GRID_STEP = 0.25f;
 
 inline CVec3 QuantizeMinePosition( const CVec3 &position )
 {

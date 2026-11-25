@@ -592,7 +592,7 @@ using namespace NDatabase;
 void CDBTableBase::PreCreate( int nTypeID, bool overlay )
 {
 	(void)overlay; // editor import always replaces the table
-  records.clear();
+	ClearRecords();
 	// iterate through recordset & create records
 	for ( ; !table.IsEof(); table.MoveNext() )
 	{
@@ -606,7 +606,7 @@ void CDBTableBase::PreCreate( int nTypeID, bool overlay )
 		if ( i != records.end() )
 			ASSERT(0);  // record with this ID already created
 #endif
-		records[ pRes->nID ] = pRes;
+		SetRecord( pRes->nID, pRes );
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -614,7 +614,7 @@ void CDBTableBase::Refresh( int nTypeID )
 {
 	Sleep(0); // give control to the other thread (writing DB usually happens not in the current thread)
 	const CRecordHash copy = records;
-  records.clear();
+	ClearRecords();
 	// iterate through recordset & create records
 	for ( ; !table.IsEof(); table.MoveNext() )
 	{
@@ -631,7 +631,7 @@ void CDBTableBase::Refresh( int nTypeID )
 		if ( i != records.end() )
 			ASSERT(0);  // record with this ID already created
 #endif
-		records[ pRes->nID ] = pRes;
+		SetRecord( pRes->nID, pRes );
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -683,7 +683,7 @@ CDBRecord* CDBTableBase::GetDBRecord( int nID )
 								if ( pRes )
 								{
 									pRes->nID = tbl.GetInt( "ID" );
-									records[ pRes->nID ] = pRes;
+									SetRecord( pRes->nID, pRes );
 									COLETable holder;
 									holder = table; // CRAP
 									table = tbl;
