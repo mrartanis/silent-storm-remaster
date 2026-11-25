@@ -1,5 +1,6 @@
 #include "TestSupport.h"
 #include "../../Main/wMain.h"
+#include "../../Main/wMainPath.h"
 #include "../../Main/wUnitServer.h"
 #include "../../Main/wUnitCommands.h"
 #include "../../Main/wUnitExec.h"
@@ -12,6 +13,7 @@
 #include "../../Main/wUnitAttackExec.h"
 #include "../../Main/aiGrid.h"
 #include "../../Main/aiMoves.h"
+#include "../../Main/aiPath.h"
 #include "../../Main/A5Time.h"
 #include "../../Main/GAnimation.h"
 #include "../../Main/rpgPerk.h"
@@ -29,6 +31,49 @@ namespace UpstreamTests
 {
 namespace
 {
+void PathCommandGoal(const char* databasePath, const char* resourcePath, bool approximate)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    auto* network = dynamic_cast<NAI::CPathNetwork*>(world->GetPathNetwork());
+    Require(IsValid(network), "path command fixture has no native path network");
+    const auto start = actor->GetPosition();
+    const auto origin = start.pos.p;
+    const auto* layer = network->GetLayer(origin.GetLayer());
+    const int ap = actor->GetAP();
+    for (int dy = -6; dy <= 6; ++dy) {
+        for (int dx = -6; dx <= 6; ++dx) {
+            const int x = int(origin.GetX()) + dx, y = int(origin.GetY()) + dy;
+            if (dx * dx + dy * dy < 9 || x <= 0 || y <= 0 ||
+                x >= layer->tiles.GetXSize() - 1 || y >= layer->tiles.GetYSize() - 1)
+                continue;
+            auto destination = origin;
+            destination.SetXY(x, y);
+            if (network->GetPassability(destination) != NAI::AIP_NOT_PASSABLE)
+                continue;
+            const NAI::SPosition target(destination, network);
+            CObj<NWorld::CCmdPath> command = new NWorld::CCmdPath(target, NAI::PF_USE_POSEDIR);
+            const vector<NAI::SPathPlace> goals{destination};
+            CObj<NAI::CPath> fallback = NWorld::FindPath(network, actor, origin, goals, nullptr, true,
+                command->eParams, actor->IsStrafing(), true);
+            CObj<NAI::CPath> exact = NWorld::FindPath(network, actor, origin, goals, nullptr, true,
+                command->eParams, actor->IsStrafing(), false);
+            if (!IsValid(fallback) || IsValid(exact))
+                continue;
+            command->bCanFindNotExact = approximate;
+            NWorld::EUnitCommandResult result = NWorld::UCR_UNAVAILABLE;
+            CObj<NWorld::CCommandExecute> action = actor->CreateExecutor(command, &result);
+            if (approximate)
+                Require(action && result == NWorld::UCR_OK, "explicit approximate path command lost its reachable fallback");
+            else
+                Require(!action && result == NWorld::UCR_PATH_NOT_FOUND, "exact path command accepted a nearby tile for a blocked goal");
+            Require(actor->GetPosition() == start && actor->GetAP() == ap, "path command validation moved the unit or spent AP");
+            return;
+        }
+    }
+    Require(false, "native path command fixture lacks a blocked goal with a reachable approximation");
+}
+
 void DifficultySkillScaling()
 {
     CObj<NRPG::CDynamicSkill> reduced = new NRPG::CDynamicSkill(27, 20);
@@ -786,6 +831,7 @@ void CrouchedClimbIdle(const char* databasePath, const char* resourcePath)
 
 bool RunUnitTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "path-command-goal") && argc == 5) { PathCommandGoal(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "difficulty-skill-scaling") && argc == 2) { DifficultySkillScaling(); return true; }
     if (!std::strcmp(mode, "take-perk-during-treatment") && argc == 4) { TakePerkDuringTreatment(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "selected-critical-treatment-log") && argc == 3) { SelectedCriticalTreatmentLog(argv[2]); return true; }
