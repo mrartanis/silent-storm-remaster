@@ -726,6 +726,11 @@ CCommandExecute* CreateActionExecutor( CUnitServer *pUS, CCmd *pCmd, EUnitComman
 					*pError = UCR_GENERAL_FAILURE;
 					return 0;
 				}
+				if ( pAttackObject->pTarget.GetPtr() && !IsValid( pAttackObject->pTarget ) )
+				{
+					*pError = UCR_GENERAL_FAILURE;
+					return 0;
+				}
 				CDynamicCast<NWorld::CUnitServer> pUnitTarget(pAttackObject->pTarget);
 				EActionType eType = GetActionType(pUS);
 				if ( IsValid( pUnitTarget ) &&
@@ -736,17 +741,20 @@ CCommandExecute* CreateActionExecutor( CUnitServer *pUS, CCmd *pCmd, EUnitComman
 					return 0;
 				}
 				CDynamicCast<NRPG::IWeaponItem> pWeapon(pUS->GetUnitRPG()->GetInventory()->GetActive());
-				if (pWeapon)
+				if ( eType == AT_SHOOT && IsValid( pWeapon ) &&
+					pWeapon->GetShootMode() == NDb::SM_Snipe && !pUS->IsSniping() )
 				{
-					if (IsValid(pWeapon) && pWeapon->GetShootMode() == NDb::SM_Snipe && !pUS->IsSniping())
+					if ( pAttackObject->pTarget.GetPtr() && !IsValid( pUnitTarget ) )
 					{
-						if ( IsValid( pUnitTarget ) && !IsVisibleTarget( pUS, pUnitTarget ) )
-						{
-							*pError = UCR_CANT_SEE_TARGET;
-							return 0;
-						}
-						return CreateActionQueueOrReload(pUS, pAttackObject.GetPtr(), new CExecSnipeAim(pUS, pUnitTarget, pAttackObject->eHL), pError);
+						*pError = UCR_UNAVAILABLE;
+						return 0;
 					}
+					if ( IsValid( pUnitTarget ) && !IsVisibleTarget( pUS, pUnitTarget ) )
+					{
+						*pError = UCR_CANT_SEE_TARGET;
+						return 0;
+					}
+					return CreateActionQueueOrReload(pUS, pAttackObject.GetPtr(), new CExecSnipeAim(pUS, pUnitTarget, pAttackObject->eHL), pError);
 				}
 
 				if ( eType == AT_GRENADE )

@@ -3,6 +3,8 @@
 #include "../../Main/wMain.h"
 #include "../../Main/wExplTracker.h"
 #include "../../Main/wUnitServer.h"
+#include "../../Main/wUnitCommands.h"
+#include "../../Main/wUnitExec.h"
 #include "../../Main/wMine.h"
 #include "../../Main/wObject.h"
 #include "../../Main/A5Script.h"
@@ -44,7 +46,8 @@ void BossWeaponState(const char* databasePath, const char* resourcePath)
     NDb::CRPGWeapon* record = nullptr;
     CDBIterator<NDb::CRPGWeapon> rows(*NDatabase::GetTable<NDb::CRPGWeapon>());
     while (rows.MoveNext()) {
-        if (rows.Get()->pItem && rows.Get()->pWeaponType && !rows.Get()->bBazookaLogic && !rows.Get()->nPanzerkleinType) {
+        if (rows.Get()->pItem && rows.Get()->pWeaponType && rows.Get()->pInnerClip &&
+            !rows.Get()->bBazookaLogic && !rows.Get()->nPanzerkleinType) {
             record = rows.Get();
             break;
         }
@@ -65,6 +68,64 @@ void BossWeaponState(const char* databasePath, const char* resourcePath)
     check(NDb::WT_BOSS_PLAZMAGUN, NWorld::CUnit::ST_NORMAL_HAND_MACHINE_GUN);
     check(NDb::WT_TERROR_SHOOTER, NWorld::CUnit::ST_NORMAL_HAND_MACHINE_GUN);
     check(NDb::WT_TERROR_SPECIAL_GUN, NWorld::CUnit::ST_NORMAL_DEFAULT);
+}
+
+void SniperTargetPolicy(const char* databasePath, const char* resourcePath, int mode)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    auto* inventory = actor->GetUnitRPG()->GetInventory();
+    const bool launcher = mode == 2;
+    NDb::CRPGWeapon* record = nullptr;
+    CDBIterator<NDb::CRPGWeapon> rows(*NDatabase::GetTable<NDb::CRPGWeapon>());
+    while (rows.MoveNext()) {
+        auto* candidate = rows.Get();
+        if (candidate->bBazookaLogic == launcher && candidate->pItem && candidate->pInnerClip &&
+            candidate->pWeaponType && !candidate->nPanzerkleinType && (launcher || candidate->shootModes[NDb::SM_Snipe])) {
+            record = candidate;
+            break;
+        }
+    }
+    Require(record, "sniper validation fixture lacks a native weapon");
+    CObj<NRPG::CWeaponItem> weapon = new NRPG::CWeaponItem(record);
+    if (launcher)
+        record->shootModes[NDb::SM_Snipe] = true;
+    if (inventory->Get(NDb::SLOT_1))
+        inventory->TakeOff(NDb::SLOT_1);
+    Require(inventory->Equip(NDb::SLOT_1, weapon) && inventory->Activate(NDb::SLOT_1) &&
+        weapon->SetShootMode(NDb::SM_Snipe) && weapon->HasAmmo() && !actor->IsSniping(),
+        "sniper validation fixture could not prepare its loaded weapon");
+    actor->animator.SetActiveItem(true);
+    actor->animator.SetWeaponAnimation(actor->GetUnitRPG()->GetWeaponType());
+    actor->SetUndrawItem(false);
+
+    CObj<NWorld::CCmdShootObject> command = new NWorld::CCmdShootObject(nullptr, 0);
+    CObj<NWorld::CWindowDoor> stale;
+    if (mode == 0) {
+        for (const auto& item : world->GetObjectsForHarness()) {
+            auto* door = dynamic_cast<NWorld::CWindowDoor*>(item.GetPtr());
+            if (IsValid(door) && world->GetAIMap()->GetHull(door)) {
+                command->pTarget = door;
+                break;
+            }
+        }
+        Require(IsValid(command->pTarget), "sniper validation fixture lacks a native non-unit target");
+    } else if (mode == 1) {
+        stale = new NWorld::CWindowDoor;
+        command->pTarget = stale.GetPtr();
+        stale->Invalidate();
+        Require(command->pTarget.GetPtr() && !IsValid(command->pTarget), "native target did not become stale");
+    }
+    NWorld::EUnitCommandResult result = NWorld::UCR_OK;
+    CObj<NWorld::CCommandExecute> executor = NWorld::CreateExecutor(actor, command, &result);
+    std::printf("native sniper target case=%d result=%d executor=%d\n", mode, int(result), bool(executor));
+    if (launcher) {
+        Require(result == NWorld::UCR_OK && dynamic_cast<NWorld::CExecLaunchRocket*>(executor.GetPtr()),
+            "launcher validation incorrectly routed to rifle sniping");
+    } else {
+        Require(!executor && result == (mode == 0 ? NWorld::UCR_UNAVAILABLE : NWorld::UCR_GENERAL_FAILURE),
+            "sniper validation accepted a non-unit or stale target as an availability query");
+    }
 }
 
 void DisarmCallback(const char* databasePath, const char* resourcePath, bool floorMine, bool succeeds)
@@ -660,6 +721,7 @@ void RangedHitRollRange(const char* databasePath, const char* resourcePath)
 bool RunProjectileTests(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "boss-weapon-state") && argc == 4) { BossWeaponState(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "sniper-target-policy") && argc == 5) { SniperTargetPolicy(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "disarm-callback") && argc == 6) { DisarmCallback(argv[2], argv[3], std::atoi(argv[4]) != 0, std::atoi(argv[5]) != 0); return true; }
     if (!std::strcmp(mode, "cover-ray-row-order") && argc == 4) { CoverRayRowOrder(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "equal-miss-ray-order") && argc == 2) { EqualMissRayOrder(); return true; }
