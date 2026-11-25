@@ -622,6 +622,13 @@ void CUnitMission::StartRealTime()
 	ResetUnitParameters();
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+static int GetAuthoredActionAP( int nRecordID, int nFallback )
+{
+	auto *pTable = NDatabase::GetTable<NDb::CRPGAP>();
+	auto *pAP = pTable ? static_cast<NDb::CRPGAP*>( pTable->GetDBRecord( nRecordID ) ) : 0;
+	return pAP ? pAP->nAP : nFallback;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 {
 	// actions whose cost does not depend on the pose
@@ -658,9 +665,9 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 		case AC_CLIMB_3: return 14;
 		case AC_CLIMB_4: return 15;
 		case AC_JUMP: return 10;
-		case AC_TAKE_CORPSE: return 12;
-		case AC_TRAP_OBJECT: return 30;
-		case AC_DISARM_TRAP: return 30;
+		case AC_TAKE_CORPSE: return GetAuthoredActionAP( 1, 12 );
+		case AC_TRAP_OBJECT: return GetAuthoredActionAP( 2, 30 );
+		case AC_DISARM_TRAP: return GetAuthoredActionAP( 3, 30 );
 		case AC_SET_MINE: 
 			{
 				NRPG::IInventoryItem *pItem = pRPGUnit->GetInventory()->GetActive();
@@ -670,7 +677,7 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 			}
 			return 0;
 		case AC_DISARM_MINE:
-			return 30;
+			return GetAuthoredActionAP( 4, 30 );
 
 		case AC_REPAIR_PK:
 		case AC_FIRSTAID: 
@@ -702,7 +709,7 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 		case AC_OPEN_CLOSE:
 			return 4;
 		case AC_APPROACH_CANNON:
-			return 4;
+			return GetAuthoredActionAP( 6, 4 );
 
 		case AC_POSE_CRAWL:
 		case AC_POSE_CROUCH:
@@ -728,9 +735,9 @@ int CUnitMission::GetActionAP( NAI::EPose curPose, EAction action ) const
 		case AC_END_SHOOT:
 			return 0;
 		case AC_ENTER_PK:
-			return 10;
+			return GetAuthoredActionAP( 7, 10 );
 		case AC_LEAVE_PK:
-			return 6;
+			return GetAuthoredActionAP( 8, 6 );
 		case AC_ROTATE:
 			{
 				float fParam;

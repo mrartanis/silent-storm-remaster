@@ -35,6 +35,38 @@ namespace UpstreamTests
 {
 namespace
 {
+void RecordActionCosts(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    auto* mission = actor->GetUnitRPG();
+    struct CostCase { NRPG::EAction action; int id; };
+    constexpr CostCase authoredCosts[] = {
+        {NRPG::AC_TAKE_CORPSE, 1}, {NRPG::AC_TRAP_OBJECT, 2}, {NRPG::AC_DISARM_TRAP, 3},
+        {NRPG::AC_DISARM_MINE, 4}, {NRPG::AC_APPROACH_CANNON, 6}, {NRPG::AC_ENTER_PK, 7}, {NRPG::AC_LEAVE_PK, 8},
+    };
+    for (const auto& entry : authoredCosts) {
+        auto* record = NDb::GetRPGAP(entry.id);
+        Require(IsValid(record) && record->nAP >= 0, "AP fixture is missing an authored cost record");
+        record->nAP += 3;
+        Require(mission->GetActionAP(NAI::WALK, entry.action) == record->nAP, "native action ignored its loaded AP record");
+    }
+
+    Require(mission->GetActionAP(NAI::WALK, NRPG::AC_OPEN_CLOSE) == 4 &&
+        mission->GetActionAP(NAI::WALK, NRPG::AC_LADDER) == 2 &&
+        mission->GetActionAP(NAI::WALK, NRPG::AC_POSE_CROUCH) == 4 &&
+        mission->GetActionAP(NAI::WALK, NRPG::AC_MOVE_SIDE) == 4 &&
+        mission->GetActionAP(NAI::WALK, NRPG::AC_MOVE_DIAGONAL) == 6,
+        "stock fixed and movement coefficient controls changed");
+
+    world->GivePlayerTurn(actor->GetTBSPlayer());
+    mission->StartNewTurn(actor->GetPosition().GetCP());
+    const int before = actor->GetAP();
+    actor->DoAction(NRPG::AC_TRAP_OBJECT);
+    Require(actor->GetAP() == before - NDb::GetRPGAP(2)->nAP,
+        "paid native interaction ignored its loaded AP record");
+}
+
 void CombatActionPractice(const char* databasePath, const char* resourcePath, bool movement)
 {
     auto world = FixtureWorld(databasePath, resourcePath, true);
@@ -982,6 +1014,7 @@ void CrouchedClimbIdle(const char* databasePath, const char* resourcePath)
 
 bool RunUnitTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "record-action-costs") && argc == 4) { RecordActionCosts(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "combat-action-practice") && argc == 5) { CombatActionPractice(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "critical-lifetime") && argc == 2) { CriticalLifetime(); return true; }
     if (!std::strcmp(mode, "critical-health-and-session") && argc == 5) { CriticalHealthAndSession(argv[2], argv[3], std::atoi(argv[4])); return true; }
