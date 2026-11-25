@@ -1096,6 +1096,56 @@ void AICommandLogPolicy(const char* databasePath, const char* resourcePath, int 
     }
 }
 
+void AILogicReadiness(const char* databasePath, const char* resourcePath, int mode)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    const auto active = std::find_if(units.begin(), units.end(), [&](const auto& unit) {
+        return IsValid(unit) && IsValid(NAI::GetAIUnit(unit)) && unit->CanFight() && !unit->IsPerformingAction() && world->IsUnitActive(unit);
+    });
+    Require(active != units.end(), "AI logic fixture needs a ready native unit with battle control");
+    auto* actor = active->GetPtr();
+    auto* ai = NAI::GetAIUnit(actor);
+    ai->Synchronize(false);
+    CObj<NAI::CAILogic> logic = new NAI::CAILogic(ai);
+    if (mode == 0) {
+        Require(logic->IsActive(), "new native AI logic should start resumed");
+        logic->Pause();
+        logic->Pause();
+        Require(!logic->IsActive() && !logic->CanGetCommand(), "nested AI pause did not block its commands");
+        CStructureNetworkContext refs;
+        auto fields = BorrowedObjectFields(logic, &refs);
+        int depth = 0;
+        { CStructureSaver reader(fields, CStructureSaver::READ, &refs); reader.Add(2, &depth); }
+        Require(depth == -2, "native AI pause depth used the old sign in its saved record");
+        logic->Resume();
+        Require(!logic->IsActive(), "one resume released both nested pauses");
+        logic->Resume();
+        logic->Resume();
+        Require(logic->IsActive(), "paired resumes did not restore command readiness");
+    } else if (mode == 1) {
+        Require(logic->CanGetCommand(), "active idle AI logic failed the command-readiness control");
+        logic->Finish();
+        Require(!logic->CanGetCommand(), "finished native AI logic still accepted commands");
+        const auto inactive = std::find_if(units.begin(), units.end(), [&](const auto& unit) {
+            return IsValid(unit) && IsValid(NAI::GetAIUnit(unit)) && unit->CanFight() && !unit->IsPerformingAction() && !world->IsUnitActive(unit);
+        });
+        Require(inactive != units.end(), "AI readiness fixture needs an idle unit belonging to the other side");
+        CObj<NAI::CAILogic> waiting = new NAI::CAILogic(NAI::GetAIUnit(*inactive));
+        Require(!waiting->CanGetCommand(), "AI logic accepted commands before its side gained control");
+    } else {
+        ai->ClearNonFreezeCounter();
+        logic->DoCommand(nullptr);
+        Require(!logic->HasCommands() && ai->GetNonFreezeCounter() == 25, "invalid AI command did not add the original 25 loop units");
+        CStructureNetworkContext refs;
+        auto fields = BorrowedObjectFields(CastToObjectBase(ai), &refs);
+        int saved = 0;
+        { CStructureSaver reader(fields, CStructureSaver::READ, &refs); reader.Add(13, &saved); }
+        Require(saved == 25, "native AI serialized loop counter disagrees with the running counter units");
+    }
+}
 
 
 static void AIContactMembership(const char* databasePath, const char* resourcePath, int kind, int check)
@@ -1534,6 +1584,7 @@ static void OwnedAIEnemySelection(bool placeSource)
 
 bool RunAITests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "ai-logic-readiness") && argc == 5) { AILogicReadiness(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "ai-command-log-policy") && argc == 5) { AICommandLogPolicy(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "ai-contact-perception") && argc == 5) { AIContactPerception(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "default-deployment-route") && argc == 5) { DefaultDeploymentRoute(argv[2], argv[3], std::atoi(argv[4])); return true; }
