@@ -1,8 +1,10 @@
 #include "TestSupport.h"
 #include "NativeDisplayContext.h"
 #include "../../Main/wMain.h"
+#include "../../Main/wUnitServer.h"
 #include "../../Main/rpgGlobal.h"
 #include "../../Main/RPGItem.h"
+#include "../../Main/Sound.h"
 #include "../../Main/iMission.h"
 #include "../../Main/iGameStates.h"
 #include "../../Main/iCommonUI.h"
@@ -15,10 +17,13 @@
 #include "../../Main/UIInterface.h"
 #include "../../Main/UICommCtrls.h"
 #include "../../Main/UIBaseCtrls.h"
+#include "../../Main/iDesktopWindow.h"
 #include "../../Main/GfxBuffers.h"
 #include "../../DBFormat/DataInterface.h"
+#include "../../DBFormat/DataAck.h"
 #include "../../DBFormat/DataRPG.h"
 #include "../../Input/Bind.h"
+#include "../../MiscDll/Commands.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -27,6 +32,68 @@ namespace UpstreamTests
 {
 namespace
 {
+class AckSoundProbe : public NSound::ISoundScene
+{
+    OBJECT_NOCOPY_METHODS(AckSoundProbe);
+public:
+    vector<NDb::CSound*> voices;
+    NSound::CSound* Add3DSound(NDb::CSound*, CFuncBase<CVec3>*, STime) override { return nullptr; }
+    NSound::ISound2D* Add2DSound(NDb::CSound* voice, STime) override { voices.push_back(voice); return nullptr; }
+    NSound::CSoundEffect* AddEffect(NDb::CSoundEffect*, STime, CFuncBase<STime>*, CFuncBase<CVec3>*, const vector<int>&) override { return nullptr; }
+    void SetMusic(NDb::EMusicType) override {}
+    void FadeOutMusic() override {}
+    void Draw(CTransformStack*) override {}
+    void Pause(bool) override {}
+};
+
+void CharacterResponseVoice(const char* databasePath, const char* resourcePath, bool enabled)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* speaker = MovementPolicyActor(world);
+    CObj<NDb::CSound> voice = new NDb::CSound;
+    CObj<NDb::CDBAckInfo> ack = new NDb::CDBAckInfo;
+    ack->voices.assign(6, NDb::SAckVoice(voice, nullptr));
+    CObj<NWorld::CAckEvent> phrase = new NWorld::CAckEvent(1, speaker, ack);
+    CObj<NUI::CAckEvent> ready = new NUI::CAckEvent(phrase);
+    ready->Set(1000);
+
+    CObj<AckSoundProbe> mixer = new AckSoundProbe;
+    CObj<NUI::CInterface> ui = new NUI::CInterface(nullptr, mixer);
+    CObj<NUI::CWindow> panel = dynamic_cast<NUI::CWindow*>(pSSClasses->CreateObject(int(0xB0241940u)));
+    Require(IsValid(panel), "native acknowledgment window is not registered for loading");
+    ui->AddChild(panel);
+    panel->SetSize(NUI::SPoint(480, 30));
+    CObj<NUI::CText> text = new NUI::CText(NUI::SWindowInfo(panel, NUI::SPoint(4, 4),
+        NUI::SPoint(472, 20), "acktext", NUI::STYLE_VISIBLE));
+    const wstring subtitle = L"Native acknowledgment subtitle";
+    text->SetText(subtitle);
+    CStructureNetworkContext refs;
+    refs.externalReferences = true;
+    refs.ids[text.GetPtr()] = 1;
+    refs.refs[1] = text.GetPtr();
+    refs.ids[ready.GetPtr()] = 2;
+    refs.refs[2] = ready.GetPtr();
+    refs.nextID = 100;
+    refs.include = [](CObjectBase*) { return false; };
+    CMemoryStream fields;
+    bool pending = true;
+    CPtr<NUI::CAckEvent> event = ready.GetPtr();
+    { CStructureSaver writer(fields, CStructureSaver::WRITE, &refs);
+      writer.Add(3, &pending); writer.Add(4, &text); writer.Add(5, &event); }
+    fields.Seek(0);
+    { CStructureSaver reader(fields, CStructureSaver::READ, &refs); static_cast<CObjectBase*>(panel.GetPtr())->operator&(reader); }
+
+    NGlobal::SetVar("ui_charresponses", enabled ? 1.f : 0.f);
+    panel->Update(1000, ui->GetView());
+    Require(mixer->voices.size() == size_t(enabled) && (!enabled || mixer->voices.front() == voice.GetPtr()),
+        "acknowledgment voice did not follow the native character response option");
+    Require(text->GetText() == subtitle && !ready->IsComplete(3999),
+        "character response option changed the subtitle or retired it too early");
+    panel->Update(4000, ui->GetView());
+    Require(ready->IsComplete(4000) && mixer->voices.size() == size_t(enabled),
+        "character response option changed subtitle expiry or replayed the voice");
+}
+
 void TemplateControlTieOrder()
 {
     CObj<NDb::CUIContainer> menu = new NDb::CUIContainer;
@@ -309,6 +376,7 @@ static void OptionsPenCursor(const char* databasePath,const char* resourcePath)
 
 bool RunUITests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "character-response-voice") && argc == 5) { CharacterResponseVoice(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "template-control-tie-order") && argc == 2) { TemplateControlTieOrder(); return true; }
     if (!std::strcmp(mode, "inventory-drag-during-action")) { InventoryDragDuringAction(); return true; }
     if (!std::strcmp(mode, "inventory-wait-ends-when-ready")) { InventoryWaitEndsWhenReady(); return true; }
