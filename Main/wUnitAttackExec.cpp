@@ -3738,6 +3738,23 @@ void CExecCreateAndActivateInventoryItem::Run()
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CExecMoveItem
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+void CExecDropItemFromHand::Run()
+{
+	CObj<NRPG::IInventoryItem> pItem = pUS->GetHandItem().pItem.GetPtr();
+	if ( IsValid( pItem ) )
+	{
+		NDb::CRPGItem *pRecord = pItem->GetDBItem();
+		if ( !IsValid( pRecord ) || !IsValid( pRecord->pModel ) )
+		{
+			Failed();
+			return;
+		}
+		pUS->SetHandItem( SItem( pUS, SItem::VACUUM ) );
+		LaunchItem( pUS, pItem );
+	}
+	Finished();
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 CExecMoveInventoryItem::CExecMoveInventoryItem( CUnitServer *_pUS, CCmdMoveInventoryItem *_p ):
 	CCommandExecute(_pUS), pCmd(_p)
 {
@@ -4123,6 +4140,7 @@ REGISTER_SAVELOAD_CLASS( 0x00622140, CExecHeal )
 REGISTER_SAVELOAD_CLASS( 0x53042170, CExecSnipeAim )
 REGISTER_SAVELOAD_CLASS( 0x10662170, CExecThrowKnife )
 REGISTER_SAVELOAD_CLASS( 0x01122132, CExecMoveInventoryItem )
+REGISTER_SAVELOAD_CLASS( 0x23074b41, CExecDropItemFromHand )
 REGISTER_SAVELOAD_CLASS( 0x50372121, CExecCollectSnipeAP )
 REGISTER_SAVELOAD_CLASS( 0x50372000, CExecLaunchRocket )
 REGISTER_SAVELOAD_CLASS( 0x51892150, CExecUsePassage )

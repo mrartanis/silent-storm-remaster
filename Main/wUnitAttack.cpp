@@ -636,6 +636,8 @@ static CCommandExecute* CreateActionQueueOrReload( CUnitServer *pUS, TCommand *p
 CCommandExecute* CreateActionExecutor( CUnitServer *pUS, CCmd *pCmd, EUnitCommandResult *pError )
 {
 	*pError = UCR_OK;
+	if ( CDynamicCast<CCmdDropItemFromHand>( pCmd ) )
+		return new CExecDropItemFromHand( pUS );
 	CDynamicCast<CCmdSwap> pSwap( pCmd );
 	if ( pSwap )
 	{

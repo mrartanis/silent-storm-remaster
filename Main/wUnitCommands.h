@@ -454,6 +454,11 @@ class CCmdArrangeInventory: public CCmd
 	OBJECT_BASIC_METHODS(CCmdArrangeInventory);
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+class CCmdDropItemFromHand: public CCmd
+{
+	OBJECT_BASIC_METHODS(CCmdDropItemFromHand);
+};
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // Retail-only HQ-store refresh command (saveload id 0xB3120150).  The command carries no data;
 // CExecUpdateStore resolves the issuing unit's player and rebuilds that player's store.
 class CCmdUpdateStore: public CCmd

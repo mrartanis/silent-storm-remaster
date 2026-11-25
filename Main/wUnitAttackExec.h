@@ -757,6 +757,17 @@ public:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CExecMoveInventoryItem
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+class CExecDropItemFromHand: public CCommandExecute
+{
+	OBJECT_BASIC_METHODS(CExecDropItemFromHand);
+	ZDATA_(CCommandExecute)
+	ZEND int operator&( CStructureSaver &f ) { f.Add(1,(CCommandExecute*)this); return 0; }
+public:
+	CExecDropItemFromHand() {}
+	explicit CExecDropItemFromHand( CUnitServer *pUnit ): CCommandExecute( pUnit ) {}
+	void Run() override;
+};
+////////////////////////////////////////////////////////////////////////////////////////////////////
 class CExecMoveInventoryItem: public CCommandExecute
 {
 	OBJECT_BASIC_METHODS(CExecMoveInventoryItem);

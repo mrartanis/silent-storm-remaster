@@ -1,6 +1,9 @@
 #include "TestSupport.h"
 #include "../../Main/wMain.h"
 #include "../../Main/wUnitServer.h"
+#include "../../Main/wUnitCommands.h"
+#include "../../Main/wUnitExec.h"
+#include "../../Main/AILog.h"
 #include "../../Main/wOSBase.h"
 #include "../../Main/RPGUnit.h"
 #include "../../Main/RPGUnitMission.h"
@@ -38,6 +41,127 @@ namespace UpstreamTests
 {
 namespace
 {
+void AIWeaponSwitchOrder(const char* databasePath, const char* resourcePath, int mode)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, false, &game);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* actor = nullptr;
+    NAI::IAIUnit* brain = nullptr;
+    for (const auto& unit : units) {
+        if (!IsValid(unit) || !unit->IsAIUnit() || !unit->CanFight() || unit->IsWearingPK() || unit->IsEmptyPK())
+            continue;
+        auto* candidate = NAI::GetAIUnit(unit);
+        if (candidate && candidate->GetAIInventory()) {
+            actor = unit.GetPtr();
+            brain = candidate;
+            break;
+        }
+    }
+    Require(actor && brain, "weapon switch fixture lacks a native AI actor");
+    auto* mission = actor->GetUnitRPG();
+    auto* inventory = mission->GetInventory();
+    auto* record = NDatabase::GetTable<NDb::CRPGWeapon>()->GetRecord(26);
+    auto* fists = dynamic_cast<NRPG::CMeleeWeaponItem*>(mission->GetRPGUnit()->pDefaultWeapon.GetPtr());
+    Require(record && fists, "weapon switch fixture lacks its gun or the actor's innate melee item");
+    CObj<NRPG::CWeaponItem> oldGun = new NRPG::CWeaponItem(record);
+    CObj<NRPG::CWeaponItem> newGun = new NRPG::CWeaponItem(record);
+    if (inventory->Get(NDb::SLOT_1))
+        inventory->TakeOff(NDb::SLOT_1);
+    if (mode != 2)
+        Require(inventory->Equip(NDb::SLOT_1, oldGun), "weapon switch could not equip its initial gun");
+    Require(inventory->Activate(NDb::SLOT_1), "weapon switch could not activate the first slot");
+    if (mode != 1) {
+        CTPoint<int> point;
+        Require(inventory->FindPlace(newGun, &point) && inventory->Place(point, newGun),
+            "weapon switch could not place the replacement in the backpack");
+    }
+    CObj<NDb::CRPGItem> fillerRecord;
+    if (mode == 0) {
+        fillerRecord = new NDb::CRPGItem;
+        fillerRecord->sSize = CTPoint<int>(1, 1);
+        for (;;) {
+            CObj<NRPG::IInventoryItem> filler = NRPG::CreateDummyItem(fillerRecord);
+            CTPoint<int> point;
+            if (!inventory->FindPlace(filler, &point))
+                break;
+            Require(inventory->Place(point, filler), "weapon switch could not fill its backpack control");
+        }
+        CTPoint<int> point;
+        Require(!inventory->FindPlace(oldGun, &point), "full backpack still had room for the original gun");
+    }
+    const bool draw = mode != 1;
+    const bool stow = mode != 2;
+    CObj<NAI::IAIInventoryItem> bare = NAI::CreateAIMeleeWeapon(fists);
+    CObj<NAI::IAIInventoryItem> oldItem = NAI::CreateAIFireArmsWeapon(brain, oldGun);
+    CObj<NAI::IAIInventoryItem> newItem = NAI::CreateAIFireArmsWeapon(brain, newGun);
+    brain->GetAIInventory()->SetCurrentItem(stow ? oldItem : bare);
+    CObj<NAI::CAILogChangeWeapon> change = new NAI::CAILogChangeWeapon(brain, draw ? newItem : bare);
+    list<CPtr<NWorld::CCommand>> commands;
+    change->GetCommands(&commands);
+    auto next = commands.begin();
+    auto get = [&]() {
+        Require(next != commands.end(), "weapon switch lost a native command");
+        auto* wrapper = dynamic_cast<NWorld::CCmdSetCommand*>((next++)->GetPtr());
+        Require(wrapper && wrapper->pUnit == actor, "weapon switch changed the owning actor");
+        return wrapper->GetCmd();
+    };
+    vector<CObj<NWorld::CCmd>> transfers;
+    using namespace NWorld;
+    if (draw) {
+        auto* move = dynamic_cast<CCmdMoveInventoryItem*>(get());
+        Require(move && move->GetSource().eType == SItem::BACKPACK && move->GetSource().pItem == newGun &&
+            move->GetTarget().eType == SItem::SLOT && move->GetTarget().nSlot == NDb::SLOT_1,
+            "weapon switch must draw the replacement from the backpack first");
+        transfers.push_back(move);
+    }
+    if (stow) {
+        auto* move = dynamic_cast<CCmdMoveInventoryItem*>(get());
+        Require(move && move->GetSource().eType == (draw ? SItem::HAND : SItem::SLOT) &&
+            move->GetTarget().eType == SItem::BACKPACK && move->GetTarget().pItem == oldGun,
+            "weapon switch did not stow the displaced gun from its actual location");
+        transfers.push_back(move);
+        auto* cleanup = get();
+        Require(pSSClasses->GetObjectTypeID(cleanup) == 0x23074b40,
+            "weapon switch did not queue native hand cleanup after stowing");
+        transfers.push_back(cleanup);
+    }
+    auto* activate = dynamic_cast<CCmdSetActiveItem*>(get());
+    Require(activate && activate->nSlot == NDb::SLOT_1 && dynamic_cast<CCmdArrangeInventory*>(get()) &&
+        next == commands.end(), "weapon switch did not finish with slot selection and backpack arrangement");
+
+    world->GivePlayerTurn(actor->GetTBSPlayer());
+    for (const auto& order : transfers) {
+        EUnitCommandResult result = UCR_UNAVAILABLE;
+        CObj<CCommandExecute> executor = actor->CreateExecutor(order, &result);
+        Require(executor && result == UCR_OK, "queued weapon transfer failed native validation");
+        executor->Run();
+        for (int phase = 0; phase < 2 && executor->IsExecuting(); ++phase) {
+            executor->TimeLabelReached();
+            executor->AnimationFinished();
+        }
+        Require(executor->GetState() == CCommandExecute::FINISHED, "queued weapon transfer did not finish");
+    }
+    Require(inventory->Get(NDb::SLOT_1) == (draw ? newGun.GetPtr() : nullptr) &&
+        !actor->GetHandItem().pItem, "weapon switch left the wrong active slot or retained a hand item");
+    if (stow)
+        Require(std::any_of(inventory->GetItems().begin(), inventory->GetItems().end(),
+            [&](const auto& entry) { return entry.pItem == oldGun; }), "weapon switch lost the stowed gun");
+    if (mode == 0) {
+        inventory->Take(oldGun);
+        actor->SetHandItem(SItem(actor, SItem::SLOT, NDb::SLOT_1, oldGun));
+        EUnitCommandResult result = UCR_UNAVAILABLE;
+        const int ap = actor->GetAP();
+        CObj<CCommandExecute> drop = actor->CreateExecutor(transfers.back(), &result);
+        Require(drop && result == UCR_OK, "hand cleanup cannot run with the displaced item still in hand");
+        drop->Run();
+        Require(drop->GetState() == CCommandExecute::FINISHED && !actor->GetHandItem().pItem &&
+            inventory->Get(NDb::SLOT_1) == newGun && actor->GetAP() == ap,
+            "hand cleanup failed to clear the displaced item without spending action points");
+    }
+}
+
 void SelfHealingWithBandagedHealth(const char* databasePath, const char* resourcePath)
 {
     auto world = FixtureWorld(databasePath, resourcePath);
@@ -851,6 +975,7 @@ static void OwnedAIEnemySelection(bool placeSource)
 
 bool RunAITests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "ai-weapon-switch-order") && argc == 5) { AIWeaponSwitchOrder(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "ai-self-healing-bandaged-health") && argc == 4) { SelfHealingWithBandagedHealth(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "map-deployment-reactions") && argc == 5) { MapDeploymentReactions(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "ai-reaction-reset-contacts")) { AIReactionResetContacts(); return true; }

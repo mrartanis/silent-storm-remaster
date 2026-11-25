@@ -53,6 +53,7 @@ CCommandExecute* CUnitState::CreateInventoryAwareExecutor( CCmd *pCmd, EUnitComm
 	SItem item;
 	if ( IsValid( pPlayer ) && pPlayer->GetInHandItem( &item ) &&
 		!CDynamicCast<CCmdMoveInventoryItem>( pCmd ) &&
+		!CDynamicCast<CCmdDropItemFromHand>( pCmd ) &&
 		!CDynamicCast<CCmdLoadWeapon>( pCmd ) && !CDynamicCast<CCmdReload>( pCmd ) )
 	{
 		*pResult = UCR_UNAVAILABLE;
