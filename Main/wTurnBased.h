@@ -635,6 +635,7 @@ public:
 					CancelAllAction();
 					bFirstTurn = true;
 					StartPlayerTurn( pPlayer );
+					CheckAutoFirstTurnInterrupts( pPlayer );
 					break;
 				}
 				else if ( pC->IsRequestCancel() )

@@ -603,6 +603,55 @@ void OrdinaryPlacementAnchor(const char* databasePath, const char* resourcePath,
     }
 }
 
+void ManualFirstTurnInterrupt(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* actor = MovementPolicyActor(world);
+    auto* first = actor->GetTBSPlayer();
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    auto candidate = std::find_if(units.begin(), units.end(), [&](const auto& unit) {
+        return IsValid(unit) && unit->CanFight() && unit->GetTBSPlayer() != first && unit->GetTBSPlayer() &&
+            unit->GetUnitRPG()->GetRPGUnit()->GetPerksTree();
+    });
+    Require(candidate != units.end(), "first-turn fixture lacks the second player and perk-bearing unit");
+    auto* reacting = candidate->GetPtr();
+    auto* second = reacting->GetTBSPlayer();
+    RestoreSinglePerk(reacting->GetUnitRPG()->GetRPGUnit(), 0x1b);
+    Require(reacting->HasAutoFirstTurnInterrupt(), "native unit did not acquire the first-turn interrupt");
+
+    vector<CPtr<NWorld::CPlayer>> players;
+    world->GetPlayersList(&players);
+    for (const auto& player : players)
+        player->SetCommander(new NWorld::CCommander);
+    auto& turns = static_cast<NWorld::CWorld::TTBSWorld&>(*world.GetPtr());
+    list<NWorld::STBSEvent> empty;
+    bool firstTurn = false;
+    CMemoryStream fields;
+    {
+        CStructureSaver writer(fields, CStructureSaver::WRITE);
+        writer.Add(2, &empty);
+        writer.Add(6, &firstTurn);
+        writer.Add(7, &empty);
+    }
+    fields.Seek(0);
+    { CStructureSaver reader(fields, CStructureSaver::READ); turns.operator&(reader); }
+    vector<CPtr<NWorld::IPlayer>> interrupts;
+    world->GetInterrupts(&interrupts);
+    Require(interrupts.empty() && world->IsRealTime(), "first-turn fixture did not enter an empty turn stack");
+    first->GetCommander()->Do(new NWorld::CCmdSetCommand(actor,
+        new NWorld::CCmdShootTile(actor->GetPosition().GetCP() + CVec3(2.f, 0.f, 0.5f))));
+    Require(first->GetCommander()->IsRequestInterrupt(),
+        "native commander did not request a turn for its non-skippable order");
+    turns.Segment();
+    world->GetInterrupts(&interrupts);
+    std::printf("native manual first-turn stack=%zu\n", interrupts.size());
+    Require(interrupts.size() == 2 && interrupts[0].GetPtr() == first && interrupts[1].GetPtr() == second &&
+        world->GetCurrentPlayer() == second && world->IsFirstTurn(),
+        "manual first-turn request omitted the opposing unit's automatic interrupt");
+}
+
 void OwnerWoundPolicy(const char* databasePath, const char* resourcePath, int mode)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -754,6 +803,7 @@ bool RunUnitTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "scripted-ack-speaker") && argc == 4) { ScriptedAckSpeaker(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "owner-wound-policy") && argc == 5) { OwnerWoundPolicy(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "ordinary-placement-anchor") && argc == 5) { OrdinaryPlacementAnchor(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
+    if (!std::strcmp(mode, "manual-first-turn-interrupt") && argc == 4) { ManualFirstTurnInterrupt(argv[2], argv[3]); return true; }
     return false;
 }
 }

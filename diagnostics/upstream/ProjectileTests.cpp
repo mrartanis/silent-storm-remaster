@@ -23,7 +23,6 @@
 #include "../../Main/RPGItemSet.h"
 #include "../../Main/GAnimParticles.h"
 #include "../../Main/rpgGlobal.h"
-#include "../../Main/rpgPerk.h"
 #include "../../Main/wUnitAttackExec.h"
 #include "../../DBFormat/DataRPG.h"
 #include "../../DBFormat/DataMap.h"
@@ -476,18 +475,10 @@ void ExplosionModifierOwnership(const char* databasePath, const char* resourcePa
     auto world = FixtureWorld(databasePath, resourcePath, true);
     auto* actor = MovementPolicyActor(world);
     auto* unit = actor->GetUnitRPG()->GetRPGUnit();
-    auto* tree = unit->GetPerksTree();
     auto* perk = NDb::GetDBPerk(0x30);
-    Require(tree && perk && !perk->params.empty() && perk->params.front() != 1.f,
+    Require(perk && !perk->params.empty() && perk->params.front() != 1.f,
         "explosive perk fixture lacks its authored structure modifier");
-    CObj<NRPG::CPerk> learned = new NRPG::CPerk(perk);
-    learned->Take();
-    unordered_map<int, CObj<NRPG::CPerk>> perks{{perk->GetRecordID(), learned}};
-    CMemoryStream perkFields;
-    { CStructureSaver writer(perkFields, CStructureSaver::WRITE); writer.Add(2, &perks); }
-    perkFields.Seek(0);
-    { CStructureSaver reader(perkFields, CStructureSaver::READ); static_cast<CObjectBase*>(tree)->operator&(reader); }
-    Require(unit->HasPerk(perk->GetRecordID()), "native RPG unit did not recover the saved explosive perk");
+    RestoreSinglePerk(unit, perk->GetRecordID());
 
     const auto before = PendingExplosions(world).size();
     NWorld::SPerkMineModifiers placed;

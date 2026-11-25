@@ -8,13 +8,14 @@
 #include "../../Misc/Geom.h"
 #endif
 
-namespace NRPG { class CGlobalGame; }
+namespace NRPG { class CGlobalGame; class CUnit; }
 namespace NWorld { class CWorld; class CUnitServer; }
 
 namespace UpstreamTests
 {
 void Require(bool value, const char* message);
 CMemoryStream BorrowedObjectFields(CObjectBase* object, CStructureNetworkContext* references);
+void RestoreSinglePerk(NRPG::CUnit* unit, int id);
 CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* resourcePath,
     bool deployParty = false, CObj<NRPG::CGlobalGame>* retainedGame = nullptr, int variantID = 810,
     NWorld::CWorld* (*factory)(NRPG::CGlobalGame*) = nullptr);

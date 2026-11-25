@@ -563,14 +563,23 @@ static void ActionSkillAcknowledgment(const char* databasePath,bool interrupt = 
             if (interrupt) {
                 auto expectedRandom = GlobalGameRandom();
                 const int roll = expectedRandom.Get(100);
+                NRPG::SUnitInfo info;
+                mission->GetInfo(NAI::WALK, &info);
+                const auto& constants = *mission->GetInterruptsConstants();
+                const int base = (test.flags & 2) ? constants.nMissedShotInterruptsBase :
+                    (test.flags & 1) ? constants.nInterruptsBase : constants.nBackInterruptsBase;
+                const int skills = int(unit->Skills(NDb::ST_INTERRUPT)) -
+                    int(opponent->GetRPGUnit()->Skills(NDb::ST_INTERRUPT));
+                const int penalty = int(constants.fAPInterruptReduction * (info.nMaxAP - info.nAP));
+                const int probability = info.nAP <= constants.nMinInterruptAP ? 0 : Clamp(base + skills - penalty, 5, 95);
+                Require(test.flags != 4 || probability == 0, "exhausted-AP fixture did not reach its zero-probability gate");
                 const int outcome = mission->CheckInterrupt(opponent,test.flags & 1,test.flags & 2);
                 auto afterRandom = GlobalGameRandom();
                 for (int next=0;next<4;++next)
                     Require(afterRandom.Get() == expectedRandom.Get(),
                         "interrupt skill acknowledgment changed the native single-roll random stream");
-                const int probability = outcome+roll;
-                Require(test.flags == 4 ? probability == 0 : probability >= 5 && probability <= 95,
-                    "interrupt skill acknowledgment changed the native probability range or exhausted-AP gate");
+                const int expected = roll <= probability ? int(reference->Skills(NDb::ST_INTERRUPT)) : -1;
+                Require(outcome == expected, "native interrupt did not rank a success by skill or return minus one on failure");
             }
             else mission->RegisterAction(test.action);
             unchangedTraining();

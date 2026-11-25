@@ -5,6 +5,8 @@
 #include "../../Main/RPGUnitMission.h"
 #include "../../Main/aiCommander.h"
 #include "../../Main/GInit.h"
+#include "../../Main/rpgPerk.h"
+#include "../../DBFormat/DataPerk.h"
 #include <stdexcept>
 
 namespace UpstreamTests
@@ -33,6 +35,21 @@ CMemoryStream BorrowedObjectFields(CObjectBase* object, CStructureNetworkContext
     { CStructureSaver writer(saved, CStructureSaver::WRITE, references); object->operator&(writer); }
     saved.Seek(0);
     return saved;
+}
+
+void RestoreSinglePerk(NRPG::CUnit* unit, int id)
+{
+    auto* tree = unit->GetPerksTree();
+    auto* perk = NDb::GetDBPerk(id);
+    Require(tree && perk, "fixture lacks its native perk tree or perk record");
+    CObj<NRPG::CPerk> learned = new NRPG::CPerk(perk);
+    learned->Take();
+    unordered_map<int, CObj<NRPG::CPerk>> perks{{id, learned}};
+    CMemoryStream fields;
+    { CStructureSaver writer(fields, CStructureSaver::WRITE); writer.Add(2, &perks); }
+    fields.Seek(0);
+    { CStructureSaver reader(fields, CStructureSaver::READ); static_cast<CObjectBase*>(tree)->operator&(reader); }
+    Require(unit->HasPerk(id), "native RPG unit did not recover its saved perk");
 }
 
 CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* resourcePath,
