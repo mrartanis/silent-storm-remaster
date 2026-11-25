@@ -814,11 +814,15 @@ int CAIUnit::GetToHitWithWeapon( IAIUnit *pTarget, const NAI::SUnitPosition &pos
 {
 	if ( !IsValid( pTarget ) || !IsValid( GetUnitServer() ) )
 		return 0;
-	// A planner may select a rifle while another item is in its current hand.
-	CPtr<CAIFireArmsWeapon> pWeapon = IsValid( pSelectedWeapon ) ? pSelectedWeapon : GetAIInventory()->GetCurrentFireArms();
-	if ( IsValid( pWeapon ) )
+	// An explicit candidate wins; the current-item fallback includes launchers.
+	CAIFireArmsWeaponBase *pWeapon = pSelectedWeapon;
+	if ( !IsValid( pWeapon ) && IsValid( GetAIInventory() ) )
+		pWeapon = CDynamicCast<CAIFireArmsWeaponBase>( GetAIInventory()->GetCurrentItem() );
+	if ( IsValid( pWeapon ) && IsValid( pWeapon->GetItem() ) )
 	{
 		const float fHitCover = GetCoverForFixedUnitPrecise( pos, pTarget->GetUnitServer(), pWeapon->GetItem(), hl );
+		if ( !( fHitCover > 0.f ) )
+			return 0;
 		CPtr<NRPG::CAIUnitToHitCalcer> pCalcer = new NRPG::CAIUnitToHitCalcer( this, pos, pTarget, fHitCover, hl, 0, pWeapon->GetItem(), 0 );
 		return pCalcer->GetToHit();
 	}

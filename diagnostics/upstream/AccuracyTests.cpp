@@ -12,20 +12,24 @@
 #include "../../Main/wMain.h"
 #include "../../Main/wUnitServer.h"
 #include "../../DBFormat/DataRPG.h"
+#include "../../Main/aiInventory.h"
+#include "../../Main/aiMisc.h"
+#include "../../Main/aiUnit.h"
+#include "../../Main/aiWeapon.h"
 #include <cstring>
 
 namespace UpstreamTests
 {
 namespace
 {
-NWorld::CUnitServer* EquipAccuracyActor(NWorld::CWorld* world)
+NWorld::CUnitServer* EquipAccuracyActor(NWorld::CWorld* world, NDb::CRPGWeapon* weaponRecord = nullptr)
 {
     auto* actor = MovementPolicyActor(world);
     auto* mission = actor->GetUnitRPG();
     auto* inventory = mission->GetInventory();
     if (inventory->Get(NDb::SLOT_1))
         inventory->TakeOff(NDb::SLOT_1);
-    auto* record = NDatabase::GetTable<NDb::CRPGWeapon>()->GetRecord(26);
+    auto* record = weaponRecord ? weaponRecord : NDatabase::GetTable<NDb::CRPGWeapon>()->GetRecord(26);
     Require(IsValid(record) && IsValid(record->pInnerClip), "cover precision fixture lacks a loaded native weapon");
     CObj<NRPG::CWeaponItem> weapon = new NRPG::CWeaponItem(record);
     Require(inventory->Equip(NDb::SLOT_1, weapon) && inventory->Activate(NDb::SLOT_1) &&
@@ -178,6 +182,63 @@ void NativeHitArithmetic(const char* databasePath, const char* resourcePath, int
     Require(observedCover, "native accuracy fixture did not distinguish original cover multiplication");
     Require(observedUnit, "native accuracy fixture did not distinguish original unit defense and weather order");
 }
+
+void NativeAIShotInput(const char* databasePath, const char* resourcePath, bool launcher)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    NDb::CRPGWeapon* record = nullptr;
+    if (launcher) {
+        CDBIterator<NDb::CRPGWeapon> rows(*NDatabase::GetTable<NDb::CRPGWeapon>());
+        while (!record && rows.MoveNext()) {
+            auto* candidate = rows.Get();
+            if (candidate->bBazookaLogic && !candidate->nPanzerkleinType && IsValid(candidate->pItem) &&
+                IsValid(candidate->pInnerClip) && candidate->shootModes[NDb::SM_Snap])
+                record = candidate;
+        }
+        Require(IsValid(record), "AI shot fixture needs a loaded handheld launcher");
+    }
+    auto* actor = EquipAccuracyActor(world, record);
+    auto* shooter = NAI::GetAIUnit(actor);
+    Require(IsValid(shooter), "AI shot fixture lacks the native shooter wrapper");
+    shooter->Synchronize(false);
+    auto* item = dynamic_cast<NRPG::CWeaponItem*>(actor->GetUnitRPG()->GetInventory()->GetActive());
+    auto* current = shooter->GetAIInventory()->GetCurrentItem();
+    Require(IsValid(item) && IsValid(current) && current->GetInventoryItem() == item &&
+        (dynamic_cast<NAI::CAIRocketLauncherWeapon*>(current) != nullptr) == launcher,
+        "AI shot fixture did not recognize its selected native weapon type");
+    const auto position = shooter->GetUnitPosition();
+    const auto muzzle = actor->GetAttackOrigin(position, false);
+    Require(fabs(muzzle - position.GetEyePosition()) > 0.01f, "AI shot fixture needs distinct eye and muzzle positions");
+    actor->GetUnitRPG()->GetRPGUnit()->Skills(NDb::ST_SHOOTING).SetConst(100);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    for (const auto& unit : units) {
+        if (!IsValid(unit) || unit.GetPtr() == actor || !unit->CanFight())
+            continue;
+        auto* target = NAI::GetAIUnit(unit);
+        if (!IsValid(target))
+            continue;
+        target->Synchronize(false);
+        const float cover = shooter->GetCoverForFixedUnit(position, unit, item, NAI::HL_ANY);
+        if (!(cover > 0))
+            continue;
+        CObj<NRPG::CAIUnitToHitCalcer> expected = new NRPG::CAIUnitToHitCalcer(shooter, position,
+            target, cover, NAI::HL_ANY, 0, item, 0);
+        if (launcher) {
+            const int chance = shooter->GetToHitWithWeapon(target, position, NAI::HL_ANY,
+                dynamic_cast<NAI::CAIRocketLauncherWeapon*>(current));
+            if (chance <= 0)
+                continue;
+            Require(shooter->GetToHit(target, position, NAI::HL_ANY) == chance,
+                "AI hit prediction discarded the current rocket-launcher weapon");
+        } else {
+            Require(fabs(expected->ptAttacker - muzzle) < 0.0001f,
+                "AI shot accuracy used the unit's eyes rather than its weapon muzzle");
+        }
+        return;
+    }
+    Require(false, "AI shot fixture found no native target with usable cover");
+}
 }
 
 bool RunAccuracyTests(const char* mode, int argc, char** argv)
@@ -188,6 +249,10 @@ bool RunAccuracyTests(const char* mode, int argc, char** argv)
     }
     if (!std::strcmp(mode, "native-hit-arithmetic") && argc == 5) {
         NativeHitArithmetic(argv[2], argv[3], std::atoi(argv[4]));
+        return true;
+    }
+    if (!std::strcmp(mode, "native-ai-shot-input") && argc == 5) {
+        NativeAIShotInput(argv[2], argv[3], std::atoi(argv[4]) != 0);
         return true;
     }
     return false;
