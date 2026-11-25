@@ -1,6 +1,7 @@
 #pragma once
 
 #include "TestSupport.h"
+#include "../../Main/GAnimation.h"
 #include "../../Main/wMain.h"
 #include "../../Main/wUnitServer.h"
 #include "../../Main/wUnitCommands.h"
@@ -76,6 +77,27 @@ inline NativeCannonFixture MakeNativeCannonFixture(const char* databasePath,cons
     }
     Require(false,"cannon fixture has no actual armed actor, free authored approach and matching original stance-only entry clip");
     return fixture;
+}
+
+inline vector<NAnimation::CAnimation*> NativeCannonAnimationClips(NAnimation::CSkeletonAnimator* animator)
+{
+    vector<NAnimation::CAnimation*> result;
+    vector<CObjectBase*> pending{animator}, visited;
+    while (!pending.empty()) {
+        auto* object = pending.back();
+        pending.pop_back();
+        if (std::find(visited.begin(), visited.end(), object) != visited.end())
+            continue;
+        visited.push_back(object);
+        if (auto* clip = dynamic_cast<NAnimation::CAnimation*>(object))
+            result.push_back(clip);
+        CStructureNetworkContext refs;
+        auto fields = BorrowedObjectFields(object, &refs);
+        for (const auto& ref : refs.refs)
+            if (dynamic_cast<NAnimation::CAnimator*>(ref.second.GetPtr()))
+                pending.push_back(ref.second.GetPtr());
+    }
+    return result;
 }
 
 }

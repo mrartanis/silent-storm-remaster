@@ -293,6 +293,7 @@ using UpstreamTests::NativeContextColumn;
 using UpstreamTests::NativeContextEmptyRelation;
 using UpstreamTests::NativeDisplayContext;
 using UpstreamTests::NativeCannonFixture;
+using UpstreamTests::NativeCannonAnimationClips;
 using UpstreamTests::MakeNativeCannonFixture;
 using UpstreamTests::NativeGrenadeThrowFixture;
 using UpstreamTests::ObjectStageAudio;

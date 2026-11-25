@@ -35,7 +35,6 @@ const float F_HEIGHT_MAP_SIZE = 2.5f;
 // retail CUnitAnimator::Rotate @0x33d0f0: 3*PI rad/s (~540 deg/s). Dev's old 700.0 was ~74x too fast.
 const float F_DEFAULT_TURN_SPEED = 7.0f;   // v1.2 Rotate @0x73d7b5, constant0x8c97f4
 const float F_DEFAULT_MOVE_SPEED = 1.f;
-const float F_DEFAULT_AIM_SPEED = 0.8f;
 			STime N_DEFAULT_TRANSIT_TIME = 300;
 const STime N_FORCED_MOVE_TIME = 1500;
 const STime N_DEFAULT_ACTIVATE_TIME = 100;
@@ -1050,14 +1049,14 @@ void CUnitAnimator::Attack( const NAI::SUnitPosition &cmdPos, const CRay &ray, b
 		else
 		{
 			CVec3 cross = aimDir ^ shootDir;
-			tTransit = asin( fabs(cross) ) / F_DEFAULT_AIM_SPEED * 1000;
+			tTransit = asin( double( fabs(cross) ) ) * 1250.0;
 		}
 	}
 	else if ( bAimedStrafe )
 	{
 		CVec3 dir( cos(fCurAngle), sin(fCurAngle), 0 );
 		CVec3 cross = dir ^ shootDir;
-		tTransit = asin( fabs(cross) ) / F_DEFAULT_AIM_SPEED * 1000 + N_DEFAULT_TRANSIT_TIME;
+		tTransit = asin( double( fabs(cross) ) ) * 1250.0 + N_DEFAULT_TRANSIT_TIME;
 	}
 	else
 	{
@@ -2122,7 +2121,7 @@ void CUnitAnimator::ReturnCannonToDefault()
 		CVec3 defaultDir = CVec3( cos( fCannonDir ), sin( fCannonDir ), 0 );
 		CVec3 cross = aimDir ^ defaultDir;
 
-		STime tTransit = asin( fabs(cross) ) / F_DEFAULT_AIM_SPEED * 1000;
+		STime tTransit = asin( double( fabs(cross) ) ) * 1250.0;
 		CPtr<NAnimation::CAnimation> pCannonAnim = pCAnimator->CreateAnimation(
 			pCSkeleton->GetAnimation( NDb::CAnimation::POSE, 0 ), tEnd + tTransit );
 		if ( pCannonAnim )
@@ -2232,7 +2231,7 @@ void CUnitAnimator::AttackCannon( const NAI::SUnitPosition &cmdPos, const CRay &
 	if ( !bInstant )
 	{
 		CVec3 cross = aimDir ^ shootDir;
-		tTransit = asin( fabs(cross) ) / F_DEFAULT_AIM_SPEED * 1000;
+		tTransit = asin( double( fabs(cross) ) ) * 1250.0;
 	}
 
 	aimDir = shootDir;

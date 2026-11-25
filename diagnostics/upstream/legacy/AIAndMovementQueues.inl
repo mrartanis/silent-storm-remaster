@@ -318,19 +318,6 @@ static void AIMountedRoute(const char* databasePath,const char* resourcePath,int
     std::printf("native mounted route result: mode=%d afterExitAP=%d finalAP=%d resumes=%d payloadResult=%d mounted=%d\n",mode,afterExit,actor->GetAP(),resumes,payloadResult,int(actor->GetState()==NWorld::CUnit::ST_MACHINE_GUN));std::fflush(stdout);
 }
 
-static vector<NAnimation::CAnimation*> NativeCannonAnimationClips(NAnimation::CSkeletonAnimator* animator)
-{
-    vector<NAnimation::CAnimation*> result;vector<CObjectBase*> pending{animator},visited;
-    while(!pending.empty()) {
-        auto* object=pending.back();pending.pop_back();
-        if(std::find(visited.begin(),visited.end(),object)!=visited.end())continue;visited.push_back(object);
-        if(auto* clip=dynamic_cast<NAnimation::CAnimation*>(object))result.push_back(clip);
-        CStructureNetworkContext refs;auto fields=BorrowedObjectFields(object,&refs);
-        for(const auto& ref:refs.refs)if(dynamic_cast<NAnimation::CAnimator*>(ref.second.GetPtr()))pending.push_back(ref.second.GetPtr());
-    }
-    return result;
-}
-
 static void MovementRotationQueueWire(const char* databasePath,const char* resourcePath,int mode)
 {
     auto fixture=MakeNativeMovementFixture(databasePath,resourcePath);auto* actor=fixture.actor.GetPtr();auto* world=fixture.world.GetPtr();
