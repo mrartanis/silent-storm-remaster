@@ -560,9 +560,9 @@ void CUnitAnimator::SetBreathOnlyIdle( bool bOn )
  	IdleBan( NAnimation::E_BREATH_ONLY_IDLE, bOn );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-NAnimation::CAnimator* CUnitAnimator::PutOnTerrain( NAnimation::CAnimator *pAnim )
+NAnimation::CAnimator* CUnitAnimator::PutOnTerrain( NAnimation::CAnimator *pAnim, bool bUseCrawlTerrain )
 {
-	if ( pose == NAI::CRAWL )
+	if ( pose == NAI::CRAWL || bUseCrawlTerrain )
 	{
 		NAnimation::CATerrainCrawl *pT = new NAnimation::CATerrainCrawl;
 		pT->pSkeleton = pAnimator->pSkeleton;
@@ -1091,6 +1091,9 @@ void CUnitAnimator::Attack( const NAI::SUnitPosition &cmdPos, const CRay &ray, b
 	if ( !pAtAnim )
 	{
 		DefaultAction( cmdPos );
+		aimDir = shootDir;
+		bAimed = true;
+		bAimedStrafe = true;
 		return;
 	}
 	tLabel1 = pAtAnim->GetTimeLabel1();
@@ -1169,7 +1172,7 @@ void CUnitAnimator::Attack( const NAI::SUnitPosition &cmdPos, const CRay &ray, b
 	bAimed = true;
 	bAimedStrafe = true;
 
-	pAnimator->AddTransit( tEnd, tEnd + tTransit, PutOnTerrain( pTurn ), NAnimation::PARABOLA );
+	pAnimator->AddTransit( tEnd, tEnd + tTransit, PutOnTerrain( pTurn, pAtAnim->GetRecordID() == 0x925 ), NAnimation::PARABOLA );
 	tEnd += tTransit;
 	if ( !bNoShoot )
 		tEnd += pAtAnim->GetTime();
@@ -1182,7 +1185,7 @@ const char* GetAnimHeightParams( const NAI::SUnitPosition &cmdPos, NAI::EBlowHei
 	const char *pszParams = 0;
 	NAI::EPose pose = cmdPos.GetPose();
 	if ( pose == NAI::CRAWL )
-		return 0;
+		return "Height1";
 	switch (eBHeight)
 	{
 		case NAI::BH_BOTTOM:

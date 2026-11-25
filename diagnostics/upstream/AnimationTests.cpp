@@ -1,4 +1,5 @@
 #include "NativeCannonFixture.h"
+#include "../../Main/GAnimTerrain.h"
 #include "../../Main/wUICommands.h"
 #include "../../Main/wUnitMove.h"
 #include "../../Main/wUnitQueue.h"
@@ -110,6 +111,77 @@ void AimTurnDuration(const char* databasePath, const char* resourcePath, int mod
     Require(false, "native cannon aim turn did not schedule its authored animation");
 }
 
+void AttackAnimationFallback(const char* databasePath, const char* resourcePath, int mode)
+{
+    auto fixture = MakeNativeCannonFixture(databasePath, resourcePath);
+    auto* actor = fixture.actor.GetPtr();
+    auto& animator = actor->animator;
+    auto position = actor->GetPosition();
+    CDBPtr<NDb::CSkeleton> skeleton;
+    CMemoryStream fields;
+    CStructureNetworkContext refs;
+    refs.include = [](CObjectBase*) { return false; };
+    { CStructureSaver writer(fields, CStructureSaver::WRITE, &refs); animator.operator&(writer); }
+    fields.Seek(0);
+    { CStructureSaver reader(fields, CStructureSaver::READ, &refs); reader.Add(31, &skeleton); }
+    Require(skeleton, "attack animation fixture has no native skeleton");
+
+    CRay ray;
+    ray.ptOrigin = position.GetCP();
+    ray.ptDir = CVec3(0.8f, 0.f, 0.6f);
+    if (mode == 0) {
+        Require(!animator.IsAiming() && skeleton->pAnimations.erase(NDb::CAnimation::ATTACK) == 1,
+            "attack fallback fixture could not remove the real attack clip choices");
+        animator.Attack(position, ray, false, true);
+        CMemoryStream after;
+        { CStructureSaver writer(after, CStructureSaver::WRITE, &refs); animator.operator&(writer); }
+        after.Seek(0);
+        CVec3 aim;
+        bool strafing = false;
+        { CStructureSaver reader(after, CStructureSaver::READ, &refs); reader.Add(16, &strafing); reader.Add(21, &aim); }
+        Require(animator.IsAiming() && strafing && fabs2(aim - ray.ptDir) < 1e-6f,
+            "missing native firing animation discarded the aim direction or strafe state");
+        return;
+    }
+
+    NDb::CAnimation* record = nullptr;
+    if (mode == 1) {
+        const auto& clips = skeleton->pAnimations[NDb::CAnimation::ATTACK].anims;
+        for (const auto& clip : clips) {
+            if (clip->szParams == "Height1" && clip->fRndWeight > 0) {
+                record = clip;
+                break;
+            }
+        }
+        Require(record, "attack fixture lacks a native low strike clip");
+        position.SetPose(NAI::CRAWL);
+        animator.PlaceUnit(position);
+    } else {
+        record = NDb::GetAnimation(0x925);
+        Require(record && record->nType == NDb::CAnimation::ATTACK, "native special attack record is missing");
+    }
+    record->nPoseWeaponFlags = 0x7fffffff;
+    record->nClassSexFlags = 0x7fffffff & ~NDb::CAnimation::BOSS;
+    record->pSide = nullptr;
+    skeleton->pAnimations[NDb::CAnimation::ATTACK].anims = {record};
+    auto* graph = animator.GetSkeletonAnimator();
+    if (mode == 1)
+        animator.CloseAttack(position, NAI::BH_TOP);
+    else
+        animator.Attack(position, ray, false, true);
+
+    bool hasClip = false;
+    bool usesCrawlTerrain = false;
+    for (auto* node : NativeAnimationNodes(graph)) {
+        if (auto* clip = dynamic_cast<NAnimation::CAnimation*>(node))
+            hasClip |= clip->GetRecordID() == record->GetRecordID();
+        usesCrawlTerrain |= dynamic_cast<NAnimation::CATerrainCrawl*>(node) != nullptr;
+    }
+    Require(hasClip, "native attack path did not schedule its low or special clip");
+    if (mode == 2)
+        Require(usesCrawlTerrain, "native special attack did not use the crawl terrain transform");
+}
+
 void MovementPresentationGuards(const char* databasePath, const char* resourcePath, int mode)
 {
     NativeCannonFixture fixture;
@@ -172,6 +244,7 @@ void MovementPresentationGuards(const char* databasePath, const char* resourcePa
 bool RunAnimationTests(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "aim-turn-duration") && argc == 5) { AimTurnDuration(argv[2], argv[3], std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "attack-animation-fallback") && argc == 5) { AttackAnimationFallback(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "movement-presentation-guards") && argc == 5) { MovementPresentationGuards(argv[2], argv[3], std::atoi(argv[4])); return true; }
     return false;
 }
