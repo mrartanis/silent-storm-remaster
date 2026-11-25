@@ -15,6 +15,8 @@
 #include "../../Main/wTSFlags.h"
 #include "../../Main/aiMap.h"
 #include "../../Main/aiInterval.h"
+#include "../../Main/aiLocker.h"
+#include "../../Main/aiPath.h"
 #include "../../Main/RPGAttackMech.h"
 #include "../../Main/RPGBullet.h"
 #include "../../Main/RPGGame.h"
@@ -26,6 +28,7 @@
 #include "../../Main/rpgGlobal.h"
 #include "../../Main/wUnitAttackExec.h"
 #include "../../DBFormat/DataRPG.h"
+#include "../../DBFormat/DataAI.h"
 #include "../../DBFormat/DataMap.h"
 #include "../../DBFormat/DataFormat.h"
 #include "../../DBFormat/DataSound.h"
@@ -786,6 +789,83 @@ auto CurrentProjectileObjects(NWorld::CWorld* world)
     return existing;
 }
 
+void MeleeSwingSound(const char* databasePath, const char* resourcePath, int mode)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    CObj<NWorld::CUnitServer> shell;
+    if (mode == 2) {
+        CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+        NDb::CRPGPers* suit = nullptr;
+        while (people.MoveNext()) {
+            auto* candidate = people.Get();
+            if (candidate->pPanzerklein && candidate->pModel && !candidate->pPanzerklein->bHasNoHead &&
+                candidate->pPanzerklein->nMaxVP > 0) {
+                suit = candidate;
+                break;
+            }
+        }
+        Require(suit, "melee sound fixture has no armored suit");
+        auto* path = world->GetPathNetwork();
+        vector<NAI::SPathPlace> places;
+        path->GetNearPlaces(SSphere(actor->GetPosition().GetCP(), 20.f), &places);
+        for (auto place : places) {
+            place.SetPose(NAI::CM_STAND);
+            if (!path->IsPassable(place) || path->IsLocked(place) || !NAI::IsBigLockerPlacePassable(path, place))
+                continue;
+            shell = world->AddUnitInGame(place, NRPG::CreateUnit(suit), nullptr);
+            if (shell && shell->IsEmptyPK() && shell->WearAsPK(true)) {
+                actor->SetPosition(shell->GetPosition());
+                actor->FlipPanzerklein(shell, false, false);
+                break;
+            }
+        }
+        Require(actor->GetWearingDBPK() == suit->pPanzerklein.GetPtr(), "melee sound fixture could not equip the armored suit");
+    }
+
+    auto* noise = NDb::GetAISound(19);
+    auto* audibleSound = NDb::GetSound(mode == 2 ? 0x4059 : 0x3285);
+    Require(noise && audibleSound, "melee sound fixture is missing authored sounds");
+    noise->fRadius = 4000.f;
+    noise->bTileTypeIndependent = true;
+    NDb::SAISound descriptor = {noise, 0, 1.f};
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    NWorld::CUnitServer* listener = nullptr;
+    for (const auto& candidate : units) {
+        if (!IsValid(candidate) || candidate.GetPtr() == actor || !candidate->CanFight())
+            continue;
+        candidate->SetAudible(actor, false);
+        if (candidate->CanHearSound(actor->GetPosition().GetCP(), descriptor, actor)) {
+            listener = candidate.GetPtr();
+            break;
+        }
+    }
+    Require(listener && !listener->IsAudible(actor), "melee sound fixture has no fresh native listener");
+
+    const auto existing = CurrentProjectileObjects(world);
+    const CVec3 from = actor->GetPosition().GetEyePosition();
+    CRay ray;
+    ray.ptOrigin = from;
+    ray.ptDir = V3_AXIS_Z;
+    CObj<NWorld::CExecMeleeTile> action = new NWorld::CExecMeleeTile(actor, from + V3_AXIS_Z);
+    vector<NRPG::CAttackPortion> portions;
+    if (mode != 0)
+        portions.emplace_back(0, 0, 0.f, 0, 0, 0);
+    action->PerformAttack(portions, ray);
+    Require(listener->IsAudible(actor), "native melee swing produced no AI hearing event");
+
+    ObjectStageAudio audio;
+    for (const auto& object : *world->GetMiscObjects()) {
+        if (existing.count(object.GetPtr()))
+            continue;
+        if (auto* sound = dynamic_cast<NWorld::C3DSound*>(object.GetPtr()))
+            sound->Visit(&audio);
+    }
+    Require(std::count(audio.sounds.begin(), audio.sounds.end(), audibleSound) == 1,
+        "native melee swing did not submit exactly one sound for the active armor");
+}
+
 void AccidentalShotPayload(const char* databasePath, const char* resourcePath)
 {
     auto world = FixtureWorld(databasePath, resourcePath, true);
@@ -1221,6 +1301,7 @@ void RangedHitRollRange(const char* databasePath, const char* resourcePath)
 
 bool RunProjectileTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "melee-swing-sound") && argc == 5) { MeleeSwingSound(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "accidental-shot-payload") && argc == 4) { AccidentalShotPayload(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "shooting-completion") && argc == 5) { ShootingCompletion(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "explosion-witnessed-kill") && argc == 5) { ExplosionWitnessedKill(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
