@@ -42,6 +42,70 @@ namespace UpstreamTests
 {
 namespace
 {
+class SchedulerProbe : public NAI::CAIJob
+{
+    OBJECT_NOCOPY_METHODS(SchedulerProbe);
+public:
+    bool idle = false;
+    bool highest = false;
+    int runs = 0;
+    int completions = 0;
+
+    void DoJob() override { ++runs; Finish(); }
+    bool IsIdleJob() override { return idle; }
+    bool IsHighestPriority() override { return highest; }
+    void OnJobFinished() override { ++completions; }
+};
+
+void AIJobScheduler(int mode)
+{
+    CObj<NAI::IAIJobManager> scheduler = NAI::CreateAIJobManager();
+    CObj<SchedulerProbe> first = new SchedulerProbe;
+    CObj<SchedulerProbe> second = new SchedulerProbe;
+    if (mode == 0) {
+        first->idle = true;
+        scheduler->Add(first);
+        first->Finish();
+        scheduler->Segment();
+        scheduler->Segment();
+        Require(first->runs == 0 && first->completions == 1,
+            "job completed externally while idle was never retired or completed twice");
+    } else if (mode == 1) {
+        first->highest = true;
+        second->highest = true;
+        scheduler->Add(first);
+        scheduler->Add(second);
+        scheduler->RemoveDelayed(first);
+        scheduler->RemoveDelayed(first);
+        Require(scheduler->HasPassCalcerJobs(), "duplicate removal consumed another priority job's accounting");
+        scheduler->Segment();
+        Require(first->runs == 0 && first->completions == 0 && second->completions == 1 &&
+            !scheduler->HasPassCalcerJobs(), "cancelled job ran or blocked the remaining priority job");
+    } else if (mode == 2) {
+        first->highest = true;
+        scheduler->Add(first);
+        scheduler->Add(second);
+        scheduler->WaitForJob(second, first);
+        first->Invalidate();
+        for (int tick = 0; tick < 3; ++tick)
+            scheduler->Segment();
+        Require(first->runs == 0 && first->completions == 0 && second->completions == 1 &&
+            !scheduler->HasPassCalcerJobs(), "invalidated priority job stranded its dependent");
+    } else {
+        for (int tick = 0; tick < 6; ++tick) {
+            first->ReArm();
+            scheduler->Add(first);
+            scheduler->Segment();
+        }
+        Require(first->completions == 6, "short native scheduler ticks did not retire each job");
+        CStructureNetworkContext refs;
+        auto fields = BorrowedObjectFields(scheduler, &refs);
+        float debt = 0.f;
+        { CStructureSaver reader(fields, CStructureSaver::READ, &refs); reader.Add(3, &debt); }
+        Require(debt >= -0.010001f && debt <= 0.200001f, "scheduler accumulated unbounded time credit");
+    }
+}
+
 void AIAlarmWithoutRoute(const char* databasePath, const char* resourcePath)
 {
     auto world = FixtureWorld(databasePath, resourcePath, true);
@@ -1054,6 +1118,7 @@ static void OwnedAIEnemySelection(bool placeSource)
 
 bool RunAITests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "ai-job-scheduler") && argc == 3) { AIJobScheduler(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "ai-alarm-without-route") && argc == 4) { AIAlarmWithoutRoute(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-weapon-switch-order") && argc == 5) { AIWeaponSwitchOrder(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "ai-self-healing-bandaged-health") && argc == 4) { SelfHealingWithBandagedHealth(argv[2], argv[3]); return true; }
