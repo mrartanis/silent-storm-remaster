@@ -296,13 +296,8 @@ void SetUnitRoaming( NWorld::CUnitServer *pUS,
 	(void)manager;
 }
 //////////////////////////////////////////////////////////////////////////////////////
-// retail NAI::CreateUnitRoute @0x96d20 (aiRoute.obj) -- the map-deploy route glue. Reconstructed by (a) the
-// @0x96d20 decode (gate: live non-destroyed AI unit; empty-route -> roaming (UL_ROAMING) else a small idle
-// command list; non-empty route -> CAIRoute + route install) and (b) mirroring the branch logic of the
-// dev CAITaskCommander::CreateRoute. Installs on the unit's OWN CAIRouteLogic; a routeless UL_DEFAULT unit
-// gets NOTHING -- this is exactly the deletion that fixes the Jan03 AddLookAround scripted-pose cancel bug
-// (Jan03 gave a routeless default unit a random look-around, each ChangeDirection a command that popped
-// EFirst's lying wounded commander back to standing on his first random turn).
+// Install the authored route or roaming first. The default deployment cycle is
+// available to units on a usable, active place. A prone scripted unit stays put.
 //////////////////////////////////////////////////////////////////////////////////////
 void CreateUnitRoute( NWorld::CUnitServer *pUnitServer, SMapUnit *pMapUnit )
 {
@@ -335,19 +330,32 @@ void CreateUnitRoute( NWorld::CUnitServer *pUnitServer, SMapUnit *pMapUnit )
 		// (2) UL_ROAMING -> the roaming route logic (retail CreateAIRoamingLogic @0x9aec0).
 		pLogic = NAI::CreateAIRoamingLogic( pAIUnit, pUnitServer->GetPosition().pos.p, sMapUnit.nRoamingRadius );
 	}
-	else if ( sMapUnit.eLogic == NDb::UL_EMPTY )
+	else if ( sMapUnit.eLogic == NDb::UL_EMPTY && IsValid( sMapUnit.pGuardAnimation ) )
 	{
-		// (3) UL_EMPTY -> a custom guard idle then a wait, as a route logic (mirrors CreateRoute's UL_EMPTY
-		//     branch; designers don't want the unit to walk back after other commands).
+		// A guard animation explicitly supplied by the map remains a custom route.
 		vector< CPtr<NAI::CTaskCommand> > cmds;
 		cmds.push_back( new CTaskCommandCustomIdleAnimation( sMapUnit.pGuardAnimation ) );
 		cmds.push_back( new CTaskCommandWait( 3000 ) );
 		pLogic = NAI::CreateAIRouteLogic( pAIUnit, cmds, true );
 	}
-	// (4) UL_DEFAULT routeless -> install NOTHING (retail @0x96d20; the AddLookAround-cancel-fix deletion).
-	// Faithfulness note: the dev CreateRoute prefixed a DelayExecution( random(1,20) ) 1-20s route-start
-	// stagger via CTask::tTime; CAIRouteLogic has no delay field and the @0x96d20 decode shows no stagger,
-	// so it is dropped (routed units now start on the first pump).
+	else
+	{
+		const NAI::SPosition &place = pUnitServer->GetPosition().pos;
+		NAI::IPathNetwork *pNet = pUnitServer->GetWorld()->GetPathNetwork();
+		if ( IsValid( pNet ) && place.IsValid() && place.p.GetPose() != NAI::CM_LAY &&
+			place.p.GetPose() != NAI::CM_INACTIVE )
+		{
+			const NAI::EPassable passability = pNet->GetPassability( place.p );
+			if ( passability != NAI::AIP_NOT_PASSABLE && passability != NAI::AIP_CANNOT_LAY )
+			{
+				vector< CPtr<NAI::CTaskCommand> > cmds;
+				cmds.push_back( new CTaskCommandChangePose( NAI::WALK ) );
+				cmds.push_back( new CTaskCommandGoto( place, false ) );
+				cmds.push_back( new CTaskCommandWait( 100 ) );
+				pLogic = NAI::CreateAIRouteLogic( pAIUnit, cmds, true );
+			}
+		}
+	}
 	if ( IsValid( pLogic ) )
 		pAIUnit->SetRouteLogic( pLogic );   // retail SetRoute @0xadb90: the deploy route lives in the ROUTE slot
 }

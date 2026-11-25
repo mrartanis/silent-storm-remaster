@@ -1,5 +1,6 @@
 #include "TestSupport.h"
 #include "../../Main/wMain.h"
+#include "../../Main/MapBuild.h"
 #include "../../Main/wUnitServer.h"
 #include "../../Main/wUnitCommands.h"
 #include "../../Main/wUnitExec.h"
@@ -28,6 +29,7 @@
 #include "../../Main/aiReaction.h"
 #include "../../Main/aiReactions.h"
 #include "../../Main/aiRouteLogic.h"
+#include "../../Main/aiRoute.h"
 #include "../../Main/aiRouteMisc.h"
 #include "../../Main/aistate.h"
 #include "../../Main/aiTaskCommand.h"
@@ -48,6 +50,60 @@ namespace UpstreamTests
 {
 namespace
 {
+void DefaultDeploymentRoute(const char* databasePath, const char* resourcePath, int mode)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    auto actor = std::find_if(units.begin(), units.end(), [](const auto& candidate) {
+        return IsValid(candidate) && candidate->CanFight() && candidate->GetPosition().GetPose() == NAI::WALK &&
+            candidate->IsAIUnit() && IsValid(NAI::GetAIUnit(candidate));
+    });
+    Require(actor != units.end(), "default deployment fixture lacks a standing native AI unit");
+    auto* server = actor->GetPtr();
+    auto* ai = NAI::GetAIUnit(server);
+    ai->SetRouteLogic(nullptr);
+    auto position = server->GetPosition();
+    if (mode == 1) {
+        position.pos.p.SetPose(NAI::CM_LAY);
+        server->SetPosition(position);
+    }
+    SMapUnit authored;
+    authored.eLogic = mode == 2 ? NDb::UL_ROAMING : NDb::UL_DEFAULT;
+    authored.nRoamingRadius = 8;
+    NAI::CreateUnitRoute(server, &authored);
+    auto* route = dynamic_cast<NAI::CAIRouteLogic*>(ai->GetRouteLogic());
+    if (mode == 1) {
+        Require(!route && server->GetPosition() == position, "routeless prone unit acquired an order to stand up");
+        return;
+    }
+    Require(route && route->IsCircled(), "ordinary deployment failed to install a native cyclical route");
+    vector<CObj<NAI::CTaskCommand>> steps;
+    CStructureNetworkContext routeRefs;
+    auto fields = BorrowedObjectFields(route, &routeRefs);
+    { CStructureSaver reader(fields, CStructureSaver::READ, &routeRefs); reader.Add(4, &steps); }
+    if (mode == 2) {
+        Require(std::any_of(steps.begin(), steps.end(), [](const auto& step) {
+            auto* roam = dynamic_cast<NAI::CTaskCommandRoaming*>(step.GetPtr());
+            return roam && roam->GetAPRadius() == 8;
+        }), "default route generation replaced the authored roaming radius");
+        return;
+    }
+    Require(steps.size() == 3 && dynamic_cast<NAI::CTaskCommandChangePose*>(steps[0].GetPtr()) &&
+        dynamic_cast<NAI::CTaskCommandGoto*>(steps[1].GetPtr()) && dynamic_cast<NAI::CTaskCommandWait*>(steps[2].GetPtr()),
+        "native default deployment route lost its stand, return and wait order");
+    CStructureNetworkContext stepRefs;
+    auto gotoFields = BorrowedObjectFields(steps[1], &stepRefs);
+    NAI::SPosition anchor;
+    { CStructureSaver reader(gotoFields, CStructureSaver::READ, &stepRefs); reader.Add(3, &anchor); }
+    auto waitFields = BorrowedObjectFields(steps[2], &stepRefs);
+    STime wait = 0;
+    { CStructureSaver reader(waitFields, CStructureSaver::READ, &stepRefs); reader.Add(3, &wait); }
+    Require(anchor.p == position.pos.p && wait == 100,
+        "native default deployment route changed its anchor or authored wait time");
+}
+
 class SnipeRefreshReaction : public NAI::CAIReaction
 {
     OBJECT_NOCOPY_METHODS(SnipeRefreshReaction);
@@ -1307,6 +1363,7 @@ static void OwnedAIEnemySelection(bool placeSource)
 
 bool RunAITests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "default-deployment-route") && argc == 5) { DefaultDeploymentRoute(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "ai-snipe-command-ap") && argc == 5) { AISnipeCommandAP(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "ai-cancel-mounted-gunner") && argc == 4) { CancelMountedGunner(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "scripted-fear-reaction") && argc == 5) { ScriptedFearReaction(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
