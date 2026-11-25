@@ -142,26 +142,7 @@ bool UpstreamTests::RunLegacyTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "window-nested-wakeup")) { WindowNestedWakeup(); return true; }
     if (!std::strcmp(mode, "window-template-script")) { Require(argc == 3, "window template script requires db"); WindowTemplateScript(argv[2]); return true; }
     if (!std::strcmp(mode, "console-visibility-toggle")) { ConsoleVisibilityToggle(); return true; }
-    if (!std::strcmp(mode, "ai-reaction-reset-contacts")) { AIReactionResetContacts(); return true; }
-    if (!std::strcmp(mode, "ai-reaction-value-latch") && argc == 4) { AIReactionValueLatch(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "script-ai-activation") && argc == 4) { ScriptAIActivation(argv[2], argv[3]); return true; }
-    if (!std::strcmp(mode, "ai-event-collection-locks") && argc == 4) { AIEventCollectionLocks(argv[2], argv[3]); return true; }
-    if (!std::strcmp(mode, "ai-immediate-event-dispatch") && argc == 4) { AIContactEventDispatch(argv[2], argv[3], 0); return true; }
-    if (!std::strcmp(mode, "ai-reaction-contact-edits") && argc == 4) { AIContactEventDispatch(argv[2], argv[3], 1); return true; }
-    if (!std::strcmp(mode, "ai-world-sighting-dispatch") && argc == 4) { AIContactEventDispatch(argv[2], argv[3], 2); return true; }
-    if (!std::strcmp(mode, "ai-immediate-event-guards") && argc == 4) { AIContactEventDispatch(argv[2], argv[3], 3); return true; }
-    if (!std::strcmp(mode, "ai-contact-cache-enemy") && argc == 4) { AIContactMembership(argv[2], argv[3], 0, 0); return true; }
-    if (!std::strcmp(mode, "ai-contact-cache-possible") && argc == 4) { AIContactMembership(argv[2], argv[3], 1, 0); return true; }
-    if (!std::strcmp(mode, "ai-contact-cache-ally") && argc == 4) { AIContactMembership(argv[2], argv[3], 2, 0); return true; }
-    if (!std::strcmp(mode, "ai-contact-refresh-enemy") && argc == 4) { AIContactMembership(argv[2], argv[3], 0, 1); return true; }
-    if (!std::strcmp(mode, "ai-contact-refresh-possible") && argc == 4) { AIContactMembership(argv[2], argv[3], 1, 1); return true; }
-    if (!std::strcmp(mode, "ai-contact-refresh-ally") && argc == 4) { AIContactMembership(argv[2], argv[3], 2, 1); return true; }
-    if (!std::strcmp(mode, "ai-contact-remove-enemy") && argc == 4) { AIContactMembership(argv[2], argv[3], 0, 2); return true; }
-    if (!std::strcmp(mode, "ai-contact-remove-possible") && argc == 4) { AIContactMembership(argv[2], argv[3], 1, 2); return true; }
-    if (!std::strcmp(mode, "ai-contact-remove-ally") && argc == 4) { AIContactMembership(argv[2], argv[3], 2, 2); return true; }
-    if (!std::strcmp(mode, "ai-contact-eligibility-enemy") && argc == 4) { AIContactMembership(argv[2], argv[3], 0, 3); return true; }
-    if (!std::strcmp(mode, "ai-contact-eligibility-possible") && argc == 4) { AIContactMembership(argv[2], argv[3], 1, 3); return true; }
-    if (!std::strcmp(mode, "ai-contact-eligibility-ally") && argc == 4) { AIContactMembership(argv[2], argv[3], 2, 3); return true; }
     if (!std::strcmp(mode, "ai-snapshot-active") && argc == 4) { AICombatSnapshot(argv[2], argv[3], 0); return true; }
     if (!std::strcmp(mode, "ai-snapshot-unconscious") && argc == 4) { AICombatSnapshot(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "ai-snapshot-dead") && argc == 4) { AICombatSnapshot(argv[2], argv[3], 2); return true; }
@@ -799,9 +780,6 @@ bool UpstreamTests::RunLegacyTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "supplied-options-screenshot") && argc == 4) { SuppliedMenuScreenshot(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "new-layer-compact-save")) { NewLayerCompactSave(); return true; }
     if (!std::strcmp(mode, "unsupported-navigation-bake") && argc == 4) { UnsupportedNavigationBake(argv[2], argv[3]); return true; }
-    if (!std::strcmp(mode, "restored-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 0); return true; }
-    if (!std::strcmp(mode, "fresh-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 1); return true; }
-    if (!std::strcmp(mode, "legacy-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 2); return true; }
     if (!std::strcmp(mode, "scripted-unconscious-enemy") && argc == 4) { ScriptedEnemyDeath(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "scripted-enemy-death") && argc == 4) { ScriptedEnemyDeath(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "empty-passage-exit") && argc == 4) { ScriptedPassageTransition(argv[2],argv[3],true); return true; }
@@ -850,16 +828,11 @@ bool UpstreamTests::RunLegacyTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "arrived-retreat-reaction-lifetime")) { Require(argc == 4, "retreat reaction lifetime requires db and res"); ArrivedRetreatReactionLifetime(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "arrived-retreat-completion") && argc == 4) { ArrivedRetreatCompletion(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "finished-ai-logic-retirement") && argc == 4) { FinishedAILogicRetirement(argv[2], argv[3]); return true; }
-    if (!std::strcmp(mode, "removed-selected-enemy")) { RemovedSelectedAIContact(0); return true; }
-    if (!std::strcmp(mode, "removed-selected-possible")) { RemovedSelectedAIContact(1); return true; }
-    if (!std::strcmp(mode, "removed-selected-ally")) { RemovedSelectedAIContact(2); return true; }
     if (!std::strcmp(mode, "begin-turn-live-watcher") && argc == 4) { BeginTurnLiveContacts(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "begin-turn-live-enemy") && argc == 4) { BeginTurnLiveContacts(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "combat-chooser-context") && argc == 4) { CombatChooserContext(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "live-ai-position") && argc == 4) { LiveAIPosition(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "live-ai-unit-position") && argc == 4) { LiveAIPosition(argv[2], argv[3], true); return true; }
-    if (!std::strcmp(mode, "owned-ai-action-enemy")) { OwnedAIEnemySelection(false); return true; }
-    if (!std::strcmp(mode, "owned-ai-place-enemy")) { OwnedAIEnemySelection(true); return true; }
     if (!std::strcmp(mode, "mounted-ai-log-commands")) { MountedAILogCommands(); return true; }
     if (!std::strcmp(mode, "removed-player-ai-rosters") && argc == 4) { RemovedPlayerAIRosters(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "removed-player-acks") && argc == 4) { RemovedPlayerFootprints(argv[2], argv[3], true); return true; }
@@ -1147,8 +1120,6 @@ bool UpstreamTests::RunLegacyTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "group-hide-shortcut") && argc == 4) { GroupHideShortcut(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "script-hide-state") && argc == 4) { ScriptHideState(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "thrown-knife-orientation") && argc == 4) { ThrownKnifeOrientation(argv[2], argv[3]); return true; }
-    if (!std::strcmp(mode, "ai-idle") && argc == 4) { IdleAI(argv[2], argv[3]); return true; }
-    if (!std::strcmp(mode, "ai-roaming-current-position") && argc == 4) { RoamingUsesCurrentPosition(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "mixed-hide-button") && argc == 4) { MixedActionButton(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "mixed-strafe-button") && argc == 4) { MixedActionButton(argv[2], argv[3], false); return true; }
     if (!std::strcmp(mode, "mounted-mode-button") && argc == 4) { EffectiveWeaponMode(argv[2], argv[3], 3); return true; }
