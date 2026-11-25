@@ -1078,6 +1078,56 @@ void GrenadeReleaseOrientation(const char* databasePath, const char* resourcePat
         "the native collision body ignored the grenade release direction");
 }
 
+void FlyingBossGrenadeOrigin(const char* databasePath, const char* resourcePath)
+{
+    NativeGrenadeThrowFixture fixture(databasePath, resourcePath, false, true);
+    auto* actor = fixture.actor;
+    auto* network = fixture.world->GetPathNetwork();
+    NDb::CRPGPers* boss = nullptr;
+    CDBIterator<NDb::CRPGPers> records(*NDatabase::GetTable<NDb::CRPGPers>());
+    while (!boss && records.MoveNext()) {
+        auto* candidate = records.Get();
+        if (IsValid(candidate->pPanzerklein) && (candidate->szUserName == "Boss" ||
+            (IsValid(candidate->pName) && candidate->pName->szStr == L"Boss")))
+            boss = candidate;
+    }
+    Require(IsValid(boss), "grenade-origin fixture needs the authored Boss shell");
+    vector<NAI::SPathPlace> nearby;
+    network->GetNearPlaces(SSphere(actor->GetPosition().GetCP(), 20.f), &nearby);
+    const auto free = std::find_if(nearby.begin(), nearby.end(), [&](auto& point) {
+        point.SetPose(NAI::CM_STAND);
+        return network->IsPassable(point) && !network->IsLocked(point) && NAI::IsBigLockerPlacePassable(network, point);
+    });
+    Require(free != nearby.end(), "grenade-origin fixture needs a free Boss-sized footprint");
+    auto* shell = fixture.world->AddUnitInGame(*free, NRPG::CreateUnit(boss), nullptr);
+    Require(IsValid(shell) && shell->IsEmptyPK(), "grenade-origin fixture did not spawn the native Boss shell");
+    actor->FlipPanzerklein(shell, false, false);
+    Require(actor->IsFlyingBoss() && actor->GetUnitRPG()->GetInventory()->GetActive() == fixture.grenade,
+        "grenade-origin fixture did not keep its active grenade while wearing the Boss shell");
+
+    const auto position = actor->GetPosition();
+    CObj<NWorld::CExecThrowGrenade> executor;
+    for (const auto& offset : {CVec3(4.f, 0, 0), CVec3(-4.f, 0, 0), CVec3(0, 4.f, 0), CVec3(0, -4.f, 0)}) {
+        CObj<NWorld::CExecThrowGrenade> trial = new NWorld::CExecThrowGrenade(actor, position.GetCP() + offset);
+        if (trial->CanDoIt(position) == NWorld::UCR_OK && actor->CanSpendAP(trial->GetStartAP())) {
+            executor = trial;
+            break;
+        }
+    }
+    Require(IsValid(executor), "the Boss has no unblocked native grenade throw in the fixture");
+    executor->Run();
+    Require(executor->IsExecuting(), "the Boss did not start its valid native grenade throw");
+    NWorld::SGrenadeParams trajectory;
+    CStructureNetworkContext refs;
+    auto fields = BorrowedObjectFields(executor, &refs);
+    { CStructureSaver reader(fields, CStructureSaver::READ, &refs); reader.Add(3, &trajectory); }
+    const float angle = position.GetDirection();
+    const auto expected = position.GetCenter() + CVec3(-NWorld::F_GRENADE_CHECK_SIDE * cos(angle),
+        -NWorld::F_GRENADE_CHECK_SIDE * sin(angle), 0.5f);
+    Require(fabs2(trajectory.ptStart - expected) < 1e-6f && trajectory.nSide == 0,
+        "Boss grenade launch used the standard left-hand origin instead of the raised rear origin");
+}
+
 CObj<NRPG::IClipItem> FixtureRocketAmmo()
 {
     CDBIterator<NDb::CRPGAmmo> ammo(*NDatabase::GetTable<NDb::CRPGAmmo>());
@@ -1505,6 +1555,7 @@ void RangedHitRollRange(const char* databasePath, const char* resourcePath)
 
 bool RunProjectileTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "flying-boss-grenade-origin") && argc == 4) { FlyingBossGrenadeOrigin(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "melee-zero-cover") && argc == 4) { MeleeZeroCover(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "melee-swing-sound") && argc == 5) { MeleeSwingSound(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "accidental-shot-payload") && argc == 4) { AccidentalShotPayload(argv[2], argv[3]); return true; }

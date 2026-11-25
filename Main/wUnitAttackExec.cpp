@@ -331,8 +331,12 @@ static bool FindGrenadeParams( CUnitServer *pUS, const NAI::SUnitPosition &pos, 
 	float fX = F_GRENADE_CHECK_SIDE * cos(fAngle), fY = F_GRENADE_CHECK_SIDE * sin(fAngle);
 	CVec3 rightSide(fY,-fX,0);
 	CVec3 leftSide(-fY,fX,0);
+	const bool bFlyingBoss = pUS->IsFlyingBoss();
+	const CVec3 leftRelease = bFlyingBoss ? CVec3( -fX, -fY, 0.5f ) : leftSide;
 	boundPoints.push_back( from + leftSide );
 	boundPoints.push_back( from + rightSide );
+	if ( bFlyingBoss )
+		boundPoints.push_back( from + leftRelease );
 	
 	SBound bound;
 	CalcBound( &bound, boundPoints, SGetSelf<CVec3>() );
@@ -354,7 +358,7 @@ static bool FindGrenadeParams( CUnitServer *pUS, const NAI::SUnitPosition &pos, 
 	vector<CVec3> startPoints;
 	startPoints.push_back( from );
 	startPoints.push_back( from + rightSide ); // right side
-	startPoints.push_back( from + leftSide ); // left side
+	startPoints.push_back( from + leftRelease );
 	
 	bool bFound = false;
 	int nSide = 0;
