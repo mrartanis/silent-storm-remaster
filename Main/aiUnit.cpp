@@ -169,6 +169,7 @@ public:
 	virtual NRPG::CUnit* GetRPGUnit() const { return pUnitServer->GetUnitRPG()->GetRPGUnit(); }
 	virtual SPosition GetPosition();
 	virtual SUnitPosition GetUnitPosition();
+	virtual void SetPosition( const SUnitPosition &position ) override { pos = position; }
 	virtual void SetPosition( SPosition _ptPrevPosition );
 	virtual void SetPosition( SPathPlace _ptPrevPosition );
 	virtual SPosition GetPrevPosition();

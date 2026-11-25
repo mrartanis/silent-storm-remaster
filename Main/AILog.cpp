@@ -30,27 +30,60 @@ namespace NAI
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CAILogPosition
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-CAILogPosition::CAILogPosition( IAIUnit *_pAIUnit, SPosition _pSourcePosition, SPosition _pTargetPosition, NAI::EPose _pose ):
-	CAILogRecord(_pAIUnit), pSourcePosition(_pSourcePosition), pTargetPosition(_pTargetPosition), pose( _pose )
+CAILogPosition::CAILogPosition( IAIUnit *_pAIUnit, const SUnitPosition &_pos, NAI::EPose _pose ):
+	CAILogRecord( _pAIUnit ), pos( _pos ), pose( _pose )
 {
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void CAILogPosition::RollBack() 
-{ 
-	pAIUnit->SetPosition( pSourcePosition ); 
+int CAILogPosition::operator&( CStructureSaver &f )
+{
+	f.Add( 2, static_cast<CAILogRecord *>( this ) );
+	if ( f.IsReading() )
+	{
+		// The fork used a bare SPosition in tag 3, with its packed path point in child 1.
+		struct SPositionLayout
+		{
+			bool bLegacy = false;
+			int operator&( CStructureSaver &f ) { bLegacy = f.HasChunk( 1 ); return 0; }
+		} layout;
+		f.Add( 3, &layout );
+		if ( layout.bLegacy )
+		{
+			f.Add( 4, &pos.pos );
+			pose = pos.GetPose();
+			return 0;
+		}
+	}
+	f.Add( 3, &pos );
+	f.Add( 4, &pose );
+	return 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogPosition::Commit()
 {
-	pAIUnit->SetPosition( pTargetPosition ); 
+	if ( IsValid( pAIUnit ) )
+		pAIUnit->SetPosition( pos );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogPosition::GetCommands( list< CPtr<NWorld::CCommand> > *Commands )
-{ 
-	NWorld::CCmd *pCmd = new NWorld::CCmdWishPose( pose );
-	Commands->push_back( new NWorld::CCmdSetCommand( pAIUnit->GetUnitServer(), pCmd ) );
-	pCmd = new NWorld::CCmdPath( pTargetPosition, NAI::PF_USE_POSE );
-	Commands->push_back( new NWorld::CCmdSetCommand( pAIUnit->GetUnitServer(), pCmd ) );
+{
+	NWorld::CUnitServer *pUS = IsValid( pAIUnit ) ? pAIUnit->GetUnitServer() : 0;
+	if ( !IsValid( pUS ) )
+		return;
+	const bool bPK = pUS->IsWearingPK();
+	NWorld::CCmd *pCmd = new NWorld::CCmdWishPose( bPK && pose >= NAI::WALK ? NAI::WALK : pose );
+	Commands->push_back( new NWorld::CCmdSetCommand( pUS, pCmd ) );
+	if ( bPK )
+	{
+		// Retail 0x45ea80 aligns the suit at its live position before moving.
+		SUnitPosition current = pUS->GetPosition();
+		current.SetPose( pose );
+		Commands->push_back( new NWorld::CCmdSetCommand( pUS,
+			new NWorld::CCmdPath( current.pos, NAI::PF_USE_POSEDIR ) ) );
+	}
+	NWorld::CCmdPath *pPath = new NWorld::CCmdPath( pos.pos, NAI::PF_USE_POSEDIR );
+	pPath->bCanFindNotExact = true;
+	Commands->push_back( new NWorld::CCmdSetCommand( pUS, pPath ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CAILogShot
@@ -193,13 +226,8 @@ void CAILogReloadWeapon::GetCommands( list< CPtr<NWorld::CCommand> > *Commands )
 CAILogSpendAmmo::CAILogSpendAmmo(	CAIFireArmsWeaponClip *_pClip, int nSpendAmmo ):
 	CAILogRecord( 0 ), pClip( _pClip )
 {
-	nOldAmmo = pClip->GetAmmoCount();
+	const int nOldAmmo = pClip->GetAmmoCount();
 	nNewAmmo = max( 0, nOldAmmo - nSpendAmmo );
-}
-////////////////////////////////////////////////////////////////////////////////////////////////////
-void CAILogSpendAmmo::RollBack()
-{
-	pClip->SetAmmoCount( nOldAmmo );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogSpendAmmo::Commit()
@@ -213,13 +241,9 @@ void CAILogSpendAmmo::GetCommands( list< CPtr<NWorld::CCommand> > *Commands ) {}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CAILogSpendAP::CAILogSpendAP(	IAIUnit *_pAIUnit, int nSpendAP ): CAILogRecord(_pAIUnit)
 {
+	int nOldAP;
 	pAIUnit->GetAP( &nOldAP, &nMaxAP );
 	nNewAP = max( 0, nOldAP - nSpendAP );
-}
-////////////////////////////////////////////////////////////////////////////////////////////////////
-void CAILogSpendAP::RollBack()
-{
-	pAIUnit->SetAP( nOldAP, nMaxAP );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogSpendAP::Commit()
@@ -233,13 +257,9 @@ void CAILogSpendAP::GetCommands( list< CPtr<NWorld::CCommand> > *Commands ) {}
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CAILogSpendHP::CAILogSpendHP(	IAIUnit *_pAIUnit, int nSpendHP ): CAILogRecord(_pAIUnit)
 {
+	int nOldHP;
 	pAIUnit->GetHP( &nOldHP, &nMaxHP );
 	nNewHP = nOldHP - nSpendHP;
-}
-////////////////////////////////////////////////////////////////////////////////////////////////////
-void CAILogSpendHP::RollBack()
-{
-	pAIUnit->SetHP( nOldHP, nMaxHP );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogSpendHP::Commit()
@@ -483,22 +503,19 @@ CAILogChangeShootMode::CAILogChangeShootMode( IAIUnit *_pAIUnit, CAIFireArmsWeap
 	if ( IsValid( pWeaponItem ) )
 	{
 		eNewShootMode = _eShootMode;
-		eOldShootMode = pWeaponItem->GetShootMode();
 	}
-}
-////////////////////////////////////////////////////////////////////////////////////////////////////
-void CAILogChangeShootMode::RollBack()
-{
-	pWeaponItem->SetShootMode( eOldShootMode );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogChangeShootMode::Commit()
 {
-	pWeaponItem->SetShootMode( eNewShootMode );
+	if ( IsValid( pWeaponItem ) )
+		pWeaponItem->SetShootMode( eNewShootMode );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CAILogChangeShootMode::GetCommands( list< CPtr<NWorld::CCommand> > *Commands )
 {
+	if ( !IsValid( pAIUnit ) || !IsValid( pWeaponItem ) || !pWeaponItem->IsShootModeSupported( eNewShootMode ) )
+		return;
 	Commands->push_back( new NWorld::CCmdSetCommand( pAIUnit->GetUnitServer(),
 		new NWorld::CCmdShootMode( eNewShootMode ) ) );
 }

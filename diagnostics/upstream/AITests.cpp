@@ -27,6 +27,7 @@
 #include "../../Main/aiEvent.h"
 #include "../../Main/aiFearReaction.h"
 #include "../../Main/aiGrid.h"
+#include "../../Main/aiLocker.h"
 #include "../../Main/aiMap.h"
 #include "../../Main/aiReaction.h"
 #include "../../Main/aiReactions.h"
@@ -1020,6 +1021,82 @@ void AIContactPerception(const char* databasePath, const char* resourcePath, boo
     Require(contains(state->possibleEnemies), "native bullet perception measured from the feet instead of the hit location");
 }
 
+void AICommandLogPolicy(const char* databasePath, const char* resourcePath, int mode)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* actor = MovementPolicyActor(world);
+    auto* ai = NAI::GetAIUnit(actor);
+    Require(IsValid(ai), "AI log fixture needs a native unit wrapper");
+    ai->Synchronize(false);
+    if (mode == 0) {
+        auto target = actor->GetPosition();
+        target.bRun = true;
+        target.pos.p.SetDirection((target.pos.p.GetDirection() + 2) & 7);
+        CObj<NAI::CAILogPosition> move = new NAI::CAILogPosition(ai, target, NAI::CROUCH);
+        CStructureNetworkContext refs;
+        auto fields = BorrowedObjectFields(move, &refs);
+        CObj<NAI::CAILogPosition> restored = new NAI::CAILogPosition;
+        { CStructureSaver reader(fields, CStructureSaver::READ, &refs); static_cast<CObjectBase*>(restored.GetPtr())->operator&(reader); }
+        Require(restored->pAIUnit == ai, "movement log fixture lost the restored native AI unit reference");
+        restored->Commit();
+        CStructureNetworkContext snapshotRefs;
+        auto snapshotFields = BorrowedObjectFields(CastToObjectBase(ai), &snapshotRefs);
+        NAI::SUnitPosition snapshot;
+        { CStructureSaver reader(snapshotFields, CStructureSaver::READ, &snapshotRefs); reader.Add(4, &snapshot); }
+        Require(snapshot == target, "restored AI movement log lost the full planning destination including run state");
+        list<CPtr<NWorld::CCommand>> commands;
+        restored->GetCommands(&commands);
+        Require(commands.size() == 2, "normal native AI move should issue wish pose and path");
+        const auto* order = dynamic_cast<NWorld::CCmdSetCommand*>(commands.back().GetPtr());
+        const auto* path = order ? dynamic_cast<NWorld::CCmdPath*>(order->GetCmd()) : nullptr;
+        Require(path && path->ptDst == target.pos && path->eParams == NAI::PF_USE_POSEDIR && path->bCanFindNotExact,
+            "AI movement command lost its final direction or approximate path fallback");
+    } else if (mode == 1) {
+        auto* authored = NDb::GetWeapon(26);
+        Require(IsValid(authored) && authored->shootModes[NDb::SM_Snap], "AI mode fixture needs an authored snap firearm");
+        authored->shootModes[NDb::SM_Snipe] = false;
+        CObj<NRPG::CWeaponItem> item = new NRPG::CWeaponItem(authored);
+        CObj<NAI::CAIFireArmsWeapon> weapon = new NAI::CAIFireArmsWeapon(ai, item);
+        for (auto mode : {NDb::SM_Snap, NDb::SM_Snipe}) {
+            CObj<NAI::CAILogChangeShootMode> change = new NAI::CAILogChangeShootMode(ai, weapon, mode);
+            list<CPtr<NWorld::CCommand>> commands;
+            change->GetCommands(&commands);
+            Require(commands.size() == (mode == NDb::SM_Snap ? 1 : 0), "AI emitted a fire-mode command unsupported by the planned item");
+        }
+    } else {
+        CObj<NAI::CAILogRecord> base = new NAI::CAILogRecord(ai);
+        for (bool legacy : {true, false}) {
+            CStructureNetworkContext refs;
+            refs.externalReferences = true;
+            refs.include = [](CObjectBase*) { return false; };
+            auto* unitObject = CastToObjectBase(ai);
+            refs.ids[unitObject] = 101;
+            refs.refs[101] = unitObject;
+            CMemoryStream fields;
+            int changedAP = 31, maxAP = 91, oldAP = 67;
+            {
+                CStructureSaver writer(fields, CStructureSaver::WRITE, &refs);
+                writer.Add(2, base.GetPtr());
+                if (legacy)
+                    writer.Add(3, &oldAP);
+                writer.Add(legacy ? 4 : 3, &changedAP);
+                writer.Add(legacy ? 5 : 4, &maxAP);
+            }
+            fields.Seek(0);
+            CObj<NAI::CAILogSpendAP> spend = new NAI::CAILogSpendAP;
+            { CStructureSaver reader(fields, CStructureSaver::READ, &refs); static_cast<CObjectBase*>(spend.GetPtr())->operator&(reader); }
+            Require(spend->pAIUnit == ai, "AI log fixture lost its native unit reference");
+            spend->Commit();
+            int actualAP, actualMax;
+            ai->GetAP(&actualAP, &actualMax);
+            Require(actualAP == changedAP && actualMax == maxAP,
+                "AI spend log loaded the wrong AP fields from an original or legacy tagged record");
+        }
+    }
+}
+
+
 
 static void AIContactMembership(const char* databasePath, const char* resourcePath, int kind, int check)
 {
@@ -1457,6 +1534,7 @@ static void OwnedAIEnemySelection(bool placeSource)
 
 bool RunAITests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "ai-command-log-policy") && argc == 5) { AICommandLogPolicy(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "ai-contact-perception") && argc == 5) { AIContactPerception(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "default-deployment-route") && argc == 5) { DefaultDeploymentRoute(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "ai-snipe-command-ap") && argc == 5) { AISnipeCommandAP(argv[2], argv[3], std::atoi(argv[4])); return true; }
