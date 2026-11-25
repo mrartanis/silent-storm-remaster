@@ -338,6 +338,7 @@ target_compile_options(s2_game_world_object PRIVATE
 # mission and script bindings still need to join the game link graph.
 add_library(s2_game_world STATIC
   "${root}/Main/wMain.cpp"
+  "${root}/Main/wCheckTooMuchCorpses.cpp"
   "${root}/Main/NetworkMatch.cpp"
   "${root}/Main/NetworkWorld.cpp"
   "${root}/Main/wMainMoves.cpp"

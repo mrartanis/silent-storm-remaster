@@ -13,6 +13,7 @@ const int N_FOV = 35;
 #include "Camera.h"
 #include "Interface.h"
 #include "wInterface.h"
+#include "wMainTrace.h"
 #include "..\Misc\RandomGen.h"
 #include "wUnitCommands.h"
 #include "..\FileIO\PortableStructureChunks.h"
@@ -63,28 +64,6 @@ namespace NWorld
 	class CCommander;
 	class CCmd;
 	class CCommand;
-}
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// NWorld::STraceResult -- the retail cursor-trace result record (serialization-convergence W4.2).
-// Retail CMission caches the per-frame cursor trace in ONE embedded struct (CMission tag 21,
-// operator& @0x1a0ff0: 2=bPointSet 3=vPoint 4=bTileSet 5=sTile 6=bObjectSet 7=pObject) instead of
-// the dev's loose bTraceOk/sTraceTile/pTraceObject members. Unregistered in retail (embedded only).
-////////////////////////////////////////////////////////////////////////////////////////////////////
-namespace NWorld
-{
-struct STraceResult
-{
-	bool bPointSet;                 // ranked world intersection from the current cursor ray
-	CVec3 vPoint;
-	bool bTileSet;                  // dev bTraceOk
-	NAI::SPosition sTile;           // dev sTraceTile
-	bool bObjectSet;                // retail: IsValid(pObject) latch
-	CPtr<CObjectBase> pObject;      // dev pTraceObject
-
-	STraceResult(): bPointSet( false ), vPoint( 0, 0, 0 ), bTileSet( false ), bObjectSet( false ) {}
-	// retail NWorld::STraceResult::operator& @0x1a0ff0
-	int operator&( CStructureSaver &f ) { f.Add(2,&bPointSet); f.Add(3,&vPoint); f.Add(4,&bTileSet); f.Add(5,&sTile); f.Add(6,&bObjectSet); f.Add(7,&pObject); return 0; }
-};
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NGame
