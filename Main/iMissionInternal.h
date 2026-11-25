@@ -5,12 +5,11 @@
 #endif // _MSC_VER > 1000
 #include "..\Input\Bind.h"
 #include "wInterfaceVisitors.h"
+#include "wUICommands.h"
+#include "iMissionExec.h"
 #include "Transform.h"   // CTransformStack (CMission::sTransform by-value member; included by TUs beyond iMission.cpp now)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// forward decls for CMission's member types -- this header is now also included by TUs that do not
-// pull the defining headers (iMultiPlayerMenu.cpp since the W4.2 CMultiPlayerInterface reparenting);
-// all of these classes are saveload-registered, so smart-pointer members link on the incomplete-type
-// cast path too.
+// Forward declarations for the remaining CMission member types.
 namespace NUI { class CMissionUI; }
 namespace S2Net { class NetworkSession; class NetworkWorld; }
 namespace S2Agent { struct Controller; }
@@ -20,8 +19,6 @@ namespace NDb { class CString; class CUITexture; }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NGame
 {
-class CUICmdExec;
-class CUICmdLocatorExec;
 //////////////////////////////////////////////////////////////////////////////////////
 // CVisibleTracker
 //////////////////////////////////////////////////////////////////////////////////////

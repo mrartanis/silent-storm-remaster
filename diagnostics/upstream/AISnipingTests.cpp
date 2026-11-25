@@ -257,7 +257,7 @@ static void AISnipeSelectedWeapon(const char* databasePath, const char* resource
             actor->SetAP(2, actor->GetMaxAP());
             NAI::CAICollectSnipeAPAction::SInfo bank;
             collect->GetInfoInner(here, &bank);
-            const int expected = std::min(server->GetAP(), 17);
+            const int expected = (std::min)(server->GetAP(), 17);
             Require(expected > 2 && expected != aiming->GetBaseSnipeAP() && bank.bCanDo && bank.nAP == expected,
                 "the native snipe plan used simulated AP or the starting skill in place of live AP and skill");
             return;

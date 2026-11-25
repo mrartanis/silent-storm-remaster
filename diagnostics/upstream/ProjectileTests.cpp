@@ -195,7 +195,7 @@ void ShootingCompletion(const char* databasePath, const char* resourcePath, int 
             "aim-only object command spent AP or ammunition while raising the gun");
         for (int tick = 0; tick < 24 && actor->IsPerformingAction(); ++tick) {
             auto* clock = world->GetTime();
-            clock->Set(std::max(clock->GetValue() + 1, actor->animator.GetTimeEnd()));
+            clock->Set((std::max)(clock->GetValue() + 1, actor->animator.GetTimeEnd()));
             actor->Segment();
         }
         Require(!actor->IsPerformingAction() && weapon->GetAmmoQuantity() == ammo && actor->GetAP() == ap,
@@ -233,7 +233,7 @@ void ShootingCompletion(const char* databasePath, const char* resourcePath, int 
     shot->Run();
     Require(weapon->GetAmmoQuantity() == before - 1, "real shot did not spend one round before completion");
     const int visibility = observed->visibility;
-    world->GetTime()->Set(std::max(world->GetTime()->GetValue(), actor->animator.GetTimeLabel1()));
+    world->GetTime()->Set((std::max)(world->GetTime()->GetValue(), actor->animator.GetTimeLabel1()));
     bool keepLabels = shot->TimeLabelReached();
     if (delayedBurst) {
         Require(keepLabels && shot->GetNextLaunch() > world->GetTime()->GetValue(),
@@ -1216,7 +1216,7 @@ void RocketLaunchSolve(const char* databasePath, const char* resourcePath, bool 
     shot->Run();
     auto* time = world->GetTime();
     const STime label = actor->animator.GetTimeLabel1();
-    const STime arm = std::max(time->GetValue() + 1, label);
+    const STime arm = (std::max)(time->GetValue() + 1, label);
     time->Set(arm);
     Require(shot->TimeLabelReached(), "normal rocket animation failed to arm its delayed launch");
     const auto existing = CurrentProjectileObjects(world);

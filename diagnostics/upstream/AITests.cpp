@@ -1411,11 +1411,11 @@ void AIPlaceSourcePolicy(const char* databasePath, const char* resourcePath, int
         Require(area->Prepare(), "guard fixture could not prepare its native post area");
         auto investigation = origin.pos.p;
         ai->SetAP(3, 52);
-        const bool near = NAI::GetCheckPosition(ai, area, origin.pos, &investigation);
+        const bool withLiveBudget = NAI::GetCheckPosition(ai, area, origin.pos, &investigation);
         const auto liveChoice = investigation;
         ai->SetAP(26, 52);
         const bool planned = NAI::GetCheckPosition(ai, area, origin.pos, &investigation);
-        Require(near == planned && (!near || investigation == liveChoice),
+        Require(withLiveBudget == planned && (!withLiveBudget || investigation == liveChoice),
             "guard investigation used the speculative AP balance instead of live AP");
         return;
     }

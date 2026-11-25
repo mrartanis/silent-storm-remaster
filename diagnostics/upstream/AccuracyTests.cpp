@@ -186,8 +186,8 @@ void NativeHitArithmetic(const char* databasePath, const char* resourcePath, int
             const float add = unit->GetAllAdd();
             const float firstRound = unit->GetFRMult();
             const float illumination = unit->GetLight();
-            const float attackMultiplier = std::max(0.f, (add * firstRound) * illumination);
-            if (attackMultiplier != std::max(0.f, (add * illumination) * firstRound)) {
+            const float attackMultiplier = (std::max)(0.f, (add * firstRound) * illumination);
+            if (attackMultiplier != (std::max)(0.f, (add * illumination) * firstRound)) {
                 observed = true;
                 Require(unit->GetAllMult() == attackMultiplier, "native shot applied light before first-round penalty");
             }
