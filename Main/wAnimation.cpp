@@ -1528,7 +1528,7 @@ void CUnitAnimator::Fall( const NAI::SUnitPosition &cmdPos, float fPrevHeight )
 	
 	pAnimator->Updated();
 	IdleOn( cmdPos );
-
+	bInactivePose = cmdPos.pos.p.GetPose() == NAI::CM_INACTIVE;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void CUnitAnimator::Jump( const NAI::SUnitPosition &prevPos, const NAI::SUnitPosition &cmdPos, bool bRealJump, bool bJumpBack )
@@ -2449,6 +2449,7 @@ void CUnitAnimator::EnterLadder( const NAI::SUnitPosition &prevPos, const NAI::S
 void CUnitAnimator::LeaveLadder( const NAI::SUnitPosition &prevPos, const NAI::SUnitPosition &cmdPos, bool bUp )
 {
 	bLadder = false;
+	bInactivePose = cmdPos.pos.p.GetPose() == NAI::CM_INACTIVE;
 	NDb::CAnimation::EType type = bUp ? NDb::CAnimation::LEAVE_LADDER_UP : NDb::CAnimation::LEAVE_LADDER_DOWN;
 	pTerrainFunc->Move( cmdPos );
 	if ( !PlayLadderAnimation( prevPos, type ) )
@@ -2483,6 +2484,7 @@ void CUnitAnimator::MoveLadder( const NAI::SUnitPosition &prevPos, const NAI::SU
 void CUnitAnimator::JumpFromLadder( const NAI::SUnitPosition &prevPos, const NAI::SUnitPosition &cmdPos )
 {
 	bLadder = false;
+	bInactivePose = cmdPos.pos.p.GetPose() == NAI::CM_INACTIVE;
 	float fHeightDiff = prevPos.GetCP().z - cmdPos.GetCP().z;
 	if ( fHeightDiff < 0 )
 		fHeightDiff = 0;

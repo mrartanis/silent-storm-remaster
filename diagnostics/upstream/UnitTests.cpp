@@ -10,6 +10,9 @@
 #include "../../Main/RPGItemMap.h"
 #include "../../Main/RPGItemSet.h"
 #include "../../Main/wUnitAttackExec.h"
+#include "../../Main/aiGrid.h"
+#include "../../Main/aiMoves.h"
+#include "../../Main/A5Time.h"
 #include "../../Main/rpgPerk.h"
 #include "../../Main/rpgGlobal.h"
 #include "../../DBFormat/DataRPG.h"
@@ -345,6 +348,161 @@ static void NormalStateCommandLifetime(const char* databasePath, const char* res
     Require(actor->GetWishPose() == wanted, "the retained command lost its requested pose");
 }
 
+struct LadderDescentFixture
+{
+    CObj<NRPG::CGlobalGame> game;
+    CObj<NWorld::CWorld> world;
+    NWorld::CUnitServer* actor;
+    NAI::SUnitPosition approach, ledge, upperRung, lowerRung, bottom;
+    bool realClimb = false;
+
+    LadderDescentFixture(const char* databasePath, const char* resourcePath)
+        : world(FixtureWorld(databasePath, resourcePath, true, &game, 4517)),
+          actor(MovementPolicyActor(world))
+    {
+        auto* network = dynamic_cast<NAI::CPathNetwork*>(world->GetPathNetwork());
+        Require(network, "ladder descent fixture lacks the mission path network");
+        for (int layer = 0; layer < network->GetNumLayers(); ++layer) {
+            const auto& ladders = network->GetLayer(layer)->ladders;
+            for (size_t index = 0; index < ladders.size(); ++index) {
+                const auto& ladder = ladders[index];
+                if (ladder.GetHeight() < 5 || ladder.placeOnTop.IsFinal() || ladder.placeOnBottom.IsFinal() ||
+                    !ladder.placeOnTop.IsIntegral() || !ladder.placeOnBottom.IsIntegral())
+                    continue;
+                auto upper = ladder.placeOnTop;
+                auto lower = ladder.placeOnBottom;
+                upper.SetPose(NAI::CM_INACTIVE);
+                lower.SetPose(NAI::CM_STAND);
+                NAI::SPathPlace first(index, ladder.GetHeight() - 4, layer,
+                    (4 + 2 * int(ladder.eDir)) & 7, NAI::CM_STAND, 0);
+                upper.SetDirection(first.GetDirection());
+                first.SetIntegral(0);
+                auto last = first;
+                last.SetY(0);
+                if (!network->IsPassable(upper) || !network->IsPassable(lower) ||
+                    !network->IsPassable(first) || !network->IsPassable(last) ||
+                    NAI::GetTransitionType(network, upper, first) != NAI::TT_LADDER_UP ||
+                    NAI::GetTransitionType(network, last, lower) != NAI::TT_LADDER_DOWN)
+                    continue;
+                vector<NAI::SPathPlace> approaches;
+                network->GetNearPlaces(SSphere(network->GetCP(upper), 2.f), &approaches, true);
+                for (auto candidate : approaches) {
+                    candidate.SetPose(NAI::CM_CROUCH);
+                    candidate.SetDirection(upper.GetDirection());
+                    if (candidate.GetLayer() != upper.GetLayer() || !network->IsPassable(candidate))
+                        continue;
+                    const auto transition = NAI::GetTransitionType(network, candidate, upper);
+                    realClimb = transition >= NAI::TT_CLIMB_1 && transition <= NAI::TT_CLIMB_4;
+                    if (!realClimb && transition != NAI::TT_MOVE && transition != NAI::TT_MOVE_DIAGONAL)
+                        continue;
+                    approach.pos = NAI::SPosition(candidate, network);
+                    ledge.pos = NAI::SPosition(upper, network);
+                    upperRung.pos = NAI::SPosition(first, network);
+                    lowerRung.pos = NAI::SPosition(last, network);
+                    bottom.pos = NAI::SPosition(lower, network);
+                    return;
+                }
+            }
+        }
+        Require(false, "ladder descent fixture lacks a usable authored ladder");
+    }
+
+    void Enter()
+    {
+        auto& animation = actor->animator;
+        Require(animation.CanActivateItem(), "ordinary standing actor cannot activate an item");
+        animation.Climb(approach, ledge, realClimb);
+        Require(!animation.CanActivateItem(), "climb approach did not enter the inactive animation pose");
+        animation.EnterLadder(ledge, upperRung, false);
+        Require(!animation.CanActivateItem(), "actor can activate an item while still on the ladder");
+    }
+};
+
+void LadderDescentItemActivation(const char* databasePath, const char* resourcePath, int mode)
+{
+    LadderDescentFixture fixture(databasePath, resourcePath);
+    auto* actor = fixture.actor;
+    auto& animation = actor->animator;
+    if (mode == 3) {
+        animation.EnterLadder(fixture.bottom, fixture.lowerRung, true);
+        auto rung = fixture.lowerRung;
+        while (rung.pos.p.GetLadderStep() < fixture.upperRung.pos.p.GetLadderStep()) {
+            auto next = rung;
+            next.pos.p.SetY(rung.pos.p.GetLadderStep() + 1);
+            Require(fixture.world->GetPathNetwork()->IsPassable(next.pos.p), "ascent crossed an unavailable rung");
+            animation.MoveLadder(rung, next);
+            rung = next;
+        }
+        animation.LeaveLadder(rung, fixture.ledge, true);
+        Require(!animation.CanActivateItem(), "leaving the ladder onto an inactive ledge enabled item activation");
+        return;
+    }
+    fixture.Enter();
+    if (mode == 1) {
+        animation.JumpFromLadder(fixture.upperRung, fixture.bottom);
+        Require(animation.CanActivateItem(), "jumping off the ladder left the landing pose inactive");
+        return;
+    }
+    if (mode == 2) {
+        auto* inventory = actor->GetUnitRPG()->GetInventory();
+        auto* record = NDatabase::GetTable<NDb::CRPGFirstAid>()->GetRecord(1);
+        Require(record, "ladder item fixture lacks an authored hand item");
+        CObj<NRPG::CFirstAidItem> kit = new NRPG::CFirstAidItem(record);
+        for (auto slot : {NDb::SLOT_1, NDb::SLOT_2})
+            if (inventory->Get(slot))
+                inventory->TakeOff(slot);
+        Require(inventory->Equip(NDb::SLOT_1, kit) && inventory->Activate(NDb::SLOT_1) &&
+            !inventory->Get(NDb::SLOT_2), "ladder item fixture could not prepare a drawn item and empty slot");
+        animation.SetActiveItem(true);
+        animation.SetWeaponAnimation(actor->GetUnitRPG()->GetWeaponType());
+        actor->SetUndrawItem(false);
+        CObj<NWorld::CCmdSetActiveItem> select = new NWorld::CCmdSetActiveItem(NDb::SLOT_2);
+        NWorld::EUnitCommandResult result = NWorld::UCR_UNAVAILABLE;
+        CObj<NWorld::CCommandExecute> event = NWorld::CreateExecutor(actor, select, &result);
+        Require(event, "native empty-slot switch has no executor");
+        event->Run();
+        Require(inventory->GetActiveSlot() == NDb::SLOT_2 && !animation.CanActivateItem(),
+            "inactive slot switch failed to select the empty slot or changed the ladder state");
+        Require(!animation.IsActiveItem() && actor->GetUndrawItem(),
+            "empty slot retained a drawn item while the actor was on a ladder");
+        return;
+    }
+    auto rung = fixture.upperRung;
+    while (rung.pos.p.GetLadderStep() > 0) {
+        auto next = rung;
+        next.pos.p.SetY(rung.pos.p.GetLadderStep() - 1);
+        Require(fixture.world->GetPathNetwork()->IsPassable(next.pos.p), "descent crossed an unavailable rung");
+        animation.MoveLadder(rung, next);
+        rung = next;
+    }
+    Require(rung.pos.p == fixture.lowerRung.pos.p && !animation.CanActivateItem(),
+        "ladder descent did not reach the lowest rung while keeping item activation blocked");
+    animation.LeaveLadder(rung, fixture.bottom, false);
+    Require(animation.CanActivateItem(), "descending the ladder left the landing pose inactive");
+}
+
+void ForcedFallPose(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* actor = MovementPolicyActor(world);
+    auto& animation = actor->animator;
+    auto landing = actor->GetPosition();
+    Require(animation.CanActivateItem(), "standing actor cannot activate an item before he falls");
+    auto ledge = landing;
+    ledge.pos.p.SetPose(NAI::CM_INACTIVE);
+    animation.Climb(landing, ledge, false);
+    Require(!animation.CanActivateItem(), "fall fixture did not start from an inactive ledge pose");
+    const auto previousHeight = landing.GetCP().z + 100.f;
+    const STime now = world->GetTime()->GetValue();
+    animation.Fall(landing, previousHeight);
+    Require(animation.GetTimeEnd() > now + 5000, "forced fall did not run its animated branch");
+    Require(animation.CanActivateItem(), "animated fall onto an ordinary tile retained the inactive pose");
+    animation.Fall(ledge, previousHeight);
+    Require(animation.GetTimeEnd() > now + 5000 && !animation.CanActivateItem(),
+        "animated fall onto an inactive ledge enabled item activation");
+}
+
 }
 
 bool RunUnitTests(const char* mode, int argc, char** argv)
@@ -360,6 +518,8 @@ bool RunUnitTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "wish-pose-strafe") && argc == 4) { WishPoseStrafe(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "hide-empty-roster-slot") && argc == 4) { HideWithEmptyRosterSlot(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "normal-state-command-lifetime") && argc == 4) { NormalStateCommandLifetime(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "ladder-descent-item-activation") && argc == 5) { LadderDescentItemActivation(argv[2], argv[3], std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "forced-fall-pose") && argc == 4) { ForcedFallPose(argv[2], argv[3]); return true; }
     return false;
 }
 }

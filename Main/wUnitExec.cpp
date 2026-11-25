@@ -460,6 +460,11 @@ public:
 		}
 		if ( !pUS->animator.CanActivateItem() ) // on ladder, for example
 		{
+			if ( bActive && !pInventory->Get( slot ) )
+			{
+				pUS->animator.SetActiveItem( false );
+				bActive = false;
+			}
 			NRPG::IUnitMission *pRPG = pUS->GetUnitRPG();
 			pUS->animator.SetWeaponAnimation( bActive ? pRPG->GetWeaponType() : NDb::WT_DEFAULT );
 			pUS->SetUndrawItem( !bActive );
