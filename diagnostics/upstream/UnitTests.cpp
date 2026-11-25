@@ -7,6 +7,7 @@
 #include "../../Main/wUnitStates.h"
 #include "../../Main/RPGUnit.h"
 #include "../../Main/RPGUnitMission.h"
+#include "../../Main/RPGGame.h"
 #include "../../Main/RPGCritical.h"
 #include "../../Main/RPGAttackMech.h"
 #include "../../Main/RPGAttackSession.h"
@@ -26,6 +27,7 @@
 #include "../../Main/A5Script.h"
 #include "../../Main/scriptPtr.h"
 #include "../../Main/wAckBase.h"
+#include "../../Main/eventPlayer.h"
 #include "../../DBFormat/DataRPG.h"
 #include "../../DBFormat/DataPerk.h"
 #include "../../DBFormat/DataMap.h"
@@ -1009,6 +1011,72 @@ void ManualFirstTurnInterrupt(const char* databasePath, const char* resourcePath
         "manual first-turn request omitted the opposing unit's automatic interrupt");
 }
 
+void DirectionalUnitVisibility(const char* databasePath, const char* resourcePath, int mode)
+{
+    using namespace NWorld;
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    auto* mission = actor->GetUnitRPG();
+    auto* owner = actor->GetTBSPlayer();
+    const int ownerID = owner->GetScenarioPlayerID();
+    list<CPtr<CUnitServer>> units;
+    world->GetUnitsNear(actor->GetPosition().GetEyePosition(), &units,
+        world->GetGame()->GetMaxUnitSightDistance(mission->GetRPGUnit()));
+    const bool nativeSight = mode >= 2;
+    const auto found = std::find_if(units.begin(), units.end(), [&](const auto& candidate) {
+        auto* player = IsValid(candidate) ? candidate->GetTBSPlayer() : nullptr;
+        return IsValid(player) && player != owner && player->GetScenarioPlayerID() >= 0 &&
+            player->GetScenarioPlayerID() != ownerID && candidate->CanFight() &&
+            world->GetGame()->CheckVisibility(actor, candidate, true);
+    });
+    Require(found != units.end(), "native directional visibility fixture lacks its visible or occluded second party");
+    auto* target = found->GetPtr();
+    if (!nativeSight) {
+        auto facing = actor->GetPosition();
+        const auto targetDirection = NRPG::GetShootDirection(world->GetPathNetwork(), facing.pos.p, target->GetPosition().GetCP());
+        facing.pos.p.SetDirection((targetDirection + 4) & 7);
+        actor->SetPosition(facing);
+        actor->animator.PlaceUnit(facing);
+        Require(!world->GetGame()->CheckVisibility(actor, target, true), "turning away did not block the native visibility probe");
+    }
+    auto* targetMission = target->GetUnitRPG();
+    const int targetID = target->GetTBSPlayer()->GetScenarioPlayerID();
+    auto watcherDip = mission->GetDiplomacy();
+    auto observedDip = targetMission->GetDiplomacy();
+    watcherDip.SetDiplomacyState(targetID, mode == 0 ? NDb::DS_ALLY : mode == 3 ? NDb::DS_ENEMY : NDb::DS_NEUTRAL);
+    observedDip.SetDiplomacyState(ownerID, mode == 1 ? NDb::DS_ALLY : NDb::DS_NEUTRAL);
+    mission->SetDiplomacy(watcherDip);
+    targetMission->SetDiplomacy(observedDip);
+    Require(actor->GetDiplomacyState(target) == watcherDip.GetDiplomacyState(targetID) &&
+        target->GetDiplomacyState(actor) == observedDip.GetDiplomacyState(ownerID),
+        "visibility fixture did not establish asymmetric native diplomacy");
+    targetMission->SetHiding(nativeSight);
+    if (mode == 3) {
+        mission->GetRPGUnit()->Skills(NDb::ST_SPOT).SetConst(0);
+        targetMission->GetRPGUnit()->Skills(NDb::ST_STEALTH).SetConst(100);
+        const float distance = fabs(actor->GetPosition().GetCP() - target->GetPosition().GetCP()) / FP_GRID_STEP;
+        const int probability = mission->GetUnhideProbability(targetMission, distance);
+        actor->SetAudible(target, true);
+        bool failedRoll = false;
+        for (int seed = 0; seed < 128 && !failedRoll; ++seed) {
+            GlobalGameRandom().SeedForHarness(seed);
+            auto reference = GlobalGameRandom();
+            failedRoll = reference.Get(0, 100) >= probability;
+        }
+        Require(failedRoll && actor->IsUnitAudible(target), "shared spotting fixture did not provide a failed roll and real audibility");
+        world->OnNewPlayerFastTurnOrTime(CEventOnNewPlayerFastTurnOrTime(owner));
+        Require(!targetMission->IsHiding(), "world spotting sweep discarded the native audible reveal override");
+        return;
+    }
+    SInterruptInfo notices;
+    actor->UpdateVisible(&notices);
+    Require(actor->IsUnitVisible(target) == (mode == 1),
+        "native visibility used the wrong diplomacy direction or exposed a hidden neutral");
+    Require(std::none_of(notices.events.begin(), notices.events.end(), [&](const auto& notice) {
+        return notice.pWho == actor && notice.pWhom == target;
+    }), "neutral or allied contact created a hostile interrupt notice");
+}
+
 void OwnerWoundPolicy(const char* databasePath, const char* resourcePath, int mode)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -1170,6 +1238,7 @@ bool RunUnitTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "owner-wound-policy") && argc == 5) { OwnerWoundPolicy(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "ordinary-placement-anchor") && argc == 5) { OrdinaryPlacementAnchor(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "manual-first-turn-interrupt") && argc == 4) { ManualFirstTurnInterrupt(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "directional-unit-visibility") && argc == 5) { DirectionalUnitVisibility(argv[2], argv[3], std::atoi(argv[4])); return true; }
     return false;
 }
 }
