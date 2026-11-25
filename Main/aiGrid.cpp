@@ -875,6 +875,7 @@ void CNodesLayer::AddNearPoints( const SSphere &s, vector<SPathPlace> *pRes, boo
 				bool bAdd = true;
 				if ( !bTakeAll )
 				{
+					const bool bLinked = t1.HasNavigationLinks();
 					for ( int nL = 0; nL < N_MAX_LAYERS_PER_FLOOR * N_MAX_FLOORS; ++nL )
 					{
 						CNodesLayer *pL = pGroup->layers[ nL ];
@@ -883,10 +884,17 @@ void CNodesLayer::AddNearPoints( const SSphere &s, vector<SPathPlace> *pRes, boo
 						if ( pL == this )
 							continue;
 						CNodesLayer::STile &t2 = pL->tiles[ y ][ x ];
+						if ( t2.nHeight != t1.nHeight || t2.nDisplacement != t1.nDisplacement )
+							continue;
+						const bool bOtherLinked = t2.HasNavigationLinks();
+						// A physical alias can be useful for an action even without travel,
+						// but never hide a connected destination behind an isolated copy.
+						if ( bLinked && !bOtherLinked )
+							continue;
 						bool bBetter = ( t2.nPassable & t1.nPassable ) == t1.nPassable;
 						if ( t2.nPassable == t1.nPassable )
-							bBetter = pL->nLayer < nLayer;
-						if ( t2.nHeight == t1.nHeight && t2.nDisplacement == t1.nDisplacement && bBetter )
+							bBetter = bLinked != bOtherLinked ? bOtherLinked : pL->nLayer < nLayer;
+						if ( bBetter )
 						{
 							bAdd = false;
 							break;

@@ -1156,6 +1156,10 @@ static void NearbyConnectedDestination()
         "nearby fixture did not locate exactly its connected upper destination");
     Require(nearby(false) == vector<int>({1}),
         "nearby destination deduplication discarded a connected tile in favor of an isolated lower copy");
+    vector<NAI::SPathPlace> canonical;
+    network->GetNearPlaces(sphere, &canonical);
+    Require(canonical.size() == 1 && canonical.front().GetLayer() == 1,
+        "nearby search retained an isolated alias beside the equivalent connected destination");
     lowerTile.nMoveStand = 1;
     Require(nearby(false).empty(), "nearby search did not retain canonical lower connected copies");
     lowerTile.nPassable = 1;
