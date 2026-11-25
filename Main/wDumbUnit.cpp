@@ -752,16 +752,30 @@ int CDumbUnitServer::ProcessAttack( NWorld::IWorld *_pWorld, int nUserID, NRPG::
 
 	if ( !IsDead() )
 	{
+		NAI::IAIMap *pMap = pWorld->GetAIMap();
+		CObjectBase *pHull = pMap->GetHull( this );
 		CVec3 ptHit;
-		pWorld->GetAIMap()->GetUnitHLPos( &ptHit, pWorld->GetAIMap()->GetHull(this), NAI::HL_HEAD );
+		if ( !pMap->GetUnitHLPos( &ptHit, pHull, NAI::HL_HEAD ) )
+			ptHit = position.GetEyePosition();
 		// Original receiver classification, including zero suit damage and rejected hits.
 		bool bPK = damage.type == NRPG::RD_PK;
 		pWorld->AddHitLocator( new CHitLocator( nRes, bPK, ptHit, CDynamicCast<CUnit>( (CObjectBase*)this ) ) );
 
 		if ( nRes > 5 )
 		{
-			pWorld->GetAIMap()->GetUnitHLPos( &ptHit, pWorld->GetAIMap()->GetHull(this), nUserID );
-			pWorld->CreateBloodyMess( ptHit, pAttack->rTtrajectory.ptDir, this, 1 );
+			if ( !pMap->GetUnitHLPos( &ptHit, pHull, nUserID ) )
+				ptHit = position.GetCenter();
+			pWorld->CreateBloodyMess( ptHit, vDir, this, 1 );
+			const float fHeight = ptHit.z - position.GetCP().z;
+			if ( fHeight > 0 )
+			{
+				CVec3 vFloor( vDir.x, vDir.y, 0 );
+				Normalize( &vFloor );
+				vFloor *= fHeight;
+				vFloor *= 0.3f;
+				vFloor.z = -fHeight;
+				pWorld->CreateBloodyMess( ptHit, vFloor, this, 1 );
+			}
 		}
 	}
 
@@ -782,7 +796,7 @@ int CDumbUnitServer::ProcessAttack( NWorld::IWorld *_pWorld, int nUserID, NRPG::
 			&& !criticals.empty() && !bHeadless && nCurrentVP <= 0;
 		if ( bForced || bAllowed )
 		{
-			CVec3 vVel = pAttack->rTtrajectory.ptDir;
+			CVec3 vVel = vDir;
 			if ( fabs2( vVel ) > 0 )
 			{
 				Normalize( &vVel );
@@ -803,19 +817,19 @@ int CDumbUnitServer::ProcessAttack( NWorld::IWorld *_pWorld, int nUserID, NRPG::
 			// retail @0x7512b9: RPG-kill BEFORE KillUnit -- required on the forced path (a full-VP
 			// unit must become RPG-dead or the pRPG->IsDead() reconciliation below won't fire).
 			pRPG->Kill();
-			KillUnit( pAttack->rTtrajectory.ptDir );
+			KillUnit( vDir );
 		}
 	}
 
 	bool bDied = false;   // retail @0x350e20: set by BOTH the kill and the knock-out dispatch (beauty-cam gate)
 	if ( pRPG->IsDead() && !IsDead() )
 	{
-		KillUnit( pAttack->rTtrajectory.ptDir );
+		KillUnit( vDir );
 		bDied = true;
 	}
 	else if ( pRPG->IsUnconscious() && !IsUnconscious() )
 	{
-		MakeUnconscious( pAttack->rTtrajectory.ptDir );
+		MakeUnconscious( vDir );
 		bDied = true;
 	}
 	// Retail 0x75131e / v1.2 0x75166e: only conscious, living units flinch or acknowledge damage.
@@ -839,14 +853,14 @@ int CDumbUnitServer::ProcessAttack( NWorld::IWorld *_pWorld, int nUserID, NRPG::
 	// weapon-scaled fling. The previous flat fCoeff = 1.0f was the "same force for every weapon" bug.
 	{
 		float fCoeff = pAttack->GetPushCorpseCoeff();   // retail @0x28f860 over the bullet's fPushCoeff
-		bool bDown = IsDead() || IsUnconscious();
+		bool bDown = !CanFight();
 		if ( bDown && ( bFootball || fCoeff > 0 ) && !IsWearingPK() &&
 		     pRPG->GetRPGPers()->pPanzerklein == 0 && !animator.bIsCarried )
 		{
-			CVec3 vPush = pAttack->rTtrajectory.ptDir;
+			CVec3 vPush = vDir;
 			Normalize( &vPush );
 			if ( bFootball )
-				fCoeff = pAttack->GetPushCorpseCoeff() <= 0 ? 0.33f : 1.0f;   // retail 0x75141d..0x75144f
+				fCoeff = fCoeff > 0 ? 0.33f : 1.0f; // Russian Patch 1 0x75141d..0x75144f
 			vPush *= fCoeff;
 			// BUG 5 (auto-focus): retail ProcessAttack @0x350e20 posts CUICmdUnitCamera(dyingUnit,
 			// PR_UNIT_DIED_BEAUTY, useSloMo=true, prob=(coeff<=0.5?1:2*coeff+0.5), null) for a killed/KO'd
@@ -859,29 +873,14 @@ int CDumbUnitServer::ProcessAttack( NWorld::IWorld *_pWorld, int nUserID, NRPG::
 				GetWorld()->AddUICommand( new NWorld::CUICmdUnitCamera( pDeadCUnit,
 					NWorld::PR_UNIT_DIED_BEAUTY, true, t, 0 ) );
 			}
-			// Impact point = the HIT-LOCATION bone's world position (nUserID is the EHitLocation of
-			// this portion). CParticleSkeleton::Init's falloff (2-|particle-impact|) then puts the
-			// strongest impulse where the shot landed -> a head shot flings the head, a leg shot the
-			// legs, instead of every corpse tilting forward off its feet (the generic-GetCP fallback).
-			const char *pszHitBone;
-			switch ( nUserID )
-			{
-				case NAI::HL_HEAD:  pszHitBone = "Head";     break;
-				case NAI::HL_RHAND: pszHitBone = "R_UArm";   break;
-				case NAI::HL_LHAND: pszHitBone = "L_UArm";   break;
-				case NAI::HL_RLEG:  pszHitBone = "R_Thigh";  break;
-				case NAI::HL_LLEG:  pszHitBone = "L_Thigh";  break;
-				default:            pszHitBone = "Spine";    break;   // HL_BODY / HL_ANY
-			}
+			// Steam 0x751bad anchors the impulse on the collision hull's hit-location point.
+			NAI::IAIMap *pMap = pWorld->GetAIMap();
 			CVec3 vImpact;
-			CQuat qImpact;
-			GetBonePos( &vImpact, &qImpact, pszHitBone );
+			if ( !pMap->GetUnitHLPos( &vImpact, pMap->GetHull( this ), nUserID ) )
+				vImpact = position.GetCenter();
 			animator.Die( position, vPush, false, CDynamicCast<CUnitServer>( this ), &vImpact );   // retail @0x751511
 		}
 	}
-
-	if ( IsDead() )
-		return nRes;
 
 	for ( int k = 0; k < criticals.size(); ++k )
 		ProcessCritical( criticals[k] );

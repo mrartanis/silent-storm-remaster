@@ -1765,39 +1765,48 @@ int CUnitServer::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, NRPG::CAtta
 {
 	if ( bIsPKWhichIsWeared )
 		return 0;
+	CWorld *pOwnerWorld = GetWorld();
+	CPtr<CCannon> pCannon = animator.GetCannon();
 	bool isDead = GetUnitRPG()->IsDead();
 	const bool wasUnconscious = IsUnconscious();
 	CPtr<CUnitServer> pAttacker = IsValid( pAttack->pAttacker ) ?
-		GetWorld()->GetUnitServer( pAttack->pAttacker ) : nullptr;
+		pOwnerWorld->GetUnitServer( pAttack->pAttacker ) : nullptr;
+	const NDb::EDiplomacyState relation = IsValid( pAttacker ) ?
+		pAttacker->GetDiplomacyState( this ) : NDb::DS_NEUTRAL;
 	// Original Steam 0x7c3e8c..0x7c3f02: prepare the hostile party before damage.
 	list< CPtr<CUnitServer> > xpUnits;
 	float fXP = 0;
-	if ( IsValid( pAttacker ) && pAttacker->GetDiplomacyState( this ) == NDb::DS_ENEMY &&
-		pAttacker->GetTBSPlayer() )
+	if ( relation == NDb::DS_ENEMY && pAttacker->GetTBSPlayer() )
 	{
 		pAttacker->GetTBSPlayer()->GetUnitsThatCanFight( &xpUnits );
 		fXP = GetUnitRPG()->GetXP( xpUnits.size() );
 	}
+	CPtr<CUnitServer> pPKUnit = IsEmptyPK() ? this : pWearingPK.GetPtr();
+	const bool bWasPKDisabled = !IsValid( pPKUnit ) ||
+		pPKUnit->GetUnitRPG()->GetRPGUnit()->Skills( NDb::ST_VP ) <= 0;
 	int nRet = CDumbUnitServer::ProcessAttack( pWorld, nUserID, pAttack, vDir, pArmor );
 	if ( !IsValid( this ) )
 	{
+		if ( IsValid( pAttacker ) && relation != NDb::DS_NEUTRAL )
+			pAttacker->GetUnitRPG()->GetRPGUnit()->AddMedalPoints( pOwnerWorld->GetGlobalGame(),
+				relation == NDb::DS_ALLY ? NRPG::MPC_KILLED_ALLY : NRPG::MPC_KILLED_ENEMY, 0 );
 		// Steam 0x7c4103..0x7c412c: removed targets pay the saved party directly.
 		for ( list< CPtr<CUnitServer> >::iterator i = xpUnits.begin(); i != xpUnits.end(); ++i )
 			(*i)->GetUnitRPG()->GetRPGUnit()->AddXP( fXP );
 		return nRet;
 	}
-	CUnitServer *pPKUnit = 0;
-	if ( IsWearingPK() )
-		pPKUnit = pWearingPK;
-	if ( IsEmptyPK() )
-		pPKUnit = this;
-	NDb::CPanzerklein *pPK = 0;
-	if ( pPKUnit )
-		pPK = pPKUnit->GetUnitRPG()->GetRPGPers()->pPanzerklein;
-	if ( pPK )
+	if ( nRet > 0 && !NAI::IsAIPlayer( GetPlayer() ) )
+	{
+		const float importance = GetRPG()->IsHero() ? 1000.f : float( nRet / 10 + 1 );
+		pOwnerWorld->AddUICommand( new CUICmdUnitCamera( IsValid( pAttacker ) ? pAttacker.GetPtr() : this,
+			PR_OUR_UNIT_IS_HIT, false, importance, this ) );
+	}
+	NDb::CPanzerklein *pPK = IsValid( pPKUnit ) ? pPKUnit->GetUnitRPG()->GetRPGPers()->pPanzerklein.GetPtr() : 0;
+	bool bPKDisabled = false;
+	if ( IsValid( pPK ) )
 	{	
-		NRPG::CDynamicSkill &pkVP = pPKUnit->GetUnitRPG()->GetRPGUnit()->Skills( NDb::ST_VP );
-		if ( pPK->pSelfExplosion && pkVP < 0 )
+		bPKDisabled = pPKUnit->GetUnitRPG()->GetRPGUnit()->Skills( NDb::ST_VP ) <= 0;
+		if ( !bWasPKDisabled && bPKDisabled && pPK->pSelfExplosion )
 		{
 			GetWorld()->AddGrenadeExplosion( GetPosition().GetCP(), pPK->pSelfExplosion );
 			if ( IsEmptyPK() )
@@ -1812,8 +1821,13 @@ int CUnitServer::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, NRPG::CAtta
 				}
 			}
 		}
-		if ( pkVP < 0 )
+		if ( bPKDisabled )
+		{
 			animator.IdleBan( NAnimation::E_NO_IDLE_WHEN_STUNNED, true );
+			if ( !bWasPKDisabled && IsValid( pAttacker ) && relation != NDb::DS_NEUTRAL )
+				pAttacker->GetUnitRPG()->GetRPGUnit()->AddMedalPoints( pOwnerWorld->GetGlobalGame(),
+					relation == NDb::DS_ALLY ? NRPG::MPC_DISABLED_ALLY_PK : NRPG::MPC_DISABLED_ENEMY_PK, 0 );
+		}
 	}
 
 	if ( !isDead && GetUnitRPG()->IsDead() )
@@ -1825,6 +1839,15 @@ int CUnitServer::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, NRPG::CAtta
 					pGlobalPlayer->deployData.unitsDeployData[ GetUnitRPG()->GetRPGUnit() ].bCorpseAlive = false;
 		}
 		GetWorld()->GetGlobalGame()->pScenarioTracker->OnScenarioClueDestroyed( this->GetUnitRPG()->GetRPGPersID(), true );
+		if ( IsValid( pAttacker ) && relation != NDb::DS_NEUTRAL )
+		{
+			NRPG::EMedalPointCases medal = NRPG::MPC_KILLED_ENEMY;
+			if ( relation == NDb::DS_ALLY )
+				medal = NRPG::MPC_KILLED_ALLY;
+			else if ( !bWasPKDisabled && !bPKDisabled )
+				medal = NRPG::MPC_KILLED_ENEMY_NOT_DISABLED_PK;
+			pAttacker->GetUnitRPG()->GetRPGUnit()->AddMedalPoints( pOwnerWorld->GetGlobalGame(), medal, 0 );
+		}
 	}
 	// Original Steam 0x7c449d..0x7c44d4: notify only the new unconscious transition.
 	if ( !wasUnconscious && IsUnconscious() )
@@ -1842,6 +1865,12 @@ int CUnitServer::ProcessAttack( NWorld::IWorld *pWorld, int nUserID, NRPG::CAtta
 		// Steam 0x7c452d..0x7c455c: a retained target pays only on its first incapacitation.
 		for ( list< CPtr<CUnitServer> >::iterator i = xpUnits.begin(); i != xpUnits.end(); ++i )
 			(*i)->GetUnitRPG()->GetRPGUnit()->AddXP( fXP );
+		if ( IsValid( pCannon ) )
+		{
+			GetUnitRPG()->SetCannonItem( 0 );
+			if ( pCannon->GetCurrentUnit() == this )
+				pCannon->SetCurrentUnit( 0 );
+		}
 	}
 	return nRet;
 }

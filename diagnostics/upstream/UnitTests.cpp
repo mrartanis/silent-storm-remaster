@@ -1,5 +1,7 @@
 #include "TestSupport.h"
+#include "NativeCannonFixture.h"
 #include "../../Main/wMain.h"
+#include "../../Main/wUICommands.h"
 #include "../../Main/wMainPath.h"
 #include "../../Main/wUnitServer.h"
 #include "../../Main/wUnitCommands.h"
@@ -32,6 +34,7 @@
 #include "../../DBFormat/DataPerk.h"
 #include "../../DBFormat/DataMap.h"
 #include "../../MiscDll/LogStream.h"
+#include "../../MiscDll/Commands.h"
 #include "../../Misc/RandomGen.h"
 #include <cstring>
 
@@ -39,6 +42,117 @@ namespace UpstreamTests
 {
 namespace
 {
+void DamageConsequences(const char* databasePath, const char* resourcePath, int mode)
+{
+    NativeCannonFixture cannonFixture;
+    CObj<NRPG::CGlobalGame> game;
+    CObj<NWorld::CWorld> world;
+    if (mode == 2) {
+        cannonFixture = MakeNativeCannonFixture(databasePath, resourcePath);
+        world = cannonFixture.world;
+        game = cannonFixture.game;
+    } else {
+        world = FixtureWorld(databasePath, resourcePath, true, &game);
+    }
+    Require(IsValid(game->pDifficulty), "world damage fixture needs an authored difficulty record");
+    game->pDifficulty->fOurDamageMult = game->pDifficulty->fEnemyDamageMult = 1.f;
+    auto* party = MovementPolicyActor(world);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    const auto opponent = std::find_if(units.begin(), units.end(), [&](const auto& unit) {
+        return IsValid(unit) && unit->CanFight() && !unit->GetRPG()->IsHero() && !unit->IsEmptyPK() &&
+            !unit->IsWearingPK() && party->GetDiplomacyState(unit) == NDb::DS_ENEMY;
+    });
+    Require(opponent != units.end(), "world damage fixture needs a healthy enemy outside a Panzerklein");
+    auto* target = mode == 0 ? party : mode == 2 ? cannonFixture.actor.GetPtr() : opponent->GetPtr();
+    auto* attacker = target == party ? opponent->GetPtr() : party;
+    auto* targetRPG = target->GetUnitRPG();
+    auto* gun = cannonFixture.cannon.GetPtr();
+    if (gun) {
+        CObj<NWorld::CCmdCannon> order = new NWorld::CCmdCannon(gun);
+        CObj<NWorld::CExecCannon> mount = new NWorld::CExecCannon(target, gun, true, order);
+        Require(mount->CanDoIt(target->GetPosition()) == NWorld::UCR_OK, "gunner fixture cannot mount its cannon");
+        mount->Run();
+        world->GetTime()->Set(target->animator.GetTimeEnd());
+        mount->AnimationFinished();
+        Require(gun->GetCurrentUnit() == target && targetRPG->GetCannonItem() == gun->GetItem(),
+            "gunner fixture did not enter the occupied native cannon state");
+    }
+    auto* progress = attacker->GetUnitRPG()->GetRPGUnit();
+    if (mode == 1) {
+        auto* table = NDatabase::GetTable<NDb::CMedal>();
+        Require(table && IsValid(progress->CMedalsGainer::pPers) && IsValid(progress->CMedalsGainer::pPers->pSide),
+            "medal fixture needs a party side and medals");
+        CDBIterator<NDb::CMedal> medals(*table);
+        NDb::CMedal* award = nullptr;
+        while (!award && medals.MoveNext()) {
+            if (!medals.Get()->bIsRussianOnly)
+                award = medals.Get();
+        }
+        Require(award, "medal fixture needs a medal that can collect points in this zone");
+        award->nPointsToStart = 1000;
+        progress->bDisabled = false;
+        progress->medalInfos.assign(1, NRPG::CMedalsGainer::SMedalInfo{});
+        progress->medalInfos.front().pMedal = award;
+        progress->medalInfos.front().bIsCollectingPoints = true;
+    }
+    while (CObj<NWorld::CUICmd> command = world->GetUICommand()) {}
+    auto* armor = targetRPG->GetRPGArmor();
+    Require(IsValid(armor) && IsValid(armor->pMaterial), "world damage fixture needs authored body armor");
+    CDBIterator<NDb::CRPGDmgToArmor> types(*NDatabase::GetTable<NDb::CRPGDmgToArmor>());
+    int type = -1;
+    while (type < 0 && types.MoveNext()) {
+        if (types.Get()->armors[armor->pMaterial->nDR] > 0)
+            type = types.Get()->GetRecordID();
+    }
+    Require(type >= 0, "world damage fixture needs native damage against flesh");
+    const int initialHP = targetRPG->GetTotalVP();
+    if (mode == 2)
+        targetRPG->GetRPGUnit()->CalcDeathVP(1.f);
+    const int damage = mode == 0 ? 15 : mode == 2 ? initialHP : initialHP + 200;
+    const float push = mode == 3 ? 0.4f : 0.f;
+    if (mode >= 3)
+        NGlobal::SetVar("cheat_football", NGlobal::CValue(1.f));
+    NRPG::CAttackPortion portion(100000, type, push, damage, damage, 0, 0, attacker->GetUnitRPG(), targetRPG, 1.f, -1);
+    portion.rTtrajectory.ptOrigin = target->GetPosition().GetCP();
+    portion.rTtrajectory.ptDir = CVec3(0, -1, 0);
+    Require(portion.CalcStructDmg(world, armor, 0) == damage, "world damage fixture does not apply its requested damage");
+    const int actual = target->ProcessAttack(world, NAI::HL_BODY, &portion, CVec3(1, 0, 0), armor);
+    Require(actual == damage && targetRPG->GetTotalVP() == initialHP - damage &&
+        target->IsDead() == (mode == 1 || mode >= 3) && target->IsUnconscious() == (mode == 2),
+        "native world attack did not apply the fixture's damage and life-state transition");
+
+    if (mode == 1) {
+        const auto points = [&] { return progress->medalInfos.front().fPoints; };
+        Require(points() == NRPG::GetMedalPoints(NRPG::MPC_KILLED_ENEMY, 0),
+            "the native kill did not update the attacker's medal progress exactly once");
+        target->ProcessAttack(world, NAI::HL_BODY, &portion, CVec3(1, 0, 0), armor);
+        Require(points() == NRPG::GetMedalPoints(NRPG::MPC_KILLED_ENEMY, 0), "a later corpse hit awarded another kill medal");
+        return;
+    }
+    if (mode == 2) {
+        Require(!gun->GetCurrentUnit() && !targetRPG->GetCannonItem(), "an incapacitated gunner kept the cannon occupied");
+        return;
+    }
+    int matching = 0;
+    while (CObj<NWorld::CUICmd> command = world->GetUICommand()) {
+        auto* camera = dynamic_cast<NWorld::CUICmdUnitCamera*>(command.GetPtr());
+        if (!camera)
+            continue;
+        if (mode == 0 && camera->nPriority == NWorld::PR_OUR_UNIT_IS_HIT) {
+            const float importance = target->GetRPG()->IsHero() ? 1000.f : float(actual / 10 + 1);
+            Require(camera->pUnit == attacker && camera->pUnitTarget == target && !camera->bUseSloMo &&
+                camera->fSloMoIncrProbability == importance, "native damage camera used the wrong subjects or priority weight");
+            ++matching;
+        } else if (mode >= 3 && camera->nPriority == NWorld::PR_UNIT_DIED_BEAUTY && camera->pUnit == target) {
+            Require(camera->bUseSloMo && camera->fSloMoIncrProbability == (mode == 3 ? 1.f : 2.5f),
+                "football corpse push applied the original weak and strong coefficients in reverse");
+            ++matching;
+        }
+    }
+    Require(matching == 1, "native attack did not emit exactly one camera request for the consequence");
+}
+
 void RecordActionCosts(const char* databasePath, const char* resourcePath)
 {
     auto world = FixtureWorld(databasePath, resourcePath, true);
@@ -1247,6 +1361,7 @@ void CrouchedClimbIdle(const char* databasePath, const char* resourcePath)
 
 bool RunUnitTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "damage-consequences") && argc == 5) { DamageConsequences(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "record-action-costs") && argc == 4) { RecordActionCosts(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "combat-action-practice") && argc == 5) { CombatActionPractice(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "critical-lifetime") && argc == 2) { CriticalLifetime(); return true; }
