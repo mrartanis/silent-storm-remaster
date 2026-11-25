@@ -10,6 +10,7 @@
 #include "RPGItemSet.h"
 #include "RPGUnit.h"
 #include "../Misc/2Darray.h"
+#include "../Misc/RetailSort.h"
 #include "../Misc/StrProc.h"
 #include "../DBFormat/DataFormat.h"
 #include "../DBFormat/DataRPG.h"
@@ -157,8 +158,8 @@ struct SItemsSort
 	{
 		const CTPoint<int> &sSize1 = sI1.pItem->GetSize();
 		const CTPoint<int> &sSize2 = sI2.pItem->GetSize();
-		int nW1 = Max( sSize1.x, sSize1.y ) + sSize1.x * sSize1.y;
-		int nW2 = Max( sSize2.x, sSize2.y ) + sSize2.x * sSize2.y;
+		int nW1 = Max( sSize1.x, sSize1.y ) + 2 * sSize1.x * sSize1.y;
+		int nW2 = Max( sSize2.x, sSize2.y ) + 2 * sSize2.x * sSize2.y;
 
 		return nW1 > nW2; 
 	}
@@ -167,21 +168,26 @@ struct SItemsSort
 void CInventory::ArrangeItems()
 {
 	vector<SBackPackItem> tempItems( items );
-	sort( tempItems.begin(), tempItems.end(), SItemsSort() );
+	NRetail::Sort( tempItems.begin(), tempItems.end(), SItemsSort() );
 
-	for ( int nTemp = 0; nTemp < tempItems.size(); nTemp++ )
-	{
-		Take( tempItems[nTemp].pItem );
-	}
-
+	vector<SBackPackItem> originalItems;
+	originalItems.reserve( items.size() );
+	originalItems.swap( items );
 	backpackMap.FillZero();
-	for ( int nTemp = 0; nTemp < tempItems.size(); nTemp++ )
+	for ( const SBackPackItem &item : tempItems )
 	{
-		SBackPackItem sItem = tempItems[nTemp];
-
 		CTPoint<int> sPos;
-		if ( FindPlace( sItem.pItem, &sPos ) )
-			Place( sPos, sItem.pItem );
+		if ( FindPlace( item.pItem, &sPos ) )
+		{
+			Place( sPos, item.pItem );
+			continue;
+		}
+		// Greedy packing can exhaust the backpack despite a valid starting layout.
+		items.clear();
+		backpackMap.FillZero();
+		for ( const SBackPackItem &original : originalItems )
+			Place( original.sPos, original.pItem );
+		return;
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////

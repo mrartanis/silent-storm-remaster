@@ -513,6 +513,45 @@ static void InventoryWithoutUniform()
         "restoring a uniform did not restore its original belt placement");
 }
 
+static void BackpackArrangement(int mode)
+{
+    CObj<NRPG::IInventory> inventory = NRPG::CreateInventory(nullptr);
+    vector<CObj<NDb::CRPGItem>> records;
+    vector<CObj<NRPG::IInventoryItem>> authored;
+    auto place = [&](int width, int height, const CTPoint<int>& position) {
+        CObj<NDb::CRPGItem> record = new NDb::CRPGItem;
+        record->sSize = CTPoint<int>(width, height);
+        CObj<NRPG::IInventoryItem> item = NRPG::CreateDummyItem(record);
+        Require(inventory->CanPlace(position, item) && inventory->Place(position, item),
+            "native backpack fixture could not put an item in its authored position");
+        records.push_back(record);
+        authored.push_back(item);
+    };
+    if (mode == 2) {
+        place(5, 6, CTPoint<int>(0, 0));
+        place(2, 8, CTPoint<int>(5, 0));
+        place(6, 3, CTPoint<int>(0, 8));
+        const auto before = inventory->GetItems();
+        inventory->ArrangeItems();
+        const auto& after = inventory->GetItems();
+        Require(after.size() == before.size(), "native backpack arrangement lost a packed item");
+        for (size_t index = 0; index < before.size(); ++index)
+            Require(after[index].pItem == before[index].pItem && after[index].sPos == before[index].sPos &&
+                !inventory->CanPlace(before[index].sPos, before[index].pItem),
+                "failed native backpack arrangement moved an item or cleared an occupied tile");
+        return;
+    }
+    place(mode == 0 ? 1 : 2, mode == 0 ? 9 : 2, CTPoint<int>(0, 0));
+    place(mode == 0 ? 3 : 2, mode == 0 ? 4 : 2, CTPoint<int>(2, 0));
+    inventory->ArrangeItems();
+    const auto& items = inventory->GetItems();
+    Require(items.size() == 2, "native backpack arrangement lost an item");
+    Require(items[0].pItem == authored[1] && items[0].sPos == CTPoint<int>(0, 0) &&
+        items[1].pItem == authored[0] && items[1].sPos == CTPoint<int>(mode == 0 ? 3 : 2, 0),
+        mode == 0 ? "native backpack arrangement did not give the item area double weight" :
+        "equal-weight backpack items did not take the second retail merge chain first");
+}
+
 static void InventoryClueCreation(const char* databasePath, const char* resourcePath, bool checkCount = false, bool noSpace = false)
 {
     CFileStream database;
@@ -903,6 +942,7 @@ bool RunInventoryTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "cursor-clip-onto-weapon") && argc == 5) { CursorClipOntoWeapon(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "item-hint-on-inventory-placement") && argc == 5) { ItemHintOnInventoryPlacement(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "inventory-without-uniform")) { InventoryWithoutUniform(); return true; }
+    if (!std::strcmp(mode, "backpack-arrangement") && argc == 3) { BackpackArrangement(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "weapon-clip-archive-valid") && argc==3) { WeaponClipArchive(argv[2],false); return true; }
     if (!std::strcmp(mode, "weapon-clip-archive-legacy") && argc==3) { WeaponClipArchive(argv[2],true); return true; }
     if (!std::strcmp(mode, "legacy-hand-clip-left") && argc==4) { HandContainerCharges(argv[2],argv[3],false,true); return true; }
