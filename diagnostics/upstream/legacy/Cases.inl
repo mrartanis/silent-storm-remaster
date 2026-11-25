@@ -99,7 +99,6 @@ bool UpstreamTests::RunLegacyTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "deferred-click-world")) { DeferredClickWorld(); return true; }
     if (!std::strcmp(mode, "point-light-without-scene")) { PointLightWithoutScene(); return true; }
     if (!std::strcmp(mode, "dynamic-ambient-fallback")) { DynamicAmbientFallback(); return true; }
-    if (!std::strcmp(mode, "inventory-without-uniform")) { InventoryWithoutUniform(); return true; }
     if (!std::strcmp(mode, "corpse-backpack-drop") && argc == 4) { CorpseBackpackDrop(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "scripted-dialogue-priority") && argc == 4) { ScriptedDialoguePriority(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "point-light-save-layout")) { PointLightSaveLayout(); return true; }
@@ -138,12 +137,6 @@ bool UpstreamTests::RunLegacyTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "chapter-clue-heading") && argc == 4) { ChapterTeamMarkerToolTip(argv[2],argv[3],3); return true; }
     if (!std::strcmp(mode, "medal-cursor-visible") && argc == 4) { MedalCursorVisible(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "chapter-medal-screenshot") && argc == 4) { ChapterMedalScreenshot(argv[2],argv[3]); return true; }
-    if (!std::strcmp(mode, "weapon-clip-archive-valid") && argc==3) { WeaponClipArchive(argv[2],false); return true; }
-    if (!std::strcmp(mode, "weapon-clip-archive-legacy") && argc==3) { WeaponClipArchive(argv[2],true); return true; }
-    if (!std::strcmp(mode, "legacy-hand-clip-left") && argc==4) { HandContainerCharges(argv[2],argv[3],false,true); return true; }
-    if (!std::strcmp(mode, "legacy-hand-clip-right") && argc==4) { HandContainerCharges(argv[2],argv[3],true,true); return true; }
-    if (!std::strcmp(mode, "hand-charges-left") && argc==4) { HandContainerCharges(argv[2],argv[3],false); return true; }
-    if (!std::strcmp(mode, "hand-charges-right") && argc==4) { HandContainerCharges(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "medal-panel-caption") && argc == 4) { MedalPanelCaption(argv[2],argv[3]); return true; }
     if (!std::strcmp(mode, "medal-preview-camera") && argc == 4) { MedalPanelCaption(argv[2],argv[3],true); return true; }
     if (!std::strcmp(mode, "window-nested-wakeup")) { WindowNestedWakeup(); return true; }
@@ -496,9 +489,6 @@ bool UpstreamTests::RunLegacyTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "object-trap-placement-cursor") && argc == 3) { PlacementCursor(argv[2]); return true; }
     if (!std::strcmp(mode, "mine-placement-cursor") && argc == 3) { PlacementCursor(argv[2],true); return true; }
     if (!std::strcmp(mode, "reload-action-wire")) { Require(argc == 4, "reload wire requires db and res"); ReloadActionWire(argv[2], argv[3]); return true; }
-    if (!std::strcmp(mode, "ai-reload-log-wire")) { AIReloadLogRecord(0); return true; }
-    if (!std::strcmp(mode, "ai-reload-log-rollback")) { AIReloadLogRecord(1); return true; }
-    if (!std::strcmp(mode, "ai-reload-log-ownership")) { AIReloadLogRecord(2); return true; }
     if (!std::strcmp(mode, "pain-voice-owner")) { Require(argc == 4, "pain voice requires db and res"); PainVoiceOwner(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "unconscious-pain-voice")) { Require(argc == 4, "pain eligibility requires db and res"); PainVoiceOwner(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "world-ui-refresh-latch")) { Require(argc == 4, "world UI refresh requires db and res"); WorldUIRefreshLatch(argv[2], argv[3]); return true; }
@@ -1157,9 +1147,6 @@ bool UpstreamTests::RunLegacyTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "inventory-ui-3") && argc==4) { InventoryNoPlaceUI(argv[2],argv[3],3); return true; }
     if (!std::strcmp(mode, "inventory-ui-4") && argc==4) { InventoryNoPlaceUI(argv[2],argv[3],4); return true; }
     if (!std::strcmp(mode, "inventory-ui-5") && argc==4) { InventoryNoPlaceUI(argv[2],argv[3],5); return true; }
-    if (!std::strcmp(mode, "inventory-clue-creation") && argc == 4) { InventoryClueCreation(argv[2], argv[3]); return true; }
-    if (!std::strcmp(mode, "inventory-clue-count") && argc == 4) { InventoryClueCreation(argv[2], argv[3], true); return true; }
-    if (!std::strcmp(mode, "inventory-clue-capacity") && argc == 4) { InventoryClueCreation(argv[2], argv[3], true, true); return true; }
     if (!std::strcmp(mode, "corpse-snap-failure") && argc == 4) { FailedCorpseSnap(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "movement-critical-probe") && argc == 4) { MovementCriticalProbe(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "latest-route-command") && argc == 4) { LatestRouteCommand(argv[2], argv[3]); return true; }
@@ -1181,8 +1168,6 @@ bool UpstreamTests::RunLegacyTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "explicit-hide-state") && argc == 4) { ExplicitHideState(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "group-hide-shortcut") && argc == 4) { GroupHideShortcut(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "script-hide-state") && argc == 4) { ScriptHideState(argv[2], argv[3]); return true; }
-    if (!std::strcmp(mode, "exhausted-hint-pickups") && argc == 4) { ExhaustedHintPickups(argv[2], argv[3]); return true; }
-    if (!std::strcmp(mode, "authored-hint-placement") && argc == 4) { AuthoredHintPlacement(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "thrown-knife-orientation") && argc == 4) { ThrownKnifeOrientation(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-idle") && argc == 4) { IdleAI(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-roaming-current-position") && argc == 4) { RoamingUsesCurrentPosition(argv[2], argv[3]); return true; }

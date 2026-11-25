@@ -1,5 +1,6 @@
 #include "TestSupport.h"
 #include "NativeDatabaseFixtures.h"
+#include "NativeDisplayContext.h"
 #include "SoundVisitor.h"
 
 #if defined(_WIN32)
@@ -284,6 +285,7 @@ using UpstreamTests::BorrowedObjectFields;
 using UpstreamTests::FixtureWorld;
 using UpstreamTests::NativeContextColumn;
 using UpstreamTests::NativeContextEmptyRelation;
+using UpstreamTests::NativeDisplayContext;
 using UpstreamTests::ObjectStageAudio;
 using UpstreamTests::Require;
 
