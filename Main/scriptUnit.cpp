@@ -76,7 +76,8 @@ BEGIN_SCRIPT_COMMAND( CreateUnit, "nnssn" )
 			CDBPtr<NDb::CRPGPers> pRPGPers = NDb::GetPers( nPersID );
 			if ( IsValid( pRPGPers ) )
 			{
-				CPtr<NRPG::IUnitMission> pRPGUnit = NRPG::CreateUnit( pRPGPers );
+				NRPG::CGlobalGame *pGame = pScript->pWorld->GetGlobalGame();
+				CPtr<NRPG::IUnitMission> pRPGUnit = NRPG::CreateUnit( pRPGPers, 0, 0, IsValid( pGame ) ? pGame->pDifficulty.GetPtr() : 0 );
 				if ( IsValid( pRPGUnit ) )
 				{
 					pRPGUnit->GetRPGUnit()->SetXPLevel( nLevel );

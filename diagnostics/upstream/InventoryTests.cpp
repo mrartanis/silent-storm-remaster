@@ -1,6 +1,7 @@
 #include "TestSupport.h"
 #include "NativeDisplayContext.h"
 #include "../../Main/wMain.h"
+#include "../../Main/MapBuild.h"
 #include "../../Main/wUnitServer.h"
 #include "../../Main/wUnitCommands.h"
 #include "../../Main/wUnitExec.h"
@@ -31,7 +32,11 @@
 #include "../../Main/aiUnit.h"
 #include "../../Main/aiWeapon.h"
 #include "../../Main/AILog.h"
+#include "../../Main/A5Script.h"
+#include "../../Main/scriptPtr.h"
 #include "../../DBFormat/DataRPG.h"
+#include "../../DBFormat/DataChest.h"
+#include "../../DBFormat/DataDifficulty.h"
 #include "../../DBFormat/DataFormat.h"
 #include "../../DBFormat/DataMap.h"
 #include "../../DBFormat/DataObject.h"
@@ -44,6 +49,77 @@ namespace UpstreamTests
 {
 namespace
 {
+void DifficultyEquipment(const char* databasePath, const char* resourcePath, bool rolledChest)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* anchor = MovementPolicyActor(world);
+    auto* persona = NDb::GetPers(103);
+    Require(IsValid(persona) && IsValid(game->pDifficulty), "difficulty fixture lacks a campaign persona or active difficulty");
+    CObj<NDb::CDBDifficulty> other = new NDb::CDBDifficulty;
+    const auto originalItems = persona->items;
+    struct RestoreItems {
+        NDb::CRPGPers* persona;
+        const vector<NDb::SItemAssign>& items;
+        ~RestoreItems() { persona->items = items; }
+    } restore{persona, originalItems};
+    persona->items.clear();
+    CObj<NDb::CRPGChestReal> chest = new NDb::CRPGChestReal;
+    CObj<NDb::CRPGKey> records[3];
+    CObj<NDb::CRPGItem> itemRecords[3];
+    for (int i = 0; i < 3; ++i) {
+        records[i] = new NDb::CRPGKey;
+        records[i]->nKeyID = 100 + i;
+        itemRecords[i] = new NDb::CRPGItem;
+        itemRecords[i]->sSize = CTPoint<int>(1, 1);
+        itemRecords[i]->subType = NDb::SUBTYPE_NONE;
+        itemRecords[i]->nWeight = 1;
+        records[i]->pItem = itemRecords[i].GetPtr();
+        itemRecords[i]->pSuccessor = records[i].GetPtr();
+        auto* restriction = i == 1 ? game->pDifficulty.GetPtr() : other.GetPtr();
+        NDb::SItemAssign authored;
+        authored.pItem = records[i].GetPtr();
+        authored.nQuantity = 1;
+        authored.pDifficulty = i == 0 ? nullptr : restriction;
+        persona->items.push_back(authored);
+        NDb::SLootItem rolled;
+        rolled.pItem = records[i]->pItem;
+        rolled.nQuantity = 1;
+        rolled.pDifficulty = authored.pDifficulty;
+        chest->items.push_back(rolled);
+    }
+
+    CObj<NRPG::IUnitMission> unit;
+    if (rolledChest) {
+        unit = NRPG::CreateUnit(persona, nullptr, chest);
+    } else {
+        CObj<NDb::CWaypointName> name = new NDb::CWaypointName;
+        name->szName = "UpstreamDifficulty";
+        CObj<CMapWaypoint> authored = new CMapWaypoint;
+        authored->pName = name;
+        authored->b3DWaypoint = false;
+        authored->pos.ptPos = anchor->GetPosition().GetCP();
+        world->AddWaypoint(authored);
+        Require(world->GetWaypoint(name->szName), "scripted difficulty spawn has no usable waypoint");
+        auto* script = world->GetOwnScript();
+        Require(script && script->DoString("CreateUnit(103, 1, 'UpstreamDifficultyUnit', 'UpstreamDifficulty', 3)") == 0,
+            "native campaign difficulty spawn failed in Lua");
+        world->ExecuteOwnScript();
+        auto* spawned = world->GetUnitServer("UpstreamDifficultyUnit");
+        Require(IsValid(spawned), "Lua did not create the campaign difficulty unit");
+        unit = spawned->GetUnitRPG();
+    }
+    Require(IsValid(unit), "unit factory did not create a native inventory");
+    const auto& items = unit->GetInventory()->GetItems();
+    auto contains = [&](int index) {
+        return std::any_of(items.begin(), items.end(), [&](const auto& entry) {
+            return entry.pItem->GetDBItem() == itemRecords[index].GetPtr();
+        });
+    };
+    Require(contains(0) && contains(1) != rolledChest && !contains(2),
+        "new unit backpack did not filter the authored items by active difficulty");
+}
+
 static void InventoryTransferValidation(const char* databasePath, const char* resourcePath, int mode)
 {
     using namespace NWorld;
@@ -928,6 +1004,7 @@ static void AIReloadLogRecord(int check)
 
 bool RunInventoryTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "difficulty-equipment") && argc == 5) { DifficultyEquipment(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "inventory-transfer-validation") && argc == 5) { InventoryTransferValidation(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "inventory-transfer-inactive-pose") && argc == 4) { InventoryTransferInactivePose(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "carried-clue-slot") && argc == 4) { CarriedClueTransfer(argv[2], argv[3], false); return true; }

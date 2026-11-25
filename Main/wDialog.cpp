@@ -80,7 +80,8 @@ static NWorld::CUnit* GetUnitForDialog( int nPersID, CWorld *pWorld, vector< CPt
 		NAI::SUnitPosition pos;
 		pos.pos.p = p;
 		pos.pos.SetNetwork( pWorld->GetPathNetwork() );
-		NRPG::IUnitMission *pRPG = NRPG::CreateUnit( NDb::GetPers( nPersID ) );
+		NRPG::CGlobalGame *pGame = pWorld->GetGlobalGame();
+		NRPG::IUnitMission *pRPG = NRPG::CreateUnit( NDb::GetPers( nPersID ), 0, 0, IsValid( pGame ) ? pGame->pDifficulty.GetPtr() : 0 );
 		pUnit = new CUnitServer( pWorld, pRPG, pRPG->GetModel(), 0, pos );
 		pFakeUnits->push_back( pUnit );
 	}
