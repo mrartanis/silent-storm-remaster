@@ -960,12 +960,27 @@ void CUnitServer::OnTBSEvent( ETBSEvent event )
 					ForcedMove();
 				else
 				{
-					float fCurrentHeight = GetPosition().GetCP().z;
-					NAI::SPathPlace plCur = GetPosition().pos.p;
-					if ( plLast == plCur && fabs( fLastHeight - fCurrentHeight ) > 0.01f )
-						Fall();
-					fLastHeight = fCurrentHeight;
-					plLast = plCur;
+					const NAI::SUnitPosition current = GetPosition();
+					CVec3 oldSupport = current.GetCP();
+					if ( plLast == current.pos.p && fabs( fLastHeight - oldSupport.z ) > 0.01f )
+					{
+						oldSupport.z = fLastHeight;
+						const NAI::SPosition nearest = NAI::GetNearestNativePosition( oldSupport, pNet );
+						if ( nearest.IsValid() && fabs( nearest.GetCP() - oldSupport ) < 0.1f )
+						{
+							NAI::SUnitPosition supported = current;
+							supported.pos = nearest;
+							supported.pos.p.SetPose( current.pos.p.GetPose() );
+							supported.pos.p.SetDirection( current.pos.p.GetDirection() );
+							SetPosition( supported );
+							pNet->Unlock( this );
+							if ( pNet->GetPassability( supported.pos.p ) != NAI::AIP_YES )
+								ForcedMove();
+						}
+						else
+							Fall();
+					}
+					RememberSupportPosition();
 					pNet->Lock( this, GetPosition().pos.p );
 				}
 			}

@@ -16,6 +16,7 @@
 #include "../../Main/wUnitAttackExec.h"
 #include "../../Main/aiGrid.h"
 #include "../../Main/aiMoves.h"
+#include "../../Main/aiNearestPosition.h"
 #include "../../Main/aiPath.h"
 #include "../../Main/A5Time.h"
 #include "../../Main/GAnimation.h"
@@ -833,6 +834,43 @@ void ExecutorRetirementBudget(const char* databasePath, const char* resourcePath
         "the next world tick did not retire the outstanding animation edges");
 }
 
+void RebuiltGridSupport(const char* databasePath, const char* resourcePath)
+{
+    using namespace NAI;
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    auto* network = dynamic_cast<CPathNetwork*>(world->GetPathNetwork());
+    const auto start = actor->GetPosition();
+    const auto place = start.pos.p;
+    const auto point = start.GetCP();
+    auto* original = network->GetLayer(place.GetLayer());
+    auto& originalCell = original->tiles[place.GetY()][place.GetX()];
+    actor->OnTBSEvent(NWorld::TBS_ACTION_FINISH);
+    original->pGroup->bFreeze = true;
+    const int duplicate = network->CreateLayer(original->tiles.GetXSize(), original->tiles.GetYSize(),
+        original->pGroup->ptOrigin, original->pGroup->ptXDir, start.pos.GetFloor(), nullptr);
+    auto* rebuilt = network->GetLayer(duplicate);
+    rebuilt->pGroup->bFreeze = true;
+    auto& replacement = rebuilt->tiles[place.GetY()][place.GetX()];
+    replacement = originalCell;
+    replacement.nLocks = replacement.nDynLocks = 0;
+    replacement.nFlags &= ~TF_HAS_SAME;
+    originalCell.nHeight -= GetIHeight(0.5f);
+    const auto candidate = GetNearestNativePosition(point, network);
+    Require(candidate.IsValid() && candidate.p.GetLayer() == duplicate && fabs(candidate.GetCP() - point) < 0.01f,
+        "native remapped support fixture does not resolve the old physical position to another layer");
+    const int hp = actor->GetUnitRPG()->GetTotalVP();
+    actor->OnTBSEvent(NWorld::TBS_GRID_INFO_UPDATED);
+    const auto after = actor->GetPosition();
+    Require(after.pos.p.GetLayer() == duplicate && fabs(after.GetCP() - point) < 0.01f,
+        "actor fell when the rebuilt navigation layer still contained equivalent support");
+    Require(after.GetPose() == start.GetPose() && after.GetDir() == start.GetDir() && actor->GetUnitRPG()->GetTotalVP() == hp,
+        "recovering equivalent support changed posture, facing or health");
+    actor->OnTBSEvent(NWorld::TBS_GRID_INFO_UPDATED);
+    Require(actor->GetPosition() == after && network->IsLocked(after.pos.p),
+        "repeating the grid event lost the recovered support or its unit lock");
+}
+
 class PlacementWorld : public NWorld::CWorld
 {
     OBJECT_NOCOPY_METHODS(PlacementWorld);
@@ -1126,6 +1164,7 @@ bool RunUnitTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ladder-descent-item-activation") && argc == 5) { LadderDescentItemActivation(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "forced-fall-pose") && argc == 4) { ForcedFallPose(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "executor-retirement-budget") && argc == 4) { ExecutorRetirementBudget(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "rebuilt-grid-support") && argc == 4) { RebuiltGridSupport(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "crouched-climb-idle") && argc == 4) { CrouchedClimbIdle(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "scripted-ack-speaker") && argc == 4) { ScriptedAckSpeaker(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "owner-wound-policy") && argc == 5) { OwnerWoundPolicy(argv[2], argv[3], std::atoi(argv[4])); return true; }
