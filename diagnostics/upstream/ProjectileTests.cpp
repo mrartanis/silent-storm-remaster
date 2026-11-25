@@ -16,6 +16,7 @@
 #include "../../Main/RPGItem.h"
 #include "../../Main/RPGItemSet.h"
 #include "../../DBFormat/DataRPG.h"
+#include "../../DBFormat/DataMap.h"
 #include "../../DBFormat/DataFormat.h"
 #include "../../DBFormat/DataSound.h"
 #include "../../DBFormat/DataGeometry.h"
@@ -29,6 +30,55 @@ namespace UpstreamTests
 {
 namespace
 {
+void UnitKnifeIllumination(const char* databasePath, const char* resourcePath)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* actor = MovementPolicyActor(world);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    const auto target = std::find_if(units.begin(), units.end(), [&](const auto& unit) {
+        return IsValid(unit) && unit != actor && unit->CanFight() && !unit->IsEmptyPK() &&
+            world->GetDiplomacyState(unit->GetPlayer(), actor->GetPlayer()) == NDb::DS_ENEMY;
+    });
+    Require(target != units.end() && actor->GetScriptToHit() < 0,
+        "knife illumination fixture lacks its ordinary shooter and hostile target");
+    auto* inventory = actor->GetUnitRPG()->GetInventory();
+    NDb::CRPGMeleeWeapon* record = nullptr;
+    CDBIterator<NDb::CRPGMeleeWeapon> blades(*NDatabase::GetTable<NDb::CRPGMeleeWeapon>());
+    while (blades.MoveNext()) {
+        if (blades.Get()->bThrowing && IsValid(blades.Get()->pItem)) {
+            record = blades.Get();
+            break;
+        }
+    }
+    Require(record, "knife illumination fixture lacks an authored throwing blade");
+    CObj<NRPG::CMeleeWeaponItem> knife = new NRPG::CMeleeWeaponItem(record);
+    if (inventory->Get(NDb::SLOT_1))
+        inventory->TakeOff(NDb::SLOT_1);
+    Require(inventory->Equip(NDb::SLOT_1, knife) && inventory->Activate(NDb::SLOT_1) &&
+        NRPG::GetToHitType(actor) == NRPG::TH_THROWING, "native accuracy does not recognize the equipped blade");
+    const auto start = actor->GetPosition();
+    const auto origin = actor->GetAttackOrigin(start);
+    const auto enemy = (*target)->GetPosition().pos;
+    const CVec3 bright(1.f, 1.f, 1.f);
+    const CVec3 dark(0.f, 0.f, 0.f);
+    bool tileReactedToLight = false;
+    for (int distance : {3, 6, 9}) {
+        const auto tile = [&](const CVec3& light) {
+            return NRPG::GetTileToHit(actor, start.GetPose(), distance, origin, enemy.GetCP(),
+                NAI::THL_LOWER, 0, 100, false, light);
+        };
+        const auto unit = [&](const CVec3& light) {
+            return NRPG::GetToHit(actor, start.GetPose(), distance, origin, enemy, NAI::HL_ANY, 0,
+                target->GetPtr(), {}, 100, false, light);
+        };
+        tileReactedToLight |= tile(bright) > tile(dark);
+        Require(unit(dark) == unit(bright), "a unit-target knife preview inherited the tile illumination factor");
+    }
+    Require(tileReactedToLight, "knife illumination fixture has no unsaturated tile accuracy control");
+}
+
 static void FrozenItemArmorResistance(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -338,6 +388,7 @@ void RangedHitRollRange(const char* databasePath, const char* resourcePath)
 
 bool RunProjectileTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "unit-knife-illumination") && argc == 4) { UnitKnifeIllumination(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "frozen-item-armor-resistance") && argc == 4) { FrozenItemArmorResistance(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "flying-grenade-lifetime") && argc == 4) { FlyingGrenadeLifetime(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "bloody-death-sound-position") && argc == 4) { BloodyDeathSoundPosition(argv[2], argv[3]); return true; }
