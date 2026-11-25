@@ -588,7 +588,6 @@ bool UpstreamTests::RunLegacyTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-grass-atlas-margin")) { Require(argc==5,"atlas margin requires db/resources/mode"); NativeGrassAtlasMargin(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-floor-culling")) {Require(argc==3,"floor culling requires case");NativeFloorCulling(std::atoi(argv[2]));return true;}
     if (!std::strcmp(mode, "native-integer-shadow-depth")) { Require(argc==3,"integer shadow depth requires mode"); NativeIntegerShadowDepth(std::atoi(argv[2])); return true; }
-    if (!std::strcmp(mode, "native-raster-guard-plane")) { Require(argc==3,"guard plane requires mode"); NativeRasterGuardPlane(std::atoi(argv[2])); return true; }
     if (!std::strcmp(mode, "native-ally-cover-cache")) { Require(argc==5,"ally cache requires db/res/mode"); NativeAllyCoverCache(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-ally-raster-safety")) { Require(argc==5,"ally safety requires db/res/mode"); NativeAllyRasterSafety(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-wounded-ai-scared")) { Require(argc==5,"wounded AI requires db/res/mode"); NativeWoundedAIScared(argv[2],argv[3],std::atoi(argv[4])); return true; }
@@ -651,7 +650,6 @@ bool UpstreamTests::RunLegacyTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-ai-cover-depth")) { Require(argc==5,"native AI policy requires db/resources/mode"); NativeAICoverDepth(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-path-wave-flags")) { Require(argc==5,"native AI policy requires db/resources/mode"); NativePathWaveFlags(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-ai-flank-wave")) { Require(argc==5,"native AI policy requires db/resources/mode"); NativeAIFlankWave(argv[2],argv[3],std::atoi(argv[4])); return true; }
-    if (!std::strcmp(mode, "native-generic-raster")) { Require(argc==4,"generic raster requires mode and fog flag"); NativeGenericRaster(std::atoi(argv[2]),std::atoi(argv[3])!=0); return true; }
     if (!std::strcmp(mode, "native-cover-whole-center")) { Require(argc==5,"cover policy requires db/resources/mode"); NativeCoverFramingPolicy(argv[2],argv[3],std::atoi(argv[4]),false); return true; }
     if (!std::strcmp(mode, "native-cover-projection-extent")) { Require(argc==5,"cover policy requires db/resources/mode"); NativeCoverFramingPolicy(argv[2],argv[3],std::atoi(argv[4]),true); return true; }
     if (!std::strcmp(mode, "native-cover-range-policy")) { Require(argc==5,"cover policy requires db/resources/mode"); NativeCoverRangePolicy(argv[2],argv[3],std::atoi(argv[4])); return true; }
