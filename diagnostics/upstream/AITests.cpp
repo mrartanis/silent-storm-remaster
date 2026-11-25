@@ -27,6 +27,7 @@
 #include "../../Main/aiEvent.h"
 #include "../../Main/aiFearReaction.h"
 #include "../../Main/aiGrid.h"
+#include "../../Main/aiMap.h"
 #include "../../Main/aiReaction.h"
 #include "../../Main/aiReactions.h"
 #include "../../Main/aiRouteLogic.h"
@@ -966,6 +967,60 @@ static void AIContactEventDispatch(const char* databasePath, const char* resourc
         "contact event delivery changed native AP, health or position");
 }
 
+void AIContactPerception(const char* databasePath, const char* resourcePath, bool bullet)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    auto* hostile = MovementPolicyActor(world);
+    const auto receiver = std::find_if(units.begin(), units.end(), [&](const auto& unit) {
+        return IsValid(unit) && unit->IsAIUnit() && unit->CanFight() && unit->GetPose() == NAI::WALK &&
+            unit->GetDiplomacyState(hostile) == NDb::DS_ENEMY && IsValid(NAI::GetAIUnit(unit));
+    });
+    Require(receiver != units.end(), "perception fixture needs a standing native hostile observer");
+    auto* actor = receiver->GetPtr();
+    auto* state = NAI::GetAIUnit(actor)->GetAIUnitState();
+    auto* enemy = NAI::GetAIUnit(hostile);
+    Require(state && IsValid(enemy), "perception fixture has no native contact state");
+    auto contains = [&](const auto& contacts) {
+        return std::find(contacts.data.units.begin(), contacts.data.units.end(), enemy) != contacts.data.units.end();
+    };
+    if (!bullet) {
+        Require(world->IsTurnBased(), "lost contact fixture did not begin in a turn-based battle");
+        state->RemovePossibleEnemy(enemy);
+        state->AddEnemy(enemy);
+        NGlobal::ThrowEvent(NWorld::CEventOnLostEnemyFromSight(actor, hostile));
+        Require(contains(state->enemies) && !contains(state->possibleEnemies), "turn-based loss bypassed next-turn contact refresh");
+        world->StartSequence();
+        Require(world->IsSequence() && !world->IsTurnBased(),
+            "lost contact fixture did not enter the distinct scripted sequence state");
+        state->RemovePossibleEnemy(enemy);
+        state->AddEnemy(enemy);
+        NGlobal::ThrowEvent(NWorld::CEventOnLostEnemyFromSight(actor, hostile));
+        Require(!contains(state->enemies) && contains(state->possibleEnemies),
+            "native lost contact stayed confirmed during a scripted sequence");
+        return;
+    }
+
+    state->RemoveEnemy(enemy);
+    state->RemovePossibleEnemy(enemy);
+    auto* map = world->GetAIMap();
+    CVec3 hitLocation;
+    Require(map->GetUnitHLPos(&hitLocation, map->GetHull(actor), 0), "bullet perception fixture needs the actual location-zero hull");
+    CRay shot;
+    shot.ptDir = CVec3(1, 0, 0);
+    shot.ptOrigin = hitLocation + CVec3(-1, 0, 3);
+    NGlobal::ThrowEvent(NWorld::CEventOnBullet(hostile, actor, shot, 4.f));
+    Require(!contains(state->possibleEnemies), "native bullet perception accepted a ray outside the complete contact corridor");
+    shot.ptOrigin.z = hitLocation.z + 2.45f;
+    Require(shot.ptOrigin.z - actor->GetPosition().GetCP().z > 2.5f,
+        "bullet perception fixture did not distinguish the hull point from the ground position");
+    NGlobal::ThrowEvent(NWorld::CEventOnBullet(hostile, actor, shot, 4.f));
+    Require(contains(state->possibleEnemies), "native bullet perception measured from the feet instead of the hit location");
+}
+
+
 static void AIContactMembership(const char* databasePath, const char* resourcePath, int kind, int check)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -1402,6 +1457,7 @@ static void OwnedAIEnemySelection(bool placeSource)
 
 bool RunAITests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "ai-contact-perception") && argc == 5) { AIContactPerception(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "default-deployment-route") && argc == 5) { DefaultDeploymentRoute(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "ai-snipe-command-ap") && argc == 5) { AISnipeCommandAP(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "ai-cancel-mounted-gunner") && argc == 4) { CancelMountedGunner(argv[2], argv[3]); return true; }

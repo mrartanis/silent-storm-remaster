@@ -11,6 +11,8 @@
 #include "aiMisc.h"             // NAI::GetAIUnit
 #include "aiUnitState.h"        // NAI::SAIUnitState (IsKnownCorpse)
 #include "aiPosition.h"         // NAI::SUnitPosition (GetCP / GetEyePosition)
+#include "aiMap.h"
+#include "RPGGame.h"
 #include "wUnitServer.h"        // NWorld::CUnitServer (CanFight/IsAIUnit/GetDiplomacyState/GetPlayer/GetPosition/IsUnitVisible)
 #include "wDumbUnit.h"          // NWorld::CDumbUnitServer (OnUnhide dyncast source)
 #include "wMain.h"              // NWorld::IPlayer / NWorld::CPlayer
@@ -176,7 +178,11 @@ void CAIEventTrackerImpl::OnBullet( const CEventOnBullet &e )
 	CUnitServer *pShooter = e.pShooter;
 	if ( pUS == pShooter )
 		return;
-	CVec3 d = pUS->GetPosition().GetCP() - e.ray.ptOrigin;
+	IAIMap *pMap = pUS->GetWorld()->GetAIMap();
+	CVec3 ptUnit;
+	if ( !pMap->GetUnitHLPos( &ptUnit, pMap->GetHull( pUS ), 0 ) )
+		ptUnit = pUS->GetPosition().GetCP();
+	CVec3 d = ptUnit - e.ray.ptOrigin;
 	float fT = d * e.ray.ptDir;                       // projection along the shot ray
 	if ( e.fDistance + 2.5f < fT )
 		return;
@@ -215,7 +221,7 @@ void CAIEventTrackerImpl::OnAttack( const CEventOnAttackAtUnit &e )
 		return;
 	if ( pUS->GetDiplomacyState( e.pTarget ) != NDb::DS_ENEMY )
 		return;
-	if ( !pUS->IsUnitVisible( pAttacker ) )            // dev vision seam (release world vtbl+0x10)
+	if ( !pUS->GetWorld()->GetGame()->CheckVisibility( pUS, pAttacker, true ) )
 		return;
 	ThrowAIEvent( CreateAIPossibleEnemyEvent( GetAIUnit( e.pTarget ) ) );
 }
