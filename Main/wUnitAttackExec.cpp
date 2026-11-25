@@ -2093,7 +2093,13 @@ void CExecMeleeUnit::OnLabel()
 		// accessible-HL recompute are GONE (a called shot already narrowed the set in SelectTargetHLs;
 		// after a mid-swing load the set comes from the save, not from a fresh AIMap query).
 		// cover+to-hit+peek inlined from AttackObjectRanged, matching the CExecShootUnit::SelectRay port.
-		CVec3 ptAttackPos = NRPG::GetMeleeAttackPos( pUS, ptTarget );
+		// Resolve the target's current hit height at impact. If its hull disappeared,
+		// retain the point used to start the swing.
+		NAI::IAIMap *pMap = pWorld->GetAIMap();
+		CVec3 ptImpactTarget;
+		if ( !IsValid( pTarget ) || !pMap->GetUnitHLPos( &ptImpactTarget, pMap->GetHull( pTarget ), hlInfo.eHL ) )
+			ptImpactTarget = ptTarget;
+		CVec3 ptAttackPos = NRPG::GetMeleeAttackPos( pUS, ptImpactTarget );
 		CObj<NRPG::CCoverInfo> pCover = pWorld->GetGame()->CalcCovers( ptAttackPos, attack[0], pUS, pTarget, hlInfo.eHL, 0 );
 		//
 		int nToHit;

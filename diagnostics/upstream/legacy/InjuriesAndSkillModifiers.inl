@@ -1583,10 +1583,15 @@ class NativeMeleeCalledShotProbe: public NWorld::CExecMeleeUnit
     OBJECT_NOCOPY_METHODS(NativeMeleeCalledShotProbe);
 public:
     NWorld::IWorld* world=nullptr;CPtr<NWorld::CUnitServer> receiver;int transport=0,calls=0,hitPart=-1;NAI::EHitLocation requested=NAI::HL_ANY;bool low=false;unsigned selectedSeed=0;int selectedRoll=-1;NRPG::CAttackPortion source;CRandomGenerator before;
+    bool observeImpactOrigin = false;
+    const CVec3& GetSwingTarget() const { return ptTarget; }
     NativeMeleeCalledShotProbe(){}
     NativeMeleeCalledShotProbe(NWorld::CUnitServer* actor,NWorld::CUnitServer* target,NAI::EHitLocation location,NWorld::IWorld* context,int lane,bool lowChance):CExecMeleeUnit(actor,target,location,0),world(context),receiver(target),transport(lane),low(lowChance),requested(location){}
     void PerformAttack(const vector<NRPG::CAttackPortion>& incoming,const CRay& ray,float ratio) override {
-        ++calls;Require(incoming.size()==1 && ratio==2.f,"called-shot fixture requires one actual guaranteed native melee ray");source=incoming.front();Require(source.nDmgMin>0 && source.nDmgMax>=source.nDmgMin && source.nCrticalDifficulty>=0 && source.nCrticalDifficulty+150<1000,"called-shot fixture lacks bounded actual native weapon portion");CRay selectedRay=ray;
+        ++calls;
+        if (observeImpactOrigin)
+            return;
+        Require(incoming.size()==1 && ratio==2.f,"called-shot fixture requires one actual guaranteed native melee ray");source=incoming.front();Require(source.nDmgMin>0 && source.nDmgMax>=source.nDmgMin && source.nCrticalDifficulty>=0 && source.nCrticalDifficulty+150<1000,"called-shot fixture lacks bounded actual native weapon portion");CRay selectedRay=ray;
         auto firstPart=[&](const CRay& candidate){vector<NAI::SInterval> intersections;world->GetAIMap()->Trace(candidate,&intersections,NWorld::TS_FRAGMENTED);for(const auto& intersection:intersections){if(intersection.enter.fT<=0)continue;auto* object=intersection.pSrc->pUserData.GetPtr();if(object==receiver.GetPtr())return intersection.nUserID;if(object!=pUS.GetPtr())return -1;}return -1;};
         hitPart=firstPart(selectedRay);
         // Native cover samples can reach an arm before the requested torso. Select a
@@ -1600,7 +1605,7 @@ public:
         selectedSeed=777;if(low){Require(source.nCrtical>=0 && source.nCrtical<99,"called-shot low-chance fixture did not isolate an ordinary rejectable native critical chance");selectedRoll=source.nCrtical+1;selectedSeed=0;for(unsigned seed=1;seed<100000;++seed){SRand trial{SRandomSeed(int(seed))};trial.Get(4);if(trial.Get(100)==selectedRoll){selectedSeed=seed;break;}}Require(selectedSeed,"called-shot fixture lacks exact rejecting native SRand seed");}else Require(source.nCrtical>=100,"called-shot fixture failed native always-melee-critical perk37");GlobalGameRandom().SeedForHarness(selectedSeed);before=GlobalGameRandom();NWorld::CExecMeleeUnit::PerformAttack(delivered,selectedRay,ratio);
     }
 };
-static void NativeMeleeCalledShot(const char* databasePath,const char* resourcePath,int mode)
+static void NativeMeleeCalledShot(const char* databasePath,const char* resourcePath,int mode,int impactMode = -1)
 {
     std::vector<CObj<NRPG::CSkillModifier>> stableSkillOverrides;
     Require(mode>=0 && mode<=14,"unknown native melee called-shot mode");const NAI::EHitLocation groups[]={NAI::HL_HEAD,NAI::HL_BODY,NAI::HL_RHAND,NAI::HL_RLEG};const bool low=mode>=8 && mode<=12,enabled=mode!=4 && mode!=12;const auto wanted=mode<4?groups[mode]:mode==5 || mode==13?NAI::HL_ANY:mode>=8 && mode<=11?groups[mode-8]:NAI::HL_HEAD;const int transport=mode==6 || mode==13?1:mode==7?2:mode==14?3:0;
@@ -1609,7 +1614,44 @@ static void NativeMeleeCalledShot(const char* databasePath,const char* resourceP
     if(wanted==NAI::HL_BODY)to.SetDirection(NRPG::GetShootDirection(network,to,NAI::SPosition(from,network).GetCP()));CObj<NWorld::CUnitServer> actor=world->AddUnitInGame(from,attacker,owner->GetTBSPlayer(),"NativeCalledShotActor"),target=world->AddUnitInGame(to,victim,enemy,"NativeCalledShotTarget");Require(actor && target && actor->CanFight() && target->CanFight(),"called-shot fixture cannot deploy actual native melee pair");NAI::SPathPlace referencePlace;bool referenceFound=false;for(auto p:places){p.SetPose(NAI::CM_STAND);p.SetMoving(0);if(network->IsPassable(p) && !network->IsLocked(p) && fabs(NAI::SPosition(p,network).GetCP()-actor->GetPosition().GetCP())>5){referencePlace=p;referenceFound=true;break;}}Require(referenceFound,"called-shot fixture lacks separate native reference location");CObj<NWorld::CUnitServer> referenceUnit=world->AddUnitInGame(referencePlace,reference,enemy,"NativeCalledShotReference");Require(referenceUnit && referenceUnit->CanFight(),"called-shot fixture cannot deploy real reference receiver");
     auto* record=NDb::GetMeleeWeapon(2);Require(record && !record->bThrowing && record->pItem,"called-shot fixture lacks authored nonthrowing blade2");CObj<NRPG::CMeleeWeaponItem> blade=new NRPG::CMeleeWeaponItem(record);blade->nQuantity=1;auto* inventory=attacker->GetInventory();CObj<NRPG::IInventoryItem> previous=inventory->TakeOff(NDb::SLOT_1);Require(inventory->Equip(NDb::SLOT_1,blade) && inventory->Activate(NDb::SLOT_1) && NRPG::GetToHitType(actor)==NRPG::TH_MELEE,"called-shot fixture cannot activate native knife");auto* global=world->GetGlobalGame();Require(global && global->pDifficulty,"called-shot fixture lacks actual native difficulty");auto* difficulty=global->pDifficulty.GetPtr();const bool oldHead= difficulty->bHeadshotShouldKill,oldAlways=difficulty->bAlwaysCritical;const int oldCap=world->GetGame()->GetMaxCriticalSeverity();struct RestoreRules{NDb::CDBDifficulty* difficulty;NRPG::IGame* game;bool head,always;int cap;~RestoreRules(){difficulty->bHeadshotShouldKill=head;difficulty->bAlwaysCritical=always;game->SetMaxCriticalSeverity(cap);}}restore{difficulty,world->GetGame(),oldHead,oldAlways,oldCap};difficulty->bHeadshotShouldKill=enabled;difficulty->bAlwaysCritical=false;world->GetGame()->SetMaxCriticalSeverity(1000);
     auto* armor=NDb::GetArmor(NDb::N_HUMAN_BODY_ARMOR);Require(armor && armor->pMaterial,"called-shot fixture lacks native flesh armor");int type=-1;CDBIterator<NDb::CRPGDmgToArmor> types(*NDatabase::GetTable<NDb::CRPGDmgToArmor>());while(types.MoveNext())if(types.Get()->armors[armor->pMaterial->nDR]>0 && (type<0 || types.Get()->GetRecordID()<type))type=types.Get()->GetRecordID();Require(type>=0,"called-shot fixture lacks native flesh damage type");for(auto unit:{target.GetPtr(),referenceUnit.GetPtr()}){NRPG::CAttackPortion blocked(0,type,0.f,1,1,0,0,nullptr,unit->GetUnitRPG(),1.f,-1);Require(unit->ProcessAttack(world,NAI::HL_BODY,&blocked,CVec3(1,0,0),armor)==0,"called-shot fixture binding warmup changed native HP");unit->GetUnitRPG()->DisableCriticals();unit->GetUnitRPG()->DisableCritical(NDb::C_BLEEDING,NRPG::CS_ENABLED);}
-    victim->GetRPGUnit()->SetCheat(NRPG::CHEAT_SEEALL,true);world->GetAIMap()->Sync();world->UpdateVisible(true);Require(target->IsUnitVisible(actor),"called-shot fixture did not isolate visible native target awareness");CObj<NativeMeleeCalledShotProbe> exec=new NativeMeleeCalledShotProbe(actor,target,wanted,world,transport,low);const auto can=exec->CanDoIt(actor->GetPosition());std::printf("native called melee setup mode=%d requested=%d lane=%d low=%d result=%d\n",mode,int(wanted),transport,int(low),int(can));std::fflush(stdout);Require(can==NWorld::UCR_OK,"called-shot fixture lacks legal native melee command");exec->Start();NRPG::STargetHLInfo info;{CStructureNetworkContext refs;auto fields=BorrowedObjectFields(exec,&refs);CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&info);}Require(info.eHL==wanted && !info.accessibleHLs.empty() && attacker->GetSkillValue(NDb::ST_LEVEL)==20,"called-shot native Start did not retain requested part/accessibility or level20");const int actorAP=actor->GetAP(),actorHP=attacker->GetTotalVP();const auto actorPosition=actor->GetPosition();GlobalGameRandom().SeedForHarness(777);exec->OnLabel();Require(exec->calls==1 && (wanted==NAI::HL_ANY || exec->hitPart==wanted),"called-shot native label did not dispatch exactly one requested-part flesh hit");
+    victim->GetRPGUnit()->SetCheat(NRPG::CHEAT_SEEALL,true);world->GetAIMap()->Sync();world->UpdateVisible(true);Require(target->IsUnitVisible(actor),"called-shot fixture did not isolate visible native target awareness");CObj<NativeMeleeCalledShotProbe> exec=new NativeMeleeCalledShotProbe(actor,target,wanted,world,transport,low);const auto can=exec->CanDoIt(actor->GetPosition());std::printf("native called melee setup mode=%d requested=%d lane=%d low=%d result=%d\n",mode,int(wanted),transport,int(low),int(can));std::fflush(stdout);Require(can==NWorld::UCR_OK,"called-shot fixture lacks legal native melee command");exec->Start();NRPG::STargetHLInfo info;{CStructureNetworkContext refs;auto fields=BorrowedObjectFields(exec,&refs);CStructureSaver reader(fields,CStructureSaver::READ,&refs);reader.Add(2,&info);}Require(info.eHL==wanted && !info.accessibleHLs.empty() && attacker->GetSkillValue(NDb::ST_LEVEL)==20,"called-shot native Start did not retain requested part/accessibility or level20");const int actorAP=actor->GetAP(),actorHP=attacker->GetTotalVP();const auto actorPosition=actor->GetPosition();GlobalGameRandom().SeedForHarness(777);
+    if (impactMode >= 0)
+    {
+        exec->observeImpactOrigin = true;
+        const CVec3 startOrigin = NRPG::GetMeleeAttackPos(actor, exec->GetSwingTarget());
+        if (impactMode == 1)
+        {
+            auto* clock = world->GetTime();
+            clock->Set(clock->GetValue() + 50);
+            auto prone = target->GetPosition();
+            prone.pos.p.SetPose(NAI::CM_LAY);
+            target->SetPosition(prone);
+            target->animator.AlignTime();
+            target->animator.PlaceUnit(prone);
+            target->Update();
+            clock->Set(clock->GetValue() + 100);
+            MarkNewDGFrame();
+            world->GetAIMap()->Sync();
+        }
+        CVec3 livePart;
+        Require(world->GetAIMap()->GetUnitHLPos(&livePart, world->GetAIMap()->GetHull(target), wanted),
+            "native melee impact fixture lost the victim's live hit location");
+        const CVec3 expected = NRPG::GetMeleeAttackPos(actor, livePart);
+        std::printf("native melee impact target height: initial=%g live=%g origin=%g expected=%g\n",
+            exec->GetSwingTarget().z, livePart.z, startOrigin.z, expected.z);
+        Require((fabs2(expected - startOrigin) > .01f) == (impactMode == 1),
+            "native melee impact fixture did not isolate a changed attack height");
+        CObj<NAI::IAIMap> native = world->GetAIMap();
+        CObj<CoverOriginMapProbe> probe = new CoverOriginMapProbe(native);
+        SetCoverProbeMap(world->GetGame(), probe);
+        exec->OnLabel();
+        SetCoverProbeMap(world->GetGame(), native);
+        Require(std::any_of(probe->traces.begin(), probe->traces.end(), [&](const auto& trace) {
+            return fabs2(trace.origin - expected) < .0001f;
+        }), "native melee impact traced from the height of the initial swing target");
+        return;
+    }
+    exec->OnLabel();Require(exec->calls==1 && (wanted==NAI::HL_ANY || exec->hitPart==wanted),"called-shot native label did not dispatch exactly one requested-part flesh hit");
     const bool rewarded=enabled && wanted!=NAI::HL_ANY && transport!=2 && transport!=3;const int probabilityBonus[]={10,90,35,35,25,25},severityBonus[]={20,150,65,65,40,40};const auto& source=exec->source;const int probability=low && !rewarded?0:source.nCrtical+(rewarded?probabilityBonus[exec->hitPart]:0),severity=source.nCrticalDifficulty+(rewarded?severityBonus[exec->hitPart]:0);NRPG::CAttackPortion explicitAttack(source.nK,source.nDmgType,source.fPushCoeff,source.nDmgMin,source.nDmgMax,probability,severity,source.pAttacker,reference,source.fDamageCoeff,source.nUnconsciousProbability,source.bBackStab);explicitAttack.atkType=source.atkType;explicitAttack.fStructDmgModifier=source.fStructDmgModifier;explicitAttack.bAlwaysHumanCritical=source.bAlwaysHumanCritical || (low && rewarded);explicitAttack.bBypassPK=source.bBypassPK;explicitAttack.bNoBlowUp=source.bNoBlowUp;GlobalGameRandom()=exec->before;const int expected=reference->ProcessAttack(world,exec->hitPart,&explicitAttack,armor).nDmg,actual=500-victim->GetTotalVP();struct Injury{int count=0,dc=-1,part=-1,duration=0;float value=0;};auto injury=[](NRPG::IUnitMission* mission){Injury result;list<CPtr<NRPG::ICriticalInfo>> all;mission->GetCriticalsList(&all);for(auto entry:all)if(entry->GetCriticalType()==NDb::C_BLEEDING){++result.count;result.dc=entry->GetDifficultyClass();result.part=int(entry->GetCriticalLocation());result.duration=entry->GetRemainingTime();result.value=entry->GetValue();}return result;};const auto got=injury(victim),want=injury(reference);std::printf("native called melee mode=%d requested=%d hit=%d lane=%d enabled=%d low=%d rewarded=%d rawProbability=%d rawSeverity=%d probability=%d severity=%d seed=%u roll=%d damage=%d expected=%d bleeds=%d expectedBleeds=%d DC=%d expectedDC=%d value=%.9g expectedValue=%.9g\n",mode,int(wanted),exec->hitPart,transport,int(enabled),int(low),int(rewarded),source.nCrtical,source.nCrticalDifficulty,probability,severity,exec->selectedSeed,exec->selectedRoll,actual,expected,got.count,want.count,got.dc,want.dc,got.value,want.value);std::fflush(stdout);Require(actual==expected && reference->GetTotalVP()==500-expected && got.count==want.count && got.dc==want.dc && got.part==want.part && got.duration==want.duration && got.value==want.value ,"native requested melee part did not reach original called-shot probability/severity or preserve transport defaults");Require(actor->GetAP()==actorAP && attacker->GetTotalVP()==actorHP && actor->GetPosition()==actorPosition && blade->GetQuantity()==1 && actor->CanFight() && !victim->IsDead() && !reference->IsDead() && attacker->GetSkillValue(NDb::ST_LEVEL)==20 && difficulty->bHeadshotShouldKill==enabled && !difficulty->bAlwaysCritical && world->GetGame()->GetMaxCriticalSeverity()==1000,"called-shot action changed native actor/AP/pose/item/living receiver/level/rule controls");
 }
 

@@ -975,6 +975,7 @@ bool UpstreamTests::RunLegacyTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "native-critical-severity-perk")) { Require(argc==5,"critical47 requires db/resources/mode"); NativeCriticalSeverityPerk(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-critical-difficulty-fallback")) { Require(argc==5,"critical fallback requires db/resources/mode"); NativeCriticalDifficultyFallback(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-melee-called-shot")) { Require(argc==5,"melee called shot requires db/resources/mode"); NativeMeleeCalledShot(argv[2],argv[3],std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "melee-impact-origin") && argc == 5) { NativeMeleeCalledShot(argv[2], argv[3], 0, std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-ranged-called-shot")) { Require(argc==5,"ranged called shot requires db/resources/mode"); NativeRangedCalledShot(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tohit-awareness")) { Require(argc==5,"tohit awareness requires db/resources/mode"); NativeToHitAwareness(argv[2],argv[3],std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "native-tohit-night")) { Require(argc==5,"tohit night requires db/resources/mode"); NativeToHitNight(argv[2],argv[3],std::atoi(argv[4])); return true; }
