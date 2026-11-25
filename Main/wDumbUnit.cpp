@@ -488,12 +488,14 @@ void CDumbUnitServer::DropItems( bool bDropHands, bool bDropCap, bool bDropBackP
 	// drop the uniform cap
 	if ( bDropCap )
 	{
-		NDb::CRPGUniform *pDBUniform = pInventoryInfo->GetUniform();
-		SRand rnd;
-		if ( pDBUniform && pDBUniform->pCapModel )
+		NDb::CPanzerklein *pPK = GetWearingDBPK();
+		vector<IRenderVisitor::SBoundMesh> cap;
+		const bool bNoCap = IsEmptyPK() || ( IsValid( pPK ) && pPK->bHasNoHead );
+		GetItemsBindPlaces( &cap, pRPG, false, pPK, false, bNoCap, true );
+		if ( !cap.empty() )
 		{
-			GetBonePos( &item.ptCenter, &item.q, GetBoneName( UIT_CAP, 0, IsWearingPK() ) );
-			item.pModel = pDBUniform->pCapModel->CreateModel(&rnd);
+			GetBonePos( &item.ptCenter, &item.q, cap.front().pszBindBone );
+			item.pModel = cap.front().pModel;
 			LaunchItem( pWorld, item, VNULL3, true, (CObjectBase*)this, nFloor );   // retail @0x750401 push 1
 		}
 	}

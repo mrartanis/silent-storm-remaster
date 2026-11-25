@@ -9,11 +9,15 @@
 #include "../../Main/aiGrid.h"
 #include "../../Main/aiMap.h"
 #include "../../Main/aiStability.h"
+#include "../../Main/A5Time.h"
 #include "../../Main/rpgGlobal.h"
 #include "../../Main/RPGGame.h"
 #include "../../Main/RPGObject.h"
 #include "../../Main/wMain.h"
 #include "../../Main/wOSBase.h"
+#include "../../Main/wUnitServer.h"
+#include "../../Main/RPGUnitMission.h"
+#include "../../DBFormat/DataRPG.h"
 #include "../../DBFormat/DataMap.h"
 #include "../../DBFormat/DataObject.h"
 #include "../../DBFormat/DataFormat.h"
@@ -337,6 +341,67 @@ void StabilityObjectCells(const char* databasePath, const char* resourcePath, in
             Require(registered.object == object, "stability registration recorded a different world object");
     }
 }
+
+class DebrisFixtureWorld : public NWorld::CWorld
+{
+    OBJECT_NOCOPY_METHODS(DebrisFixtureWorld);
+public:
+    explicit DebrisFixtureWorld(NRPG::CGlobalGame* game = nullptr) : CWorld(game) {}
+    bool AdvanceDebris(STime time)
+    {
+        GetTime()->Set(time);
+        MarkNewDGFrame();
+        SSphere invalidation;
+        CDebrisController::Segment(GetAIMap(), &invalidation);
+        return HasDynamicItems();
+    }
+    NWorld::CDFrozenItem* FindCosmetic(NDb::CModel* model) const
+    {
+        for (const auto& item : showFrozenItems) {
+            if (item->GetModel().pModel == model && !item->GetInvItem())
+                return item;
+        }
+        return nullptr;
+    }
+};
+
+void StabilityCosmeticDebris(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true, nullptr, 810,
+        [](NRPG::CGlobalGame* game) -> NWorld::CWorld* { return new DebrisFixtureWorld(game); });
+    auto* fixture = static_cast<DebrisFixtureWorld*>(world.GetPtr());
+    auto* actor = MovementPolicyActor(world);
+    auto* weapon = NDatabase::GetTable<NDb::CRPGWeapon>()->GetRecord(26);
+    Require(IsValid(weapon), "debris fixture lacks a real weapon record");
+    auto* model = weapon->GetModel();
+    Require(IsValid(model), "debris fixture could not resolve its native model variant");
+    auto* map = world->GetAIMap();
+    const auto ground = actor->GetPosition().GetCP();
+    const STime now = world->GetTime()->GetValue();
+    world->AddDebris(model, map, ground + CVec3(0, 0, 0.6f), QNULL, VNULL3, world->GetTime(),
+        false, nullptr, nullptr, actor->GetFloor());
+    for (int step = 1; step <= 100 && fixture->AdvanceDebris(now + 100 * step); ++step) {}
+    auto* frozen = fixture->FindCosmetic(model);
+    Require(IsValid(frozen), "itemless debris did not settle through the native physics controller");
+
+    struct DebrisEntry {
+        CPtr<NWorld::CDFrozenItem> body;
+        int operator&(CStructureSaver& reader) { reader.Add(2, &body); return 0; }
+    };
+    CStructureNetworkContext references;
+    auto fields = BorrowedObjectFields(map->GetStabilityTrackers(), &references);
+    StabilityGridFields grid;
+    { CStructureSaver reader(fields, CStructureSaver::READ, &references); reader.Add(2, &grid); }
+    for (const auto& cell : grid.cells) {
+        CStructureNetworkContext cellReferences;
+        auto state = BorrowedObjectFields(cell, &cellReferences);
+        vector<DebrisEntry> entries;
+        { CStructureSaver reader(state, CStructureSaver::READ, &cellReferences); reader.Add(3, &entries); }
+        if (std::any_of(entries.begin(), entries.end(), [&](const auto& entry) { return entry.body == frozen; }))
+            return;
+    }
+    Require(false, "settled cosmetic debris was missing from the support stability grid");
+}
 }
 
 bool RunBuildingTests(const char* mode, int argc, char** argv)
@@ -348,6 +413,7 @@ bool RunBuildingTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "zero-scale-map-objects") && argc == 4) { ZeroScaleMapObjects(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "transformed-cellar-junctions") && argc == 4) { TransformedCellarJunctions(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "stability-object-cells") && argc == 5) { StabilityObjectCells(argv[2], argv[3], std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "stability-cosmetic-debris") && argc == 4) { StabilityCosmeticDebris(argv[2], argv[3]); return true; }
     return false;
 }
 }

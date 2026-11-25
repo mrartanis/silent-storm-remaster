@@ -166,9 +166,7 @@ private:
 	// GetShowList : GetVisibleShowList, the item is published into visibleItems (the LOS/vision
 	// candidate list) when (pInvItem!=0 || bVisibleGated) -- so a fog-gated capless item stays hidden
 	// until a unit gains LOS on it -- and bTemporaryVisible feeds the CDFrozenItem ctor's trailing
-	// flag (@0x74b15b, ctor arg 7 -> +0x88). (dev keeps the AI-hull registration in
-	// CDFrozenItem::Visit; pMap feeds the STABILITY registration -- the same branch registers the
-	// frozen item with pMap->GetStabilityTrackers()->AddDebris @0x74b1xx.)
+	// flag (@0x74b15b, ctor arg 7 -> +0x88). Every frozen item registers for stability when pMap exists.
 	CDFrozenItem* AddFrozenItem( NAI::IAIMap *pMap, const SHMatrix &m, NRPG::IInventoryItem *pInvItem, const SItemRenderInfo &_model, int nFloor, bool bTemporaryVisible = false, bool bVisibleGated = false );
 public:
 	// retail GetClueObjects @0x34a870: prune dead clueItems entries in place, copy the live ones out

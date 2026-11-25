@@ -12,6 +12,9 @@
 #include "../../Main/RPGItem.h"
 #include "../../Main/RPGItemMap.h"
 #include "../../Main/RPGItemSet.h"
+#include "../../Main/InventoryUnit.h"
+#include "../../Main/LSHead.h"
+#include "../../Misc/RandomGen.h"
 #include "../../Main/wUnitAttackExec.h"
 #include "../../Main/rpgGlobal.h"
 #include "../../Main/scScenarioTracker.h"
@@ -1002,8 +1005,83 @@ static void AIReloadLogRecord(int check)
 }
 }
 
+void DroppedCapModel(const char* databasePath, const char* resourcePath, bool hasHair)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    auto* mission = actor->GetUnitRPG();
+    auto* rpg = mission->GetRPGUnit();
+    NDb::CRPGUniform* uniform = nullptr;
+    NDb::CComplexHead* hairstyle = nullptr;
+    CDBIterator<NDb::CRPGPers> people(*NDatabase::GetTable<NDb::CRPGPers>());
+    while ((!uniform || !hairstyle) && people.MoveNext()) {
+        auto* persona = people.Get();
+        if (!uniform && IsValid(persona->pUniform) && IsValid(persona->pUniform->pCapModel))
+            uniform = persona->pUniform;
+        if (!hairstyle && IsValid(persona->pHead) && IsValid(persona->pHead->pHair))
+            hairstyle = persona->pHead;
+    }
+    Require(uniform && hairstyle, "native cap fixture needs an authored cap and hairstyle");
+    rpg->pUniform = uniform;
+    rpg->SetHead(hasHair ? hairstyle : nullptr);
+    auto signature = [](NDb::CModel* model) {
+        vector<int> ids;
+        if (IsValid(model) && IsValid(model->pGeometry)) {
+            ids.push_back(model->pGeometry->GetRecordID());
+            for (const auto& material : model->pMaterials)
+                ids.push_back(IsValid(material) ? material->GetRecordID() : -1);
+        }
+        return ids;
+    };
+    CObj<NDb::CTRndModel> capVariants;
+    if (!hasHair) {
+        auto* firearm = NDatabase::GetTable<NDb::CRPGWeapon>()->GetRecord(26);
+        Require(IsValid(firearm) && IsValid(firearm->pItem) && IsValid(firearm->pItem->pModel) &&
+            !firearm->pItem->pModel->variants.empty() && !uniform->pCapModel->variants.empty(),
+            "cap variant fixture lacks two authored model records");
+        capVariants = new NDb::CTRndModel;
+        capVariants->variants = {uniform->pCapModel->variants.front(), firearm->pItem->pModel->variants.front()};
+        capVariants->roulette.AddSector(1.f);
+        capVariants->roulette.AddSector(1.f);
+        uniform->pCapModel = capVariants;
+        GlobalGameRandom().SeedForHarness(0x501);
+        SRand legacy;
+        CObj<NDb::CModel> different = uniform->pCapModel->CreateModel(&legacy);
+        bool found = false;
+        for (int sample = 1; sample < 64 && !found; ++sample) {
+            const int seed = sample * 1234567;
+            SRand candidate{SRandomSeed(seed)};
+            CObj<NDb::CModel> model = uniform->pCapModel->CreateModel(&candidate);
+            if (signature(different) != signature(model)) {
+                rpg->bindSeed = SRandomSeed(seed);
+                found = true;
+            }
+        }
+        Require(found, "cap fixture needs two distinct native geometry or material variants");
+    }
+    vector<NWorld::IRenderVisitor::SBoundMesh> live;
+    NWorld::GetItemsBindPlaces(&live, mission, false, nullptr, false, false, true);
+    Require(live.size() == (hasHair ? 0 : 1), "native live attachment did not yield the expected cap visibility");
+    const vector<int> expected = live.empty() ? vector<int>{} : signature(live.front().pModel);
+
+    actor->MakeUnconscious(VNULL3, true, false);
+    list<NWorld::IVisible*> flying;
+    world->GetVisibleDynamicItems(SSphere(actor->GetPosition().GetCP(), 5.f), &flying);
+    vector<NDb::CModel*> caps;
+    for (auto* object : flying) {
+        auto* item = dynamic_cast<NWorld::CDItem*>(object);
+        if (item && item->GetVisibilityParent() == actor && !item->GetInvItem())
+            caps.push_back(item->GetModel().pModel);
+    }
+    Require(caps.size() == live.size(), "falling unit launched a cap that the living model did not wear");
+    if (!live.empty())
+        Require(!expected.empty() && signature(caps.front()) == expected,
+            "falling cap was randomized differently from the living attachment");
+}
+
 bool RunInventoryTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "dropped-cap-model") && argc == 5) { DroppedCapModel(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "difficulty-equipment") && argc == 5) { DifficultyEquipment(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "inventory-transfer-validation") && argc == 5) { InventoryTransferValidation(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "inventory-transfer-inactive-pose") && argc == 4) { InventoryTransferInactivePose(argv[2], argv[3]); return true; }
