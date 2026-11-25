@@ -4,6 +4,7 @@
 #include "../../Main/wUnitServer.h"
 #include "../../Main/wUnitCommands.h"
 #include "../../Main/wUnitExec.h"
+#include "../../Main/wUnitStates.h"
 #include "../../Main/RPGUnit.h"
 #include "../../Main/RPGUnitMission.h"
 #include "../../Main/RPGCritical.h"
@@ -31,6 +32,51 @@ namespace UpstreamTests
 {
 namespace
 {
+void CorpseDensity(const char* databasePath, const char* resourcePath, bool crowded)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* anchor = MovementPolicyActor(world);
+    const auto position = anchor->GetPosition().pos.p;
+    vector<CObj<NWorld::CUnitServer>> bodies;
+    const int count = crowded ? 17 : 15;
+    auto add = [&](bool clue, const string& name) {
+        auto* unit = world->AddUnitInGame(position, NRPG::CreateUnit(NDb::GetPers(103)), anchor->GetTBSPlayer(), name);
+        Require(IsValid(unit), "corpse density fixture could not add a unit to the native world");
+        unit->nClueCount = clue ? 1 : 0;
+        return unit;
+    };
+    for (int i = 0; i < count; ++i) {
+        auto* unit = add(false, "CorpseDensity" + std::to_string(i));
+        unit->GetUnitRPG()->InitAsCorpse(true);
+        unit->Die();
+        unit->tDeathTime = 1000 + i;
+        unit->SetPosition(anchor->GetPosition());
+        bodies.emplace_back(unit);
+    }
+    auto* clue = add(true, "ProtectedDensityClue");
+    clue->GetUnitRPG()->InitAsCorpse(true);
+    clue->Die();
+    clue->tDeathTime = 10;
+    clue->SetPosition(anchor->GetPosition());
+    auto* unconscious = add(false, "ProtectedDensityUnconscious");
+    unconscious->GetUnitRPG()->InitAsCorpse(false);
+    unconscious->SetState(new NWorld::CUnitStateUnconscious(unconscious));
+    unconscious->tDeathTime = 5;
+    unconscious->SetPosition(anchor->GetPosition());
+    Require(clue->IsDead() && clue->IsClueUnit() && unconscious->IsUnconscious() && !unconscious->IsDead() && anchor->CanFight(),
+        "native corpse density fixture lacks living or protected-body controls");
+
+    for (int pass = 0; pass < 2; ++pass) {
+        world->UpdateVisible(true);
+        for (int i = 0; i < count; ++i)
+            Require(bodies[i]->IsDead() && bodies[i]->IsAddedToVisitor() == (i >= count - 15),
+                "native visibility refresh failed to keep exactly the fifteen newest ordinary corpses");
+        Require(clue->IsAddedToVisitor() && unconscious->IsAddedToVisitor() && anchor->IsAddedToVisitor(),
+            "corpse density cleanup hid a living unit, unconscious unit or quest clue");
+    }
+}
+
 void PathCommandGoal(const char* databasePath, const char* resourcePath, bool approximate)
 {
     auto world = FixtureWorld(databasePath, resourcePath, true);
@@ -831,6 +877,7 @@ void CrouchedClimbIdle(const char* databasePath, const char* resourcePath)
 
 bool RunUnitTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "corpse-density") && argc == 5) { CorpseDensity(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "path-command-goal") && argc == 5) { PathCommandGoal(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "difficulty-skill-scaling") && argc == 2) { DifficultySkillScaling(); return true; }
     if (!std::strcmp(mode, "take-perk-during-treatment") && argc == 4) { TakePerkDuringTreatment(argv[2], argv[3]); return true; }

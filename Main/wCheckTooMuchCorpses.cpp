@@ -1,12 +1,20 @@
+#if defined(_WIN32)
 #include "StdAfx.h"
+#else
+#include "../FileIO/StdAfx.h"
+#include "../FileIO/BasicChunk1.h"
+#include "../Misc/Geom.h"
+#endif
 #include "wUnitServer.h"
-#include "aiPosition.h"
-#include "..\Misc\2Darray.h"
+#include "wCheckTooMuchCorpses.h"
+#include "aiGrid.h"
+#include "../Misc/2Darray.h"
+#include <cmath>
 
 // =====================================================================================
 // wCheckTooMuchCorpses -- the corpse-density failsafe ("Too much corpses (%d) detected,
 // possible fail, removing"). The visible map is bucketed into 4m cells; whenever a 3x3
-// cell neighbourhood holds more than 15 visitor-set corpse objects, the oldest REMOVABLE
+// cell neighbourhood holds more than 15 removable corpse objects, the oldest
 // ones are flagged out of the visitor set until the count is back at the cap of 15.
 //
 // Release free functions (compiland wCheckTooMuchCorpses.obj), reconstructed against the
@@ -23,7 +31,7 @@
 //                                     @0x748140 fixed the asymmetry (full mark in both
 //                                     paths) -- ported below.
 //   * cell of a corpse            -> CUnit::GetPosition().GetCP()  (CUnit-base vtbl +0x44)
-//   * REMOVABLE iff               -> !CanFight() (primary vtbl +0x44)
+//   * REMOVABLE iff               -> dead and lying on the ground
 //                                 && !IsClueUnit() (CUnit-base vtbl +0x14, retail
 //                                    @0x3c6900 == nClueCount>0)
 //                                 && !IsEmptyPK() (CUnit-base vtbl +0x10)
@@ -36,13 +44,7 @@
 //                                    IsPossessed"; the real methods were resolved from
 //                                    the Game.exe vtables.)
 //
-// PARITY SURFACE ONLY -- nothing calls these yet (behaviour-neutral). The release
-// CDumbUnitServer::IsAddedToVisitor() also tested bNotAddedToVisitors, so a freshly
-// marked corpse dropped out of the candidate scan on the next pass; the dev
-// IsAddedToVisitor() currently returns only !bIsPKWhichIsWeared, so that skip is a no-op
-// here until the method is converged -- left as-is on purpose (not touching the shared
-// visitor path). Wiring the guarded CheckTooMuchCorpses() into CWorld::UpdateVisible is a
-// deliberate follow-up so this first commit stays green.
+// CWorld::UpdateVisible runs the cleanup after the ground grid has valid bounds.
 // =====================================================================================
 
 namespace NWorld
@@ -116,10 +118,7 @@ void TryRemoveCorpses( CArray2D< vector< CObj< CUnitServer > > > &buckets, int n
 	TryRemoveCorpses( gathered, n );
 }
 
-// NWorld::FillQuantities @0x347f20 -- bucket every visitor-set corpse into 4m cells
-// (cell = Float2Int((cp - ptMin) * 0.25 + 0.5)), counting all of them in `counts` and
-// collecting the REMOVABLE ones (!CanFight && !IsClueUnit && !IsEmptyPK && no live worn
-// PK -- the fourth gate is v1.2 @0x748340) in `buckets`.
+// Count the same ground corpses that are eligible for removal.
 // bResize sizes the grids on the first pass; the recount passes just clear them.
 void FillQuantities( int nXSize, int nYSize, const CVec3 &ptMin,
 					 const list< CObj< CUnitServer > > &units, bool bResize,
@@ -141,18 +140,19 @@ void FillQuantities( int nXSize, int nYSize, const CVec3 &ptMin,
 	for ( list< CObj< CUnitServer > >::const_iterator it = units.begin(); it != units.end(); ++it )
 	{
 		CUnitServer *pUS = *it;
-		if ( !pUS->IsAddedToVisitor() )
+		if ( !IsValid( pUS ) || !pUS->IsAddedToVisitor() || !pUS->IsDead() ||
+			pUS->IsClueUnit() || pUS->IsEmptyPK() || IsValid( pUS->GetWearingDBPK() ) ||
+			IsValid( pUS->GetCorpseCarrier() ) )
 			continue;
 		CVec3 cp = pUS->GetPosition().GetCP();
+		if ( !std::isfinite( cp.x ) || !std::isfinite( cp.y ) )
+			continue;
 		int nX = Float2Int( ( cp.x - ptMin.x ) * 0.25f + 0.5f );
 		int nY = Float2Int( ( cp.y - ptMin.y ) * 0.25f + 0.5f );
+		if ( nX < 0 || nY < 0 || nX >= nXSize || nY >= nYSize )
+			continue;
 		counts[nY][nX] += 1;
-		// v1.2 @0x748340: fourth removability gate -- a corpse still wearing a LIVE
-		// Panzerklein is counted but never auto-removed (worn-PK record must be absent
-		// or dead: pPK==0 || (nObjData & 0x80000000), i.e. !IsValid).
-		if ( !pUS->CanFight() && !pUS->IsClueUnit() && !pUS->IsEmptyPK()
-			 && !IsValid( pUS->GetWearingDBPK() ) )
-			buckets[nY][nX].push_back( pUS );
+		buckets[nY][nX].push_back( pUS );
 	}
 }
 
@@ -160,9 +160,30 @@ void FillQuantities( int nXSize, int nYSize, const CVec3 &ptMin,
 // least 3 per axis. Every interior cell whose 3x3 neighbourhood holds more than 15 corpses
 // triggers TryRemoveCorpses(sum - 15) over the gathered neighbourhood buckets, then a
 // recount.
-void CheckTooMuchCorpses( const CVec3 &ptMin, const CVec3 &ptMax,
-						 const list< CObj< CUnitServer > > &units )
+void CheckTooMuchCorpses( NAI::IPathNetwork *pNetwork, const list< CObj<CUnitServer> > &units )
 {
+	if ( units.size() <= 15 )
+		return;
+	NAI::CPathNetwork *pGrid = dynamic_cast<NAI::CPathNetwork*>( pNetwork );
+	if ( !IsValid( pGrid ) || pGrid->GetNumLayers() == 0 )
+		return;
+	NAI::CNodesLayer *pGround = pGrid->GetLayer( 0 );
+	if ( !IsValid( pGround ) || !IsValid( pGround->pGroup ) ||
+		pGround->tiles.GetXSize() == 0 || pGround->tiles.GetYSize() == 0 )
+		return;
+	const int nLastX = pGround->tiles.GetXSize() - 1;
+	const int nLastY = pGround->tiles.GetYSize() - 1;
+	const CVec2 origin = pGround->pGroup->GetCPNoHeight( 0, 0 );
+	CVec3 ptMin( origin, 0 ), ptMax( origin, 0 );
+	for ( int x : { 0, nLastX } )
+		for ( int y : { 0, nLastY } )
+		{
+			const CVec2 corner = pGround->pGroup->GetCPNoHeight( x, y );
+			ptMin.x = Min( ptMin.x, corner.x );
+			ptMin.y = Min( ptMin.y, corner.y );
+			ptMax.x = Max( ptMax.x, corner.x );
+			ptMax.y = Max( ptMax.y, corner.y );
+		}
 	int nXSize = Float2Int( ( ptMax.x - ptMin.x ) * 0.25f + 2.0f );
 	int nYSize = Float2Int( ( ptMax.y - ptMin.y ) * 0.25f + 2.0f );
 	if ( nXSize < 3 )

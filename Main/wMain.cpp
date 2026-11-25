@@ -11,6 +11,7 @@
 #include "InterfaceConst.h"
 #include "MapBuild.h"
 #include "wUnitServer.h"
+#include "wCheckTooMuchCorpses.h"
 #include "RPGGame.h"
 #include "RPGBullet.h"
 #include "rpgGlobal.h"
@@ -1203,6 +1204,7 @@ void CWorld::UpdateVisible( bool bForce )
 		bCallUpdateVisible = true;
 		return;
 	}
+	CheckTooMuchCorpses( GetPathNetwork(), units );
 	// retail @0x366c00: every completed visibility refresh derives the global sight multiplier and the
 	// RPG night flag from the world's time-of-day sentinel before asking any unit to update perception.
 	float fVisionMultiplier = 1.0f;
