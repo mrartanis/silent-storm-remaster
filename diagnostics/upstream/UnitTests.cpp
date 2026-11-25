@@ -514,6 +514,95 @@ void ForcedFallPose(const char* databasePath, const char* resourcePath)
         "animated fall onto an inactive ledge enabled item activation");
 }
 
+class PlacementWorld : public NWorld::CWorld
+{
+    OBJECT_NOCOPY_METHODS(PlacementWorld);
+public:
+    explicit PlacementWorld(NRPG::CGlobalGame* game = nullptr) : CWorld(game) {}
+    int visibilityUpdates = 0;
+
+    void UpdateVisible(bool force) override
+    {
+        ++visibilityUpdates;
+        CWorld::UpdateVisible(force);
+    }
+};
+
+void OrdinaryPlacementAnchor(const char* databasePath, const char* resourcePath, bool anchorBlocked)
+{
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game, 810,
+        [](NRPG::CGlobalGame* game) -> NWorld::CWorld* { return new PlacementWorld(game); });
+    auto* placementWorld = static_cast<PlacementWorld*>(world.GetPtr());
+    auto* actor = MovementPolicyActor(world);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    const auto other = std::find_if(units.begin(), units.end(), [&](const auto& unit) {
+        return IsValid(unit) && unit.GetPtr() != actor && unit->CanFight() &&
+            !unit->IsWearingPK() && !unit->IsEmptyPK();
+    });
+    Require(other != units.end(), "prone placement fixture lacks a second ordinary unit");
+    auto* blocker = other->GetPtr();
+    auto* network = world->GetPathNetwork();
+    const auto from = actor->GetPosition();
+    network->Unlock(actor);
+    network->Unlock(blocker);
+
+    NAI::SPathPlace prone, adjacent;
+    vector<NAI::SPathPlace> nearby;
+    network->GetNearPlaces(SSphere(from.GetCP(), 6.f), &nearby);
+    bool found = false;
+    for (auto point : nearby) {
+        if (!point.IsIntegral() || point.GetLayer() != from.pos.p.GetLayer())
+            continue;
+        point.SetPose(NAI::CM_LAY);
+        point.SetDirection(NAI::RIGHT);
+        if (network->GetPassability(point) != NAI::AIP_YES || !network->IsPassable(point))
+            continue;
+        vector<NAI::SPathPlace> footprint;
+        network->GetLockArea(&footprint, point, false);
+        for (auto tile : footprint) {
+            if (tile.GetLayer() != point.GetLayer() || tile.GetX() == point.GetX())
+                continue;
+            tile.SetPose(NAI::CM_STAND);
+            if (network->GetPassability(tile) == NAI::AIP_YES) {
+                prone = point;
+                adjacent = tile;
+                found = true;
+                break;
+            }
+        }
+        if (found)
+            break;
+    }
+    Require(found, "native placement fixture lacks a prone anchor with an open neighboring footprint tile");
+    auto position = from;
+    position.pos = NAI::SPosition(prone, network);
+    actor->animator.PlaceUnit(position);
+    actor->SetPosition(position);
+    network->Unlock(actor);
+    auto blocking = blocker->GetPosition();
+    if (anchorBlocked) {
+        adjacent = prone;
+        adjacent.SetPose(NAI::CM_STAND);
+    }
+    blocking.pos = NAI::SPosition(adjacent, network);
+    blocker->animator.PlaceUnit(blocking);
+    blocker->SetPosition(blocking);
+    Require(network->GetPassability(prone) == (anchorBlocked ? NAI::AIP_LOCKED : NAI::AIP_YES) &&
+        !network->IsPassable(prone), "native fixture failed to lock the intended part of the prone footprint");
+
+    const int before = placementWorld->visibilityUpdates;
+    actor->PlaceOnPassablePlace();
+    if (anchorBlocked) {
+        Require(actor->GetPosition().pos.p.GetBits() != prone.GetBits() && placementWorld->visibilityUpdates > before,
+            "native placement kept a prone actor on a locked anchor");
+    } else {
+        Require(actor->GetPosition() == position && placementWorld->visibilityUpdates == before,
+            "native placement repositioned an ordinary unit whose anchor was available");
+    }
+}
+
 void OwnerWoundPolicy(const char* databasePath, const char* resourcePath, int mode)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -664,6 +753,7 @@ bool RunUnitTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "crouched-climb-idle") && argc == 4) { CrouchedClimbIdle(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "scripted-ack-speaker") && argc == 4) { ScriptedAckSpeaker(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "owner-wound-policy") && argc == 5) { OwnerWoundPolicy(argv[2], argv[3], std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "ordinary-placement-anchor") && argc == 5) { OrdinaryPlacementAnchor(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     return false;
 }
 }

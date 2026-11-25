@@ -1011,7 +1011,8 @@ void CDumbUnitServer::PlaceOnPassablePlace()
 	selected.remove( this );
 	pNet->LockSelected( selected );
 	pNet->Unlock( this );
-	bool bPassable = bBigUnit? NAI::IsBigLockerPlacePassable( pNet, position.pos.p ) : pNet->IsPassable( position.pos.p );
+	bool bPassable = bBigUnit ? NAI::IsBigLockerPlacePassable( pNet, position.pos.p ) :
+		pNet->GetPassability( position.pos.p ) == NAI::AIP_YES;
 	if ( bPassable )
 	{
 		bLocksTwoPlaces = false;
@@ -1034,7 +1035,8 @@ void CDumbUnitServer::PlaceOnPassablePlace()
 			// Check the facing installed below; diagonal footprints cover more cells.
 			if ( bBigUnit )
 				places[k].SetDirection( position.pos.p.GetDirection() );
-			bool bPassable = bBigUnit? NAI::IsBigLockerPlacePassable( pNet, places[k] ) : pNet->IsPassable( places[k] );
+			bool bPassable = bBigUnit ? NAI::IsBigLockerPlacePassable( pNet, places[k] ) :
+				pNet->GetPassability( places[k] ) == NAI::AIP_YES;
 			if ( bPassable && pNet->GetFloor( places[k].GetLayer() ) <= nStartFloor )
 			{
 				NAI::SPosition pos( position.pos );
