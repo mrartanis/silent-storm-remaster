@@ -8,6 +8,7 @@
 //
 #include "../DBFormat/DataRPG.h"
 #include "aiPosition.h"
+#include "aiMap.h"
 #include "aiMisc.h"
 #include "aiUnit.h"
 #include "aistate.h"
@@ -42,7 +43,6 @@ namespace NWorld
 {
 	EUnitCommandResult CanUnitThrowGrenade( CUnitServer *pUS, const NAI::SUnitPosition &from, const CVec3 &ptTarget, NRPG::IGrenadeItem *pGrenade );
 	EUnitCommandResult CanUnitThrowKnife( CUnitServer *pUS, const NAI::SUnitPosition &from, const CVec3 &ptTarget, NRPG::IMeleeWeaponItem *pMelee );
-	bool IsWithinHumanReach( const CVec3 &ptFrom, const CVec3 &ptTarget, float fPlaneDist );
 }
 //
 namespace NAI
@@ -350,11 +350,8 @@ void CAILaunchRocketAction::GetInfoInner( const SPlaceWithAP &place, SInfo *pInf
 		return;
 	if ( pInfo->pWeapon->GetCurrentClip()->GetAmmoCount() <= 0 )
 		return;   // empty launcher: not do-able (release SInfo has no bNeedReload; reloading is the reload action's job)
-	// @0x1c940 - affordability gate (release-NEW vs dev): the launch-rocket AP cost must fit place.nUnitAP BEFORE
-	// the (heavier) nearest-group search, so an unaffordable rocket never wins the decision (mirrors the grenade
-	// twin's pre-search GetActionAP gate above). In-tree the launch cost is the weapon's GetShotAP() - the same AP
-	// Do() spends - because there is no AC_LAUNCH_ROCKET action code in RPGUnitInfo.h for GetActionAP(pose,6,weapon).
-	if ( pInfo->pWeapon->GetShotAP() > place.nUnitAP )
+	if ( pUnit->GetUnitMission()->GetActionAP( place.place.GetPose(), NRPG::AC_PREPARE_AND_SHOOT,
+		pInfo->pWeapon->GetItem() ) > place.nUnitAP )
 		return;
 	//
 	const vector<SAIUnitGroup> &groups = pState->GetEnemyGroups();
@@ -381,7 +378,8 @@ void CAILaunchRocketAction::Do( CAILog *pLog ) const
 		*pLog << new CAILogChangeWeapon( pUnit, info.pWeapon );
 	*pLog << new CAILogChangeShootMode( pUnit, info.pWeapon, NDb::SM_Snap );
 	*pLog << new CAILogShotPoint( pUnit, info.ptTarget );
-	*pLog << new CAILogSpendAP( pUnit, info.pWeapon->GetShotAP() );
+	*pLog << new CAILogSpendAP( pUnit, pUnit->GetUnitMission()->GetActionAP( GetCurrentPlace().place.GetPose(),
+		NRPG::AC_PREPARE_AND_SHOOT, info.pWeapon->GetItem() ) );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CAILaunchRocketAction::ComparePlaces( const SPlaceWithAP &p1, const SPlaceWithAP &p2 ) const
@@ -515,15 +513,15 @@ void CAIMeleeAction::GetInfoInner( const SPlaceWithAP &place, SInfo *pInfo ) con
 	pInfo->pWeapon = pUnit->GetAIInventory()->GetBestMeleeWeapon();
 	if ( !IsValid( pInfo->pWeapon ) )
 		return;
-	// affordable from this place? (release: GetActionAP(pose, AC_MELEE, weaponLen) <= place AP; the dev
-	// 2-arg GetActionAP elides the weapon length, as the grenade/reload actions already do.)
 	NRPG::IUnitMission *pMission = pUnit->GetUnitMission();
-	if ( IsValid( pMission ) && pMission->GetActionAP( place.place.GetPose(), NRPG::AC_MELEE ) > place.nUnitAP )
+	if ( !IsValid( pMission ) || !IsValid( pInfo->pWeapon->GetItem() ) ||
+		pMission->GetActionAP( place.place.GetPose(), NRPG::AC_MELEE, pInfo->pWeapon->GetItem() ) > place.nUnitAP )
 		return;
-	// enemy within melee reach of this place? (release computes the enemy's collider point; the enemy
-	// centre is a faithful stand-in for the F_MELEE_DISTANCE test.)
-	if ( NWorld::IsWithinHumanReach( place.place.GetCP(), pEnemy->GetPosition().GetCP(), F_MELEE_DISTANCE ) )
-		pInfo->bCanDo = true;
+	NWorld::CUnitServer *pUS = pUnit->GetUnitServer();
+	IAIMap *pMap = pUS->GetWorld()->GetAIMap();
+	CVec3 ptTarget;
+	pInfo->bCanDo = pMap->GetUnitHLPos( &ptTarget, pMap->GetHull( pEnemy->GetUnitServer() ), HL_BODY ) &&
+		NWorld::CanMeleeAttack( pUS, place.place, ptTarget );
 }
 void CAIMeleeAction::Do( CAILog *pLog ) const   // @0x0041d5b0
 {
@@ -539,7 +537,8 @@ void CAIMeleeAction::Do( CAILog *pLog ) const   // @0x0041d5b0
 		return;
 	if ( !pUnit->GetAIInventory()->IsCurrentItem( info.pWeapon ) )
 		*pLog << new CAILogChangeWeapon( pUnit, info.pWeapon );
-	*pLog << new CAILogSpendAP( pUnit, pUnit->GetUnitMission()->GetActionAP( pUnit->GetUnitPosition().GetPose(), NRPG::AC_MELEE ) );
+	*pLog << new CAILogSpendAP( pUnit, pUnit->GetUnitMission()->GetActionAP( GetCurrentPlace().place.GetPose(),
+		NRPG::AC_MELEE, info.pWeapon->GetItem() ) );
 	// the strike: retail logs a dedicated CAILogMelee record carrying the melee weapon; its GetCommands
 	// @0x460d20 emits CCmdShootObject( pEnemy->GetUnitServer(), 0, HL_HEAD ) -- the same attack-object command
 	// CAILogShot would, but the weapon is preserved for save-format fidelity. @0x41d5b0 CreateAILogMelee passes
@@ -567,16 +566,16 @@ void CAIThrowKnifeAction::GetInfoInner( const SPlaceWithAP &place, SInfo *pInfo 
 	pInfo->pWeapon = pUnit->GetAIInventory()->GetBestThrowingWeapon();
 	if ( !IsValid( pInfo->pWeapon ) )
 		return;
-	NRPG::IUnitMission *pMission = pUnit->GetUnitMission();
-	if ( IsValid( pMission ) && pMission->GetActionAP( place.place.GetPose(), NRPG::AC_THROW_KNIFE ) > place.nUnitAP )
-		return;
-	// the knife's RPG item as IMeleeWeaponItem (CMeleeWeaponItem publicly derives it -> plain upcast, not
-	// CDynamicCast; CanUnitThrowKnife does the throw line-of-fire/range check).
 	NRPG::CMeleeWeaponItem *pItem = pInfo->pWeapon->GetItem();
-	if ( !IsValid( pItem ) )
+	NRPG::IUnitMission *pMission = pUnit->GetUnitMission();
+	if ( !IsValid( pMission ) || !IsValid( pItem ) ||
+		pMission->GetActionAP( place.place.GetPose(), NRPG::AC_THROW_KNIFE, pItem ) > place.nUnitAP )
 		return;
-	if ( NWorld::CanUnitThrowKnife( pUnit->GetUnitServer(), place.place, pEnemy->GetPosition().GetCP(), pItem ) == NWorld::UCR_OK )
-		pInfo->bCanDo = true;
+	NWorld::CUnitServer *pUS = pUnit->GetUnitServer();
+	IAIMap *pMap = pUS->GetWorld()->GetAIMap();
+	CVec3 ptTarget;
+	pInfo->bCanDo = pMap->GetUnitHLPos( &ptTarget, pMap->GetHull( pEnemy->GetUnitServer() ), HL_HEAD ) &&
+		NWorld::CanUnitThrowKnife( pUS, place.place, ptTarget, pItem ) == NWorld::UCR_OK;
 }
 void CAIThrowKnifeAction::Do( CAILog *pLog ) const   // @0x0041d420
 {
@@ -592,13 +591,14 @@ void CAIThrowKnifeAction::Do( CAILog *pLog ) const   // @0x0041d420
 		return;
 	if ( !pUnit->GetAIInventory()->IsCurrentItem( info.pWeapon ) )
 		*pLog << new CAILogChangeWeapon( pUnit, info.pWeapon );
-	*pLog << new CAILogSpendAP( pUnit, pUnit->GetUnitMission()->GetActionAP( pUnit->GetUnitPosition().GetPose(), NRPG::AC_THROW_KNIFE ) );
+	*pLog << new CAILogSpendAP( pUnit, pUnit->GetUnitMission()->GetActionAP( GetCurrentPlace().place.GetPose(),
+		NRPG::AC_THROW_KNIFE, info.pWeapon->GetItem() ) );
 	// @0x0041d420 -- retail emits CAILogThrowKnife (NOT CAILogShot). The WORLD COMMAND is identical
 	// (CAILogThrowKnife::GetCommands @0x460c30 pins eHL = -1/HL_ANY, exactly like CAILogShot(pEnemy,HL_ANY)),
 	// but CAILogThrowKnife ALSO carries the thrown knife so its Commit (retail ModifyState @0x45c7f0) removes
 	// the knife from the AI inventory and empties the hand -- the simulated-state effect CAILogShot (base
 	// no-op Commit) silently dropped.
-	*pLog << new CAILogThrowKnife( pUnit, pEnemy, info.pWeapon, HL_ANY );
+	*pLog << new CAILogThrowKnife( pUnit, pEnemy, info.pWeapon, HL_HEAD );
 }
 bool CAIThrowKnifeAction::ComparePlaces( const SPlaceWithAP &p1, const SPlaceWithAP &p2 ) const
 {

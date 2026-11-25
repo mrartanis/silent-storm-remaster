@@ -28,6 +28,7 @@
 namespace NWorld
 {
 EUnitCommandResult CanUnitLaunchRocket(CUnitServer*, const NAI::SUnitPosition&, const CVec3&, int, NRPG::IWeaponItem*);
+EUnitCommandResult CanUnitThrowKnife(CUnitServer*, const NAI::SUnitPosition&, const CVec3&, NRPG::IMeleeWeaponItem*);
 }
 
 namespace UpstreamTests
@@ -575,10 +576,62 @@ void AIRocketCandidateSafety(const char* databasePath, const char* resourcePath,
     Require(verified, "rocket planning fixture could not find an open native launch ray");
 }
 
+
+void AIThrowKnifeCandidateAP(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = EquipAccuracyActor(world);
+    auto* ai = NAI::GetAIUnit(actor);
+    auto* mission = actor->GetUnitRPG();
+    mission->GetRPGUnit()->Skills(NDb::ST_THROWING).SetConst(100);
+    auto* inventory = mission->GetInventory();
+    auto* firearm = inventory->GetActive();
+    NDb::CRPGMeleeWeapon* blade = nullptr;
+    CDBIterator<NDb::CRPGMeleeWeapon> weapons(*NDatabase::GetTable<NDb::CRPGMeleeWeapon>());
+    while (!blade && weapons.MoveNext()) {
+        auto* weapon = weapons.Get();
+        if (weapon->bThrowing && !weapon->nPanzerkleinType && IsValid(weapon->pItem) && IsValid(weapon->pItem->pModel))
+            blade = weapon;
+    }
+    Require(IsValid(ai) && ai->GetAIUnitState() && IsValid(blade), "knife AP fixture needs a native throwing blade and AI state");
+    blade->nMinAP = blade->nMaxAP = 22;
+    CObj<NRPG::CMeleeWeaponItem> knife = new NRPG::CMeleeWeaponItem(blade);
+    if (inventory->Get(NDb::SLOT_2))
+        inventory->TakeOff(NDb::SLOT_2);
+    Require(inventory->Equip(NDb::SLOT_2, knife), "knife AP fixture could not place the inactive authored knife in inventory");
+    ai->Synchronize(false);
+    auto* selected = ai->GetAIInventory()->GetBestThrowingWeapon();
+    Require(IsValid(selected) && selected->GetItem() == knife, "knife AP fixture did not choose the inactive native blade");
+    const auto position = actor->GetPosition();
+    const int cost = mission->GetActionAP(position.GetPose(), NRPG::AC_THROW_KNIFE, knife);
+    Require(cost > mission->GetActionAP(position.GetPose(), NRPG::AC_THROW_KNIFE), "knife AP control did not distinguish the actual selected blade and active weapon");
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    auto* map = world->GetAIMap();
+    CObj<NAI::CAIThrowKnifeAction> action = new NAI::CAIThrowKnifeAction(ai);
+    for (const auto& target : units) {
+        if (!IsValid(target) || target == actor || !target->CanFight() || !IsValid(NAI::GetAIUnit(target)))
+            continue;
+        CVec3 head;
+        if (!map->GetUnitHLPos(&head, map->GetHull(target), NAI::HL_HEAD) ||
+            NWorld::CanUnitThrowKnife(actor, position, head, knife) != NWorld::UCR_OK ||
+            NWorld::CanUnitThrowKnife(actor, position, target->GetPosition().GetCP(), knife) != NWorld::UCR_OK)
+            continue;
+        ai->GetAIUnitState()->pEnemy = NAI::GetAIUnit(target);
+        NAI::CAIThrowKnifeAction::SInfo affordable, unaffordable;
+        action->GetInfoInner(NAI::SPlaceWithAP(position, cost), &affordable);
+        action->GetInfoInner(NAI::SPlaceWithAP(position, cost - 1), &unaffordable);
+        Require(affordable.bCanDo && !unaffordable.bCanDo && inventory->GetActive() == firearm,
+            "AI throwing action offered the selected knife below its actual AP cost");
+        return;
+    }
+    Require(false, "knife AP fixture did not find a native throwable target");
+}
 }
 
 bool RunAccuracyTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "ai-throw-knife-candidate-ap") && argc == 4) { AIThrowKnifeCandidateAP(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-candidate-clearance") && argc == 4) { AICandidateClearance(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-rocket-candidate-safety") && (argc == 4 || argc == 5)) {
         AIRocketCandidateSafety(argv[2], argv[3], argc == 5);
