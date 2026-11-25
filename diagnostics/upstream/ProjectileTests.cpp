@@ -80,6 +80,50 @@ public:
     STime GetNextLaunch() const { return tNextBulletGo; }
 };
 
+class TileAccuracyProbe : public NWorld::CExecShootTile
+{
+public:
+    TileAccuracyProbe(NWorld::CUnitServer* actor, const CVec3& target) : CExecShootTile(actor, target)
+    {
+        bOnlyPrepareToShoot = true;
+    }
+    int GetChance() const { return nToHit; }
+};
+
+void CheckShotTurnFlag(NWorld::CWorld* world, NWorld::CUnitServer* actor)
+{
+    auto* mission = actor->GetUnitRPG();
+    const auto position = actor->GetPosition();
+    for (int turn = 0; turn < 2 && mission->IsFirstTurn(); ++turn)
+        mission->StartNewTurn(position.GetCP());
+    Require(!mission->IsFirstTurn() && world->IsFirstTurn(), "shot fixture needs different unit and world turn flags");
+    world->GetGame()->SetNight(false);
+    vector<NRPG::CAttackPortion> attacks;
+    Require(mission->CreateAttack(&attacks, false) && !attacks.empty(), "shot fixture has no native attack for cover");
+    auto* path = world->GetPathNetwork();
+    vector<NAI::SPathPlace> places;
+    path->GetNearPlaces(SSphere(position.GetCP(), 14.f), &places);
+    for (const auto& place : places) {
+        if (!place.IsIntegral() || place.IsFinal())
+            continue;
+        const CVec3 target = NAI::SPosition(place, path).GetCP() + CVec3(0, 0, 0.625f);
+        if (fabs2(target - position.GetCP()) < 9.f)
+            continue;
+        CObj<NRPG::CCoverInfo> cover = world->GetGame()->CalcCoversForTile(actor->GetAttackOrigin(position),
+            attacks.front(), actor, target, actor->GetMinClearDistance(), 0x8210);
+        int first = 0, later = 0;
+        NRPG::CheckTileToHit(actor, target, 0, NAI::THL_LOWER, cover, true, &first);
+        NRPG::CheckTileToHit(actor, target, 0, NAI::THL_LOWER, cover, false, &later);
+        if (first == later)
+            continue;
+        CObj<TileAccuracyProbe> shot = new TileAccuracyProbe(actor, target);
+        shot->Start();
+        Require(shot->GetChance() == later, "native shot used the map first-turn penalty for a later-turn shooter");
+        return;
+    }
+    Require(false, "shot fixture has no real tile cover sensitive to the first-turn inputs");
+}
+
 void ShootingCompletion(const char* databasePath, const char* resourcePath, int mode)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -109,13 +153,25 @@ void ShootingCompletion(const char* databasePath, const char* resourcePath, int 
     actor->animator.SetActiveItem(true);
     actor->animator.SetWeaponAnimation(mission->GetWeaponType());
     actor->animator.SetWeaponName(record->szAnimName.c_str());
-    actor->SetScriptToHit(100);
+    if (mode != 5)
+        actor->SetScriptToHit(100);
     world->GivePlayerTurn(actor->GetTBSPlayer());
     const auto position = actor->GetPosition();
     mission->StartNewTurn(position.GetCP());
     const int ap = actor->GetAP();
     const int ammo = weapon->GetAmmoQuantity();
     Require(ammo > 1, "shot completion fixture has no ammunition controls");
+    if (mode == 5) {
+        CheckShotTurnFlag(world, actor);
+        return;
+    }
+    if (mode == 6) {
+        record->shootModes[NDb::SM_ShortBurst] = true;
+        record->nRoF = 2;
+        Require(weapon->SetShootMode(NDb::SM_ShortBurst), "short burst fixture failed to select the native fire mode");
+        Require(mission->GetBulletsQuantityInShot() == 1, "short burst preview resolved to zero bullets");
+        return;
+    }
 
     if (mode == 0) {
         CObj<NWorld::CCmdShootObject> command;
@@ -210,6 +266,43 @@ void ShootingCompletion(const char* databasePath, const char* resourcePath, int 
     Require(target->WasInterrupted(actor), "a successful native shot left its target eligible to interrupt the shooter again");
     Require((observed->visibility > visibility) == (mode == 1) && !actor->IsHiding(),
         "native shot completion must refresh visibility after revealing the shooter");
+}
+
+void MeleeZeroCover(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    auto* inventory = actor->GetUnitRPG()->GetInventory();
+    if (inventory->Get(NDb::SLOT_1))
+        inventory->TakeOff(NDb::SLOT_1);
+    CDBIterator<NDb::CRPGMeleeWeapon> weapons(*NDatabase::GetTable<NDb::CRPGMeleeWeapon>());
+    NDb::CRPGMeleeWeapon* record = nullptr;
+    while (weapons.MoveNext()) {
+        if (!weapons.Get()->bThrowing && weapons.Get()->pItem && weapons.Get()->pWeaponType) {
+            record = weapons.Get();
+            break;
+        }
+    }
+    Require(record, "zero-cover fixture has no native melee item");
+    CObj<NRPG::CMeleeWeaponItem> blade = new NRPG::CMeleeWeaponItem(record);
+    blade->nQuantity = 1;
+    Require(inventory->Equip(NDb::SLOT_1, blade) && inventory->Activate(NDb::SLOT_1) &&
+        NRPG::GetToHitType(actor) == NRPG::TH_MELEE, "zero-cover fixture could not equip the test blade");
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    const auto entry = std::find_if(units.begin(), units.end(), [actor](const auto& candidate) {
+        return IsValid(candidate) && candidate.GetPtr() != actor && candidate->CanFight();
+    });
+    Require(entry != units.end(), "zero-cover fixture lacks a living unit target");
+    auto* target = entry->GetPtr();
+    const auto center = actor->GetPosition().GetCP();
+    const vector<int> visibleParts = {NAI::HL_BODY};
+    auto chance = [&](int cover) {
+        return NRPG::GetToHit(actor, actor->GetPose(), 1, center, target->GetPosition().pos,
+            NAI::HL_BODY, 0, target, visibleParts, cover, false, CVec3(1, 1, 1), false, 0, false);
+    };
+    Require(chance(100) > 0 && chance(1) > 0, "positive cover controls did not reach the melee calculation");
+    Require(chance(0) == 0 && chance(-1) == 0, "blocked native unit melee still had a positive hit chance");
 }
 
 void BossWeaponState(const char* databasePath, const char* resourcePath)
@@ -1301,6 +1394,7 @@ void RangedHitRollRange(const char* databasePath, const char* resourcePath)
 
 bool RunProjectileTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "melee-zero-cover") && argc == 4) { MeleeZeroCover(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "melee-swing-sound") && argc == 5) { MeleeSwingSound(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "accidental-shot-payload") && argc == 4) { AccidentalShotPayload(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "shooting-completion") && argc == 5) { ShootingCompletion(argv[2], argv[3], std::atoi(argv[4])); return true; }

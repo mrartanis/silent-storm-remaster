@@ -1413,6 +1413,8 @@ int GetToHit( const NWorld::CUnit *pAttacker, NAI::EPose curPose, int nDistance,
 				bFirstRound, bNight, CVec3( 1, 1, 1 ), pUSTarget, hl, posTarget, nExtraAP, bBackstab );
 			break;
 		case TH_MELEE:
+			if ( nHitCover <= 0 )
+				return 0;
 			return pMission->GetMeleeToHit( ptAttacker, posTarget, pTargetRPG, hl, accessibleHLs, bBackstab );
 		case TH_SHOOT:
 			pToHitCalcer = new CUnitToHitCalcer(
@@ -1624,7 +1626,7 @@ int GetGrenadeToHit( const NWorld::CUnit *pAttacker, NAI::EPose curPose, int nDi
 int CUnitMission::GetBulletsQuantityInShot() const
 {
 	EToHitType type = GetToHitWeaponType();
-	if ( type == TH_MELEE || type == TH_THROWING )
+	if ( type == TH_MELEE || type == TH_THROWING || type == TH_GRENADE )
 		return 1;
   CWeaponItem *pW = pRPGUnit->GetWeaponItem();
 	if ( !pW )
@@ -1647,7 +1649,7 @@ int CUnitMission::GetBulletsQuantityInShot() const
 			return 1;
 		case NDb::SM_ShortBurst:
 		case NDb::SM_LongBurst:
-			return pDBW->nRoF / 6;
+			return Max( 1, pDBW->nRoF / 6 );
 	}
 	return 1;
 }

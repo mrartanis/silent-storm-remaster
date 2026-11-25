@@ -1633,7 +1633,7 @@ void CExecShoot::SelectPointRay()
 		CObj<NRPG::CCoverInfo> pCover = pWorld->GetGame()->CalcCoversForTile( pUS->GetAttackOrigin( pUS->GetPosition(), ( nBulletGone & 1 ) != 0 ),
 			attack, pUS, ptAnimTarget, pUS->GetMinClearDistance(), 0x8210 );
 		float fHit = NRPG::CheckTileToHit( pUS, ptAnimTarget,
-			GetExtraAP(), NAI::THL_LOWER, pCover, pWorld->IsFirstTurn(), &nTmpToHit, nBulletGone );   // retail: no eHL member, tile always THL_LOWER; the exec's burst cursor is the bullet index
+			GetExtraAP(), NAI::THL_LOWER, pCover, pUS->GetUnitRPG()->IsFirstTurn(), &nTmpToHit, nBulletGone );   // retail: no eHL member, tile always THL_LOWER; the exec's burst cursor is the bullet index
 		rayInfo = NRPG::SAttackRayInfo( attack, VNULL3, nBulletGone > 0 ? rayInfo.vDir : VNULL3, pUS, pUS->GetPosition(),
 			nBulletGone, GetExtraAP(), false, pUS->GetMinClearDistance(), 30.0f, 0 );
 		rayInfo.pIgnore = const_cast<CObjectBase*>( pUS->GetAttackIgnore() );
@@ -1693,7 +1693,7 @@ void CExecShootObject::SelectRay()
 	int nTmpToHit;
 	// AttackObjectRanged uses tile accuracy for non-units, but object hull cover.
 	float fHit = NRPG::CheckTileToHit( pUS, ptTarget, GetExtraAP(), NAI::THL_LOWER,
-		pCover, pWorld->IsFirstTurn(), &nTmpToHit, nBulletGone );
+		pCover, pUS->GetUnitRPG()->IsFirstTurn(), &nTmpToHit, nBulletGone );
 	rayInfo = NRPG::SAttackRayInfo( attack, VNULL3, nBulletGone > 0 ? rayInfo.vDir : VNULL3, pUS, pUS->GetPosition(),
 		nBulletGone, GetExtraAP(), false, pUS->GetMinClearDistance(), 30.0f, pTarget.GetPtr() );
 	rayInfo.pIgnore = const_cast<CObjectBase*>( pUS->GetAttackIgnore() );
@@ -1785,7 +1785,7 @@ void CExecShootUnit::SelectRay() // false, when it is the last shot
 		attack.eWantedHL = eHL;
 		// Retail RealCalcCovers applies the same alternating origin to unit shots.
 		CObj<NRPG::CCoverInfo> pCover = pWorld->GetGame()->CalcCovers( pUS->GetAttackOrigin( pUS->GetPosition(), ( nBulletGone & 1 ) != 0 ), attack, pUS, pTarget, eHL, pUS->GetMinClearDistance(), false, 0x8210 );
-		float fHit = NRPG::CheckToHit( pUS, pTarget, GetExtraAP(), eHL, accessibleHLs, pCover, pWorld->IsFirstTurn(), &nTmpToHit, nBulletGone );
+		float fHit = NRPG::CheckToHit( pUS, pTarget, GetExtraAP(), eHL, accessibleHLs, pCover, pUS->GetUnitRPG()->IsFirstTurn(), &nTmpToHit, nBulletGone );
 		rayInfo = NRPG::SAttackRayInfo( attack, VNULL3, nBulletGone > 0 ? rayInfo.vDir : VNULL3, pUS, pUS->GetPosition(),
 			nBulletGone, GetExtraAP(), false, pUS->GetMinClearDistance(), 30.0f, pTarget.GetPtr() );
 		rayInfo.pIgnore = const_cast<CObjectBase*>( pUS->GetAttackIgnore() );
@@ -1989,11 +1989,11 @@ void CExecMeleeObject::OnLabel()
 			// independently of CExecMeleeUnit's saved called-shot selection.
 			NRPG::STargetHLInfo info;
 			fHit = NRPG::CheckToHit( pUS, pUnitTarget, GetExtraAP(), info.eHL,
-				info.accessibleHLs, pCover, pWorld->IsFirstTurn(), &nToHit );
+				info.accessibleHLs, pCover, pUS->GetUnitRPG()->IsFirstTurn(), &nToHit );
 		}
 		else
 			fHit = NRPG::CheckTileToHit( pUS, ptAim, GetExtraAP(), NAI::THL_LOWER,
-				pCover, pWorld->IsFirstTurn(), &nToHit );
+				pCover, pUS->GetUnitRPG()->IsFirstTurn(), &nToHit );
 		CRay ray;
 		bool bMissed;
 		if ( NRPG::PeekRay( pCover, &ray, fHit, &bMissed ) && !bMissed )
@@ -2096,7 +2096,7 @@ void CExecMeleeUnit::OnLabel()
 		//
 		int nToHit;
 		float fHit = NRPG::CheckToHit( pUS, pTarget,
-			GetExtraAP(), hlInfo.eHL, hlInfo.accessibleHLs, pCover, pWorld->IsFirstTurn(), &nToHit );
+			GetExtraAP(), hlInfo.eHL, hlInfo.accessibleHLs, pCover, pUS->GetUnitRPG()->IsFirstTurn(), &nToHit );
 		CRay ray;
 		bool bIsMiss;
 		// Original Steam 0x7aa0f8..0x7aa164: only !miss dispatches the strike and success event.
@@ -3629,14 +3629,14 @@ void CExecThrowKnife::ThrowKnife()
 		pCover = pWorld->GetGame()->CalcCovers( pUS->GetAttackOrigin( pUS->GetPosition() ),
 			attack.front(), pUS, pTarget, eHL, pUS->GetMinClearDistance(), false, 0x8210 );
 		fHit = NRPG::CheckToHit( pUS, pTarget, 0, eHL, accessibleHLs, pCover,
-			pWorld->IsFirstTurn(), &nToHit, 0 );
+			pUS->GetUnitRPG()->IsFirstTurn(), &nToHit, 0 );
 	}
 	else
 	{
 		pCover = pWorld->GetGame()->CalcCoversForTile( pUS->GetAttackOrigin( pUS->GetPosition() ),
 			attack.front(), pUS, ptTarget, pUS->GetMinClearDistance(), 0x8210 );
 		fHit = NRPG::CheckTileToHit( pUS, ptTarget, 0, NAI::THL_LOWER, pCover,
-			pWorld->IsFirstTurn(), &nToHit, 0 );
+			pUS->GetUnitRPG()->IsFirstTurn(), &nToHit, 0 );
 	}
 	NRPG::PrepareAttackRay( pWorld->GetAIMap(), pCover, &rayInfo, fHit );
 	int nDistance = fabs( ptTarget - pUS->GetPosition().GetCP() ) / FP_GRID_STEP;
