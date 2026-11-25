@@ -10,6 +10,7 @@
 #include "../DBFormat/DataSound.h"
 #include "wMisc.h"
 #include "TerrainInfo.h"
+#include "aiJob.h"           // IAIJobManager is serialized inline below.
 #include "aiPosition.h"
 #include "../Misc/EventsBase.h"
 #include "wVision.h"
@@ -29,7 +30,6 @@ class CMapWaypoint;
 namespace NAI
 {
 	class CPath;
-	class IAIJobManager;
 	class CAIRouteWaypoint;
 	class CAICommander;
 }
