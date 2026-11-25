@@ -1,5 +1,6 @@
 function(s2_add_upstream_test_modules target source_dir)
   target_sources(${target} PRIVATE
+    "${source_dir}/diagnostics/upstream/AccuracyTests.cpp"
     "${source_dir}/diagnostics/upstream/AISnipingTests.cpp"
     "${source_dir}/diagnostics/upstream/AITests.cpp"
     "${source_dir}/diagnostics/upstream/AnimationTests.cpp"

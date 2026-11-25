@@ -390,26 +390,25 @@ int CGame::GetCoverForAIUnit( CVec3 ptFrom, NWorld::CUnit *pIgnore,
 	return static_cast<int>( fCover );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+static float GetPenetrationCover( const CCoverInfo &cover, int nPiercing, float fBlocked )
+{
+	if ( cover.hitRays.empty() || nPiercing <= 0 )
+		return 0.f;
+	const auto nPenetrateCount = std::count_if( cover.hitRays.begin(), cover.hitRays.end(),
+		[]( const CCoverInfo::SRay &ray ) { return ray.isPenetrate; } );
+	if ( nPenetrateCount == 0 )
+		return fBlocked;
+
+	const float fAverageAPA = ( cover.fSummAPA / float( nPenetrateCount ) ) / nPiercing;
+	const float fHitCover = ( 100.f * nPenetrateCount / float( cover.hitRays.size() ) ) * fAverageAPA;
+	return std::isfinite( fHitCover ) ? fHitCover : 0.f;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 float CGame::GetCoverForAIUnitPrecise( CVec3 ptFrom, NWorld::CUnit *pIgnore,
 	NWorld::CUnit *pTarget, const NRPG::CAttackPortion &AttackPortion, NAI::EHitLocation HitLocation )
 {
-	CObj<NRPG::CCoverInfo> pCover = CalcCovers( ptFrom, 
-		AttackPortion, pIgnore, pTarget, HitLocation, 1.f, true );
-	//
-	int nPenetrateCount = 0;
-	for ( vector<NRPG::CCoverInfo::SRay>::const_iterator i = pCover->hitRays.begin(); i != pCover->hitRays.end(); ++i )
-		if ( i->isPenetrate )
-			++nPenetrateCount;
-	// No penetrating ray means no cover. The old calculation divided by zero
-	// here and then converted 0 * NaN to int while the AI ranked weapons.
-	if ( pCover->hitRays.empty() || nPenetrateCount == 0 || AttackPortion.nK == 0 )
-		return 0;
-	float fAverageAPA = ( pCover->fSummAPA / float(nPenetrateCount) ) / AttackPortion.nK;
-	const float fHitCover = (100.f * nPenetrateCount) / float( pCover->hitRays.size() );
-	const float fCover = fHitCover * fAverageAPA;
-	if ( !std::isfinite( fCover ) )
-		return 0;
-	return fCover;
+	CObj<CCoverInfo> pCover = CalcCovers( ptFrom, AttackPortion, pIgnore, pTarget, HitLocation, 1.f, true );
+	return GetPenetrationCover( *pCover, AttackPortion.nK, 0.f );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // nTargetUserID == -1 means without hit location targeting
@@ -741,49 +740,15 @@ bool PrepareAttackRay( NAI::IAIMap *pAIMap, CCoverInfo *pCover, SAttackRayInfo *
 	return true;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-int GetHitCover( const NWorld::CUnit *pAttacker, CCoverInfo *pCover )
+float GetHitCover( const NWorld::CUnit *pAttacker, CCoverInfo *pCover )
 {
-	ASSERT(pCover);
-	//
-	int nPenetrateCount = 0;
-	for ( vector<CCoverInfo::SRay>::const_iterator i = pCover->hitRays.begin(); i != pCover->hitRays.end(); ++i )
-		if ( i->isPenetrate )
-			++nPenetrateCount;
-	//
-	CDynamicCast<NRPG::IUnitMission> pRealAttacker( pAttacker->GetRPG() );
-	vector<NRPG::CAttackPortion> attack;
-	pRealAttacker->CreateAttack( &attack, false );
-	if ( attack.empty() )
-		return 0;
-	// Rays were cast but NONE penetrate: the target/tile is fully walled off. Report the BLOCKED
-	// sentinel. NOTE (2026-07-05): the retail calcer gate @0x2b85e0/0x2b86c0/0x2b8a50 is
-	// `fHitCover <= 0 -> 0%` (fcomp vs the 0.0f global @0x8d54dc, disasm-verified), so retail's
-	// plain 0.0 return covers this case AND the empty-hitRays case (all rays muzzle-obstructed --
-	// the RealPeekRay @0x2b3f00 "Kick the programmers" scenario, where we fall through below and
-	// return 0). The -1 sentinel is kept as a stronger-typed BLOCKED marker; both -1 and 0 now
-	// zero the displayed chance, matching retail. The old unguarded 0/0-NaN ->
-	// int(0*NaN)=INT_MIN accidentally produced this for blocked tiles while ALSO poisoning open
-	// ground; the plain 0.0f guard alone lost the blocked case (good % through two walls).
-	if ( !pCover->hitRays.empty() && nPenetrateCount == 0 )
-		return -1;
-	// retail GetHitCover @0x2b4390 (disasm 0x6b4467): the average-APA division runs ONLY when
-	// nPenetrateCount > 0, else it defaults to 0.0f.
-	float fAverageAPA = 0.0f;
-	if ( nPenetrateCount > 0 )
-		fAverageAPA = ( pCover->fSummAPA / float(nPenetrateCount) ) / attack.front().nK;
-	// percentage of rays that hit
-	int nHitCover = 0;
-	if ( !pCover->hitRays.empty() )
-	{
-		nHitCover = (100 * nPenetrateCount) / pCover->hitRays.size();
-		nHitCover = int( float(nHitCover) * fAverageAPA );
-	}
-	// Native GetHitCover returns a float. Preserve its positive gate in this
-	// integer API for rockets, whose calcer does not scale by cover magnitude.
-	if ( nHitCover == 0 && GetToHitType( pAttacker ) == TH_RLAUNCHER &&
-		nPenetrateCount > 0 && fAverageAPA > 0 )
-		return 1;
-	return nHitCover;
+	ASSERT( pCover );
+	CDynamicCast<IUnitMission> pMission( pAttacker->GetRPG() );
+	vector<CAttackPortion> attack;
+	if ( !pMission->CreateAttack( &attack, false ) || attack.empty() )
+		return 0.f;
+	// Preserve the distinction between a fully blocked grid and an empty trace.
+	return GetPenetrationCover( *pCover, attack.front().nK, -1.f );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // retail @0x2b52e0/@0x2b5090: both take the burst bullet index and thread it into the calcers
@@ -791,13 +756,13 @@ int GetHitCover( const NWorld::CUnit *pAttacker, CCoverInfo *pCover )
 int GetAttackerTileToHit( const NWorld::CUnit *pAttacker, const CVec3 ptTarget, int nExtraAP,
 	NAI::ETileHitLocation eHitLocation, CCoverInfo *pCover, bool bFirstRound, int nBullet )
 {
-	int nHitCover = GetHitCover( pAttacker, pCover );
+	const float fHitCover = GetHitCover( pAttacker, pCover );
 	// Original Steam 0x6b52dd/0x6b5393: use the cover solver's actual shot origin.
 	int nDistance = fabs( pCover->src - ptTarget ) * FP_INV_GRID_STEP;
 	CVec3 ptAttacker = pCover->src;
 	//
 	return NRPG::GetTileToHit( pAttacker, pAttacker->GetPose(), nDistance, ptAttacker,
-		ptTarget, eHitLocation, nExtraAP, nHitCover, bFirstRound, CVec3(1,1,1), nBullet );
+		ptTarget, eHitLocation, nExtraAP, fHitCover, bFirstRound, CVec3(1,1,1), nBullet );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int GetAttackerToHit( const NWorld::CUnit *pAttacker, NWorld::CUnit *pTarget, int nExtraAP,
@@ -807,7 +772,7 @@ int GetAttackerToHit( const NWorld::CUnit *pAttacker, NWorld::CUnit *pTarget, in
 	if ( !IsValid( pTarget ) )
 		return 0;
 	//
-	int nHitCover = GetHitCover( pAttacker, pCover );
+	const float fHitCover = GetHitCover( pAttacker, pCover );
 	// Use the same physical origin as the cover rays for distance and target area.
 	int nDistance = fabs(pCover->src - pTarget->GetPosition().GetCP()) * FP_INV_GRID_STEP;
 	CVec3 ptAttacker = pCover->src;
@@ -819,7 +784,7 @@ int GetAttackerToHit( const NWorld::CUnit *pAttacker, NWorld::CUnit *pTarget, in
 	const bool bNight = pUS->GetWorld()->GetGame()->IsNight();
 	return NRPG::GetToHit( pAttacker, pAttacker->GetPose(), nDistance, ptAttacker,
 		pTarget->GetPosition().pos, eHL, nExtraAP,
-		pTarget, accessibleHLs, nHitCover, bFirstRound, CVec3( 1, 1, 1 ), bBackStab, nBullet, bNight );
+		pTarget, accessibleHLs, fHitCover, bFirstRound, CVec3( 1, 1, 1 ), bBackStab, nBullet, bNight );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Used only for inteface tasks. Returns not exactly correct value.

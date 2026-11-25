@@ -95,8 +95,8 @@ class CUnitMission: public IUnitMission, public CUnitMissionForMedals
 	friend class CRLauncherToHitCalcer;
 	// release migration: the free-fn to-hit dispatch reaches GetToHitWeaponType / GetSnipeAP /
 	// GetMeleeToHit / bLogActive (all private) -- befriend it (no visibility change to the class).
-	friend int GetToHit( const NWorld::CUnit*, NAI::EPose, int, const CVec3&, const NAI::SPosition&, NAI::EHitLocation, int, const NWorld::CUnit*, const vector<int>&, int, bool, const CVec3&, bool, int, bool );
-	friend int GetTileToHit( const NWorld::CUnit*, NAI::EPose, int, const CVec3&, CVec3, NAI::ETileHitLocation, int, int, bool, const CVec3&, int );
+	friend int GetToHit( const NWorld::CUnit*, NAI::EPose, int, const CVec3&, const NAI::SPosition&, NAI::EHitLocation, int, const NWorld::CUnit*, const vector<int>&, float, bool, const CVec3&, bool, int, bool );
+	friend int GetTileToHit( const NWorld::CUnit*, NAI::EPose, int, const CVec3&, CVec3, NAI::ETileHitLocation, int, float, bool, const CVec3&, int );
 	friend int GetGrenadeToHit( const NWorld::CUnit*, NAI::EPose, int, const CVec3&, bool, CVec3, const CVec3& );
 	friend int GetRLauncherToHit( const NWorld::CUnit*, NAI::EPose, int, const CVec3&, CVec3, NAI::ETileHitLocation, int, bool, const CVec3& );
 	friend EToHitType GetToHitType( const NWorld::CUnit* );
@@ -1392,7 +1392,7 @@ EToHitType GetToHitType( const NWorld::CUnit *pAttacker )
 // CUnitServer*). Incidental bullets supply the night flag explicitly.
 int GetToHit( const NWorld::CUnit *pAttacker, NAI::EPose curPose, int nDistance, const CVec3 &ptAttacker,
 	const NAI::SPosition &posTarget, NAI::EHitLocation hl, int nExtraAP, const NWorld::CUnit *pTarget,
-	const vector<int> &accessibleHLs, int nHitCover, bool bFirstRound, const CVec3 &ptIllumination, bool bBackstab,
+	const vector<int> &accessibleHLs, float fHitCover, bool bFirstRound, const CVec3 &ptIllumination, bool bBackstab,
 	int nBullet, bool bNight )   // Original unit to-hit: carried burst index and night flag.
 {
 	CDynamicCast<NWorld::CUnitServer> pUS( const_cast<NWorld::CUnit*>( pAttacker ) );
@@ -1409,22 +1409,22 @@ int GetToHit( const NWorld::CUnit *pAttacker, NAI::EPose curPose, int nDistance,
 	switch ( pMission->GetToHitWeaponType() )
 	{
 		case TH_THROWING:
-			pToHitCalcer = new CThrowKnifeUnitToHitCalcer( pUS, curPose, nDistance, ptAttacker, (float)nHitCover,
+			pToHitCalcer = new CThrowKnifeUnitToHitCalcer( pUS, curPose, nDistance, ptAttacker, fHitCover,
 				bFirstRound, bNight, CVec3( 1, 1, 1 ), pUSTarget, hl, posTarget, nExtraAP, bBackstab );
 			break;
 		case TH_MELEE:
-			if ( nHitCover <= 0 )
+			if ( fHitCover <= 0.f )
 				return 0;
 			return pMission->GetMeleeToHit( ptAttacker, posTarget, pTargetRPG, hl, accessibleHLs, bBackstab );
 		case TH_SHOOT:
 			pToHitCalcer = new CUnitToHitCalcer(
 				pUS, curPose, nDistance, ptAttacker,
-				posTarget, nExtraAP, pMission->GetSnipeAP( pTargetRPG ), (float)nHitCover,
+				posTarget, nExtraAP, pMission->GetSnipeAP( pTargetRPG ), fHitCover,
 				bFirstRound, bNight, ptIllumination, hl, pUSTarget, nBullet, bBackstab );
 			break;
 		case TH_RLAUNCHER:
 			pToHitCalcer = new CRLauncherToHitCalcer(
-				pUS, curPose, nDistance, ptAttacker, (float)nHitCover, nExtraAP,
+				pUS, curPose, nDistance, ptAttacker, fHitCover, nExtraAP,
 				bFirstRound, bNight, ptIllumination, CVec3(1,1,1) );
 			break;
 		default:
@@ -1536,7 +1536,7 @@ float CUnitMission::GetWeaponSkill( CObjectBase *pItem, int nExtraAP, int nBulle
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 int GetTileToHit( const NWorld::CUnit *pAttacker, NAI::EPose curPose, int nDistance, const CVec3 &ptAttacker,
-	CVec3 ptTilePos, NAI::ETileHitLocation eHitLocation, int nExtraAP, int nHitCover, bool bFirstRound,
+	CVec3 ptTilePos, NAI::ETileHitLocation eHitLocation, int nExtraAP, float fHitCover, bool bFirstRound,
 	const CVec3 &ptIllumination, int nBullet )   // retail @0x2b4df0 param (see GetToHit)
 {
 	CDynamicCast<NWorld::CUnitServer> pUS( const_cast<NWorld::CUnit*>( pAttacker ) );
@@ -1551,7 +1551,7 @@ int GetTileToHit( const NWorld::CUnit *pAttacker, NAI::EPose curPose, int nDista
 	{
 		case TH_THROWING:
 			// the release drops the tile knife calcer's hit-location (eHitLocation unused here).
-			pToHitCalcer = new CThrowKnifeTileToHitCalcer( pUS, curPose, nDistance, ptAttacker, (float)nHitCover,
+			pToHitCalcer = new CThrowKnifeTileToHitCalcer( pUS, curPose, nDistance, ptAttacker, fHitCover,
 				bFirstRound, bNight, ptIllumination, ptTilePos, nExtraAP );
 			break;
 		case TH_MELEE:
@@ -1565,15 +1565,15 @@ int GetTileToHit( const NWorld::CUnit *pAttacker, NAI::EPose curPose, int nDista
 			// sentinel (consumed by CToHitCalcer::GetToHit's retail-faithful `fHitCover <= 0
 			// -> 0%` gate, @0x2b85e0), which must read as a miss here too -- otherwise melee
 			// through a wall would show 100%.
-			return nHitCover <= 0 ? 0 : 100;
+			return fHitCover <= 0.f ? 0 : 100;
 		case TH_SHOOT:
 			pToHitCalcer = new CTileToHitCalcer(
-				pUS, curPose, nDistance, ptAttacker, nExtraAP, (float)nHitCover, bFirstRound,
+				pUS, curPose, nDistance, ptAttacker, nExtraAP, fHitCover, bFirstRound,
 				bNight, ptIllumination, ptTilePos, nBullet );
 			break;
 		case TH_RLAUNCHER:
 			pToHitCalcer = new CRLauncherToHitCalcer(
-				pUS, curPose, nDistance, ptAttacker, (float)nHitCover, nExtraAP, bFirstRound,
+				pUS, curPose, nDistance, ptAttacker, fHitCover, nExtraAP, bFirstRound,
 				bNight, ptIllumination, ptTilePos );
 			break;
 		default:

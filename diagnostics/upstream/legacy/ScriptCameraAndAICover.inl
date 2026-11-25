@@ -1069,7 +1069,7 @@ static void SetCoverProbeMap(NRPG::IGame* game,NAI::IAIMap* map)
 namespace NRPG
 {
     // Existing native implementation, kept out of the public gameplay interface.
-    int GetHitCover(const NWorld::CUnit* attacker,CCoverInfo* cover);
+    float GetHitCover(const NWorld::CUnit* attacker,CCoverInfo* cover);
 }
 using TerrainTraceRow=std::tuple<int,int,std::uintptr_t,int,int,int,float,float>;
 static vector<TerrainTraceRow> TerrainTraceRows(NAI::CFastRenderer& renderer,bool cap)
@@ -1382,7 +1382,7 @@ static void AICoverMask(const char* databasePath,const char* resourcePath,int mo
     const auto actorPosition=actor->GetPosition(),targetPosition=target->GetPosition();
     const int ap=actor->GetAP(),hp=actor->GetUnitRPG()->GetTotalVP(),targetHP=target->GetUnitRPG()->GetTotalVP(),ammo=firearm->GetAmmoQuantity();
     const bool command=actor->HasCommand();GlobalGameRandom().SeedForHarness(0x74da);auto beforeRandom=GlobalGameRandom();
-    auto query=[&]() {
+    auto query=[&]() -> float {
         if(!human)return game->GetCoverForAIUnit(source,actor,target,attacks.front(),NAI::HL_ANY);
         CObj<NRPG::CCoverInfo> cover=game->CalcCovers(source,attacks.front(),actor,target,NAI::HL_ANY,1.f,false);
         return NRPG::GetHitCover(actor,cover);

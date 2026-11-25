@@ -300,7 +300,7 @@ static void AICoverTargetReach(const char* databasePath,const char* resourcePath
     if(pk)source=target->GetPosition().GetCP()+CVec3(6.f,0,1.f);
     probe->source=source;
     bool ignoreTarget=false;
-    auto query=[&]() {
+    auto query=[&]() -> float {
         if(!human)return game->GetCoverForAIUnit(source,ignoreTarget?target:actor,target,attacks.front(),NAI::HL_ANY);
         CObj<NRPG::CCoverInfo> cover=game->CalcCovers(source,attacks.front(),actor,target,NAI::HL_ANY,1.f,false);
         return NRPG::GetHitCover(actor,cover);
