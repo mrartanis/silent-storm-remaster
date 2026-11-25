@@ -246,9 +246,7 @@ public:
 	CAILogBeginSnipe( IAIUnit *_pAIUnit, IAIUnit *_pEnemy, NAI::EHitLocation _eHitLocation );
 	virtual void GetCommands( list< CPtr<NWorld::CCommand> > *Commands );
 };
-// CAILogCollectSnipeAP - bank sniper AP this turn: emit a CCmdCollectSnipeAP on the unit server. Carries the
-// AP amount to collect. (Release emits CCmdCollectSnipeAP{ CSAP_PRECISE, nAP }; the dev command carries only
-// the ECollectSnipeAP mode, so GetCommands uses CSAP_ALL -- documented divergence, see AILog.cpp.)
+// Bank the planned amount of sniper AP through a world command.
 class CAILogCollectSnipeAP: public CAILogRecord
 {
 	OBJECT_BASIC_METHODS(CAILogCollectSnipeAP);

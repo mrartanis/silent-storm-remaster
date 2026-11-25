@@ -3,6 +3,7 @@
 #include "../../Main/wUnitServer.h"
 #include "../../Main/wUnitCommands.h"
 #include "../../Main/wUnitExec.h"
+#include "../../Main/wUnitStates.h"
 #include "../../Main/AILog.h"
 #include "../../Main/wOSBase.h"
 #include "../../Main/RPGUnit.h"
@@ -10,6 +11,7 @@
 #include "../../Main/RPGCritical.h"
 #include "../../Main/RPGItem.h"
 #include "../../Main/RPGItemSet.h"
+#include "../../Main/wUnitAttackExec.h"
 #include "../../Main/rpgGlobal.h"
 #include "../../Main/aiActions.h"
 #include "../../Main/aiCommander.h"
@@ -46,6 +48,63 @@ namespace UpstreamTests
 {
 namespace
 {
+void AISnipeCommandAP(const char* databasePath, const char* resourcePath, bool legacy)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    auto sniper = std::find_if(units.begin(), units.end(), [](const auto& unit) {
+        return IsValid(unit) && unit->IsAIUnit() && unit->CanFight() && IsValid(NAI::GetAIUnit(unit));
+    });
+    Require(sniper != units.end(), "native snipe command fixture lacks an AI unit");
+    auto* actor = sniper->GetPtr();
+    auto target = std::find_if(units.begin(), units.end(), [actor](const auto& unit) {
+        return IsValid(unit) && unit.GetPtr() != actor && unit->CanFight();
+    });
+    Require(target != units.end(), "native snipe command fixture lacks a live target");
+    world->GivePlayerTurn(actor->GetTBSPlayer());
+    auto* mission = actor->GetUnitRPG();
+    mission->StartNewTurn(actor->GetPosition().GetCP());
+    mission->GetRPGUnit()->Skills(NDb::ST_SNIPE).SetConst(20);
+    const int ap = actor->GetAP();
+    Require(ap > 3, "native sniper must have more AP than the requested amount");
+    CObj<NWorld::CUnitStateSniping> aim = new NWorld::CUnitStateSniping(actor, target->GetPtr(), 20, NAI::HL_ANY);
+    actor->SetState(aim);
+
+    const int spend = legacy ? 1 : 3;
+    CObj<NWorld::CCmdCollectSnipeAP> restored = new NWorld::CCmdCollectSnipeAP;
+    CStructureNetworkContext references;
+    if (legacy) {
+        CMemoryStream fields;
+        auto mode = NWorld::CSAP_1AP;
+        { CStructureSaver writer(fields, CStructureSaver::WRITE); writer.Add(2, &mode); }
+        fields.Seek(0);
+        { CStructureSaver reader(fields, CStructureSaver::READ); restored->operator&(reader); }
+    } else {
+        CObj<NAI::CAILogCollectSnipeAP> record = new NAI::CAILogCollectSnipeAP(NAI::GetAIUnit(actor), spend);
+        list<CPtr<NWorld::CCommand>> commands;
+        record->GetCommands(&commands);
+        Require(commands.size() == 1, "native snipe plan did not emit one AP command");
+        auto* order = dynamic_cast<NWorld::CCmdSetCommand*>(commands.front().GetPtr());
+        Require(order && order->pUnit.GetPtr() == actor, "native snipe plan dropped the sniper identity");
+        auto fields = BorrowedObjectFields(order->GetCmd(), &references);
+        CStructureSaver reader(fields, CStructureSaver::READ, &references);
+        restored->operator&(reader);
+    }
+
+    NWorld::EUnitCommandResult result = NWorld::UCR_UNAVAILABLE;
+    CObj<NWorld::CCommandExecute> action = actor->CreateExecutor(restored, &result);
+    Require(action && result == NWorld::UCR_OK, "restored snipe AP command was rejected");
+    Require(action->GetStartAP() == spend, "native AI snipe command banked every remaining AP instead of the requested amount");
+    auto fields = BorrowedObjectFields(action, &references);
+    CObj<NWorld::CExecCollectSnipeAP> savedAction = new NWorld::CExecCollectSnipeAP;
+    { CStructureSaver reader(fields, CStructureSaver::READ, &references); static_cast<CObjectBase*>(savedAction.GetPtr())->operator&(reader); }
+    Require(savedAction->GetStartAP() == spend, "restored native snipe executor lost the AP amount");
+    savedAction->Run();
+    Require(aim->GetCollectedSnipeAP() == spend && mission->GetSavedAP().nAP == spend && actor->GetAP() == ap - spend,
+        "native snipe executor did not transfer precisely the requested AP to its aim pool");
+}
+
 void CancelMountedGunner(const char* databasePath, const char* resourcePath)
 {
     auto fixture = MakeNativeCannonFixture(databasePath, resourcePath);
@@ -1208,6 +1267,7 @@ static void OwnedAIEnemySelection(bool placeSource)
 
 bool RunAITests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "ai-snipe-command-ap") && argc == 5) { AISnipeCommandAP(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "ai-cancel-mounted-gunner") && argc == 4) { CancelMountedGunner(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "scripted-fear-reaction") && argc == 5) { ScriptedFearReaction(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "ai-job-scheduler") && argc == 3) { AIJobScheduler(std::atoi(argv[2])); return true; }
