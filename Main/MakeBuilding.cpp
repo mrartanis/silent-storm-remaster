@@ -467,9 +467,9 @@ static void MakeBuilding( SBuildingInfo *pInfo, const CBuildingGrid &grid, CBuil
 
   // Solid objects
 	const unordered_map<int, CNodeMap<SSolidElement> > &solids = swMap.GetSolidMap();
-	for (unordered_map<int, CNodeMap<SSolidElement> >::const_iterator it = solids.begin(); it != solids.end(); ++it )
+	for ( int nGroup : swMap.GetSolidOrder() )
 	{
-		const vector<SSolidElement> &frags = it->second.GetValues();
+		const vector<SSolidElement> &frags = solids.find( nGroup )->second.GetValues();
 		for ( int i = 0; i < frags.size(); ++i )
 		{
 			const SSolidElement &e = frags[i];
@@ -771,9 +771,9 @@ void MakeBuildingSchema( CBuildingSchema *pSchema, CBuildingGrid *pGrid, CBuildI
 	CArray2D<bool> cellarWalls;
 	MarkCellarWalls( &cellarWalls, pBuildInfo->cellar, swMap.GetBottom() );
 
-	for (unordered_map<int, CNodeMap<SSolidElement> >::const_iterator it = solidMap.begin(); it != solidMap.end(); ++it )
+	for ( int nGroup : swMap.GetSolidOrder() )
 	{
-		const vector<SSolidElement> &frags = it->second.GetValues();
+		const vector<SSolidElement> &frags = solidMap.find( nGroup )->second.GetValues();
 		for ( int i = 0; i < frags.size(); ++i )
 		{
 			const SSolidElement &e = frags[i];
@@ -959,9 +959,9 @@ void BuildingHP( CBuildInfo *pBuildInfo, CBuildingGrid *pGrid, CSolidAndWallMap 
 	nTotalNodes = 0;
   // Сплошные объекты
 	const unordered_map<int, CNodeMap<SSolidElement> > &solidMap = swMap.GetSolidMap();
-	for (unordered_map<int, CNodeMap<SSolidElement> >::const_iterator it = solidMap.begin(); it != solidMap.end(); ++it )
+	for ( int nGroup : swMap.GetSolidOrder() )
 	{
-		const vector<SSolidElement> &frags = it->second.GetValues();
+		const vector<SSolidElement> &frags = solidMap.find( nGroup )->second.GetValues();
 		for ( int i = 0; i < frags.size(); ++i )
 		{
 			const SSolidElement &e = frags[i];

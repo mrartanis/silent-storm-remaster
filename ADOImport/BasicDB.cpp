@@ -1282,9 +1282,60 @@ void NDatabase::Serialize( CDataStream &file, CStructureSaver::EMode mode, bool 
 // CDBTableBase
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 using namespace NDatabase;
+void CDBTableBase::SetRecord( int nID, CDBRecord *pRecord )
+{
+	if ( records.find( nID ) == records.end() )
+		recordOrder.Insert( nID );
+	records[nID] = pRecord;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+int CDBTableBase::SRecordArchive::operator&( CStructureSaver &f )
+{
+	// Legacy tables use repeated key and value chunks. Replay their insertion
+	// order so a typed database round trip keeps the collision chains.
+	if ( f.IsReading() )
+	{
+		table.records.clear();
+		table.recordOrder.Clear();
+		const int nRecords = f.CountChunks( 1 );
+		vector<int> ids( nRecords );
+		for ( int i = 0; i < nRecords; ++i )
+			f.Add( 1, &ids[i], i + 1 );
+		for ( int i = 0; i < nRecords; ++i )
+		{
+			auto entry = table.records.emplace( ids[i], CObj<CDBRecord>() );
+			if ( entry.second )
+				table.recordOrder.Insert( ids[i] );
+			f.Add( 2, &entry.first->second, i + 1 );
+		}
+	}
+	else
+	{
+		const int nRecords = static_cast<int>( table.records.size() );
+		for ( int i = 0; i < nRecords; ++i )
+		{
+			int id = table.recordOrder.GetInsertedKey( i );
+			f.Add( 1, &id, i + 1 );
+			f.Add( 2, &table.records.find( id )->second, i + 1 );
+		}
+	}
+	return 0;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+int CDBTableBase::operator&( CStructureSaver &f )
+{
+	SRecordArchive contents{ *this };
+	f.Add( 1, &contents );
+	return 0;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 void CDBTableBase::PreCreate( int nTypeID, bool overlay )
 {
-  if ( !overlay ) records.clear();
+	if ( !overlay )
+	{
+		records.clear();
+		recordOrder.Clear();
+	}
 	if ( pStorageSource )
 	{
 		// runtime load from the serialized columnar storage (release/Steam game.db v1)
@@ -1297,7 +1348,7 @@ void CDBTableBase::PreCreate( int nTypeID, bool overlay )
 			if ( !pRes )
 				break;
 			pRes->nID = nID;
-			records[ pRes->nID ] = pRes;
+			SetRecord( pRes->nID, pRes );
 		}
 		return;
 	}
@@ -1315,7 +1366,7 @@ void CDBTableBase::PreCreate( int nTypeID, bool overlay )
 		if ( i != records.end() )
 			ASSERT(0);  // record with this ID already created
 #endif
-		records[ pRes->nID ] = pRes;
+		SetRecord( pRes->nID, pRes );
 	}
 #else
 	throw std::runtime_error( "ADO record creation is unavailable on Linux" );
@@ -1327,7 +1378,8 @@ void CDBTableBase::Refresh( int nTypeID )
 {
 	Sleep(0); // transfer control to the other thread (writing to DB usually happens not in the current thread)
 	const CRecordHash copy = records;
-  records.clear();
+	records.clear();
+	recordOrder.Clear();
 	// iterate through recordset & create records
 	for ( ; !table.IsEof(); table.MoveNext() )
 	{
@@ -1344,7 +1396,7 @@ void CDBTableBase::Refresh( int nTypeID )
 		if ( i != records.end() )
 			ASSERT(0);  // record with this ID already created
 #endif
-		records[ pRes->nID ] = pRes;
+		SetRecord( pRes->nID, pRes );
 	}
 }
 #endif // _WIN32: SQL refresh is editor-only.
@@ -1413,7 +1465,7 @@ CDBRecord* CDBTableBase::GetDBRecord( int nID )
 								if ( pRes )
 								{
 									pRes->nID = tbl.GetInt( "ID" );
-									records[ pRes->nID ] = pRes;
+									SetRecord( pRes->nID, pRes );
 									COLETable holder;
 									holder = table; // CRAP
 									table = tbl;

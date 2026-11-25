@@ -6,6 +6,7 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 #include "../Misc/Basic2.h"
 #include "../FileIO/BasicChunk1.h"
+#include "../Misc/RetailHashOrder.h"
 #include <cstdint>
 #include <vector>
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -87,6 +88,13 @@ class CDBTableBase
 {
 	typedef std::unordered_map<int, CObj<CDBRecord> > CRecordHash;
 	CRecordHash records;
+	NRetail::CIntHashOrder recordOrder;
+	void SetRecord( int nID, CDBRecord *pRecord );
+	struct SRecordArchive
+	{
+		CDBTableBase &table;
+		int operator&( CStructureSaver &f );
+	};
 	//
 	void Refresh( int nTypeID );
 public:
@@ -95,11 +103,7 @@ public:
 	void Import();
 	CDBRecord* GetDBRecord( int nID );
 	std::size_t GetRecordCount() const { return records.size(); }
-	int operator&( CStructureSaver &f ) 
-	{
-		f.Add( 1, &records );
-		return 0;
-	}
+	int operator&( CStructureSaver &f );
 	friend void NDatabase::Import();
 	friend void NDatabase::Refresh( int nTableID );
 	friend void NDatabase::Serialize( CDataStream &file, CStructureSaver::EMode mode, bool overlay, bool buildBaseLinks, NDatabase::SDatabaseLoadContext *loadContext );
@@ -121,21 +125,21 @@ public:
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CDBIteratorBase
 {
-  const CDBTableBase &table;
-  CDBTableBase::CRecordHash::const_iterator i;
+	const CDBTableBase &table;
+	NRetail::CIntHashOrder::CIterator position;
 protected:
-  CDBRecord* Get() const { return i->second; }
-  CDBIteratorBase( const CDBTableBase &t ): table(t) { MoveFirst(); }
+	CDBRecord* Get() const { return table.records.find( *position )->second; }
+	CDBIteratorBase( const CDBTableBase &t ) : table(t), position(t.recordOrder.end()) {}
 public:
-  void MoveFirst() { i = table.records.end(); }
-  bool MoveNext() 
-  { 
-    if ( i == table.records.end() ) 
-      i = table.records.begin(); 
-    else 
-      ++i;
-    return i != table.records.end();
-  }
+	void MoveFirst() { position = table.recordOrder.end(); }
+	bool MoveNext()
+	{
+		if ( position == table.recordOrder.end() )
+			position = table.recordOrder.begin();
+		else
+			++position;
+		return position != table.recordOrder.end();
+	}
 };
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 template<class T>

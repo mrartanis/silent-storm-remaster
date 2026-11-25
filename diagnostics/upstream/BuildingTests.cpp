@@ -149,6 +149,71 @@ static void ZeroScaleMapObjects(const char* databasePath, const char* resourcePa
     Require(false, "zero-scale fixture could not identify a modeled object in the authored map");
 }
 
+class FixedBuildingInfo : public CPtrFuncBase<NBuilding::CBuildInfo>
+{
+    OBJECT_NOCOPY_METHODS(FixedBuildingInfo);
+public:
+    explicit FixedBuildingInfo(NBuilding::CBuildInfo* info = nullptr) { pValue = info; }
+};
+
+void RetailSolidGroupOrder(const char* databasePath, const char* resourcePath)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database, CStructureSaver::READ);
+    NGScene::AddResourceDir(resourcePath);
+    CObj<NAI::CPathNetwork> network = new NAI::CPathNetwork;
+    SMapInfo map;
+    Require(BuildMap(4517, {}, network, &map, -1, SRandomSeed(123), 0), "solid order fixture could not build its authored map");
+
+    const vector<int> ids = {2, 6, 14, 1, 27};
+    for (const auto& building : map.buildings) {
+        if (!building.pVariant)
+            continue;
+        CDGPtr<CPtrFuncBase<NBuilding::CBuildInfo>> loader = NGScene::shareBuildings.Get(building.pVariant->GetRecordID());
+        loader.Refresh();
+        auto* donor = loader->GetValue();
+        if (!donor)
+            continue;
+        for (const auto& original : donor->solidFragments) {
+            if (original.ptPos.z < 0)
+                continue;
+            CObj<NBuilding::CBuildInfo> info = new NBuilding::CBuildInfo;
+            info->nMaxX = 54;
+            info->nMaxY = 10;
+            info->nMinFloor = 0;
+            info->nMaxFloor = 2;
+            for (std::size_t index = 0; index < ids.size(); ++index) {
+                auto fragment = original;
+                fragment.nFragmentID = ids[index];
+                fragment.ptPos = CVec3(3 + index * 10, 3, 0);
+                fragment.nRotationID = 0;
+                info->solidFragments.push_back(fragment);
+            }
+            CObj<FixedBuildingInfo> data = new FixedBuildingInfo(info);
+            CObj<NBuilding::CSolidAndWallMap> solids = new NBuilding::CSolidAndWallMap(data, SRandomSeed(123));
+            CObj<NBuilding::CBuildingGrid> grid = new NBuilding::CBuildingGrid;
+            grid->Setup(info->nMaxX, info->nMaxY, info->nMinFloor, info->nMaxFloor, CVec2(0, 0));
+            NBuilding::BuildingHP(info, grid, solids);
+            CObj<NBuilding::CBuildingSchema> schema = new NBuilding::CBuildingSchema;
+            NBuilding::MakeBuildingSchema(schema, grid, info, solids);
+
+            vector<int> order;
+            for (const auto& junction : schema->GetJuncs()) {
+                const int column = (junction.ptJ.x + 2) / 10;
+                if (column >= 0 && column < int(ids.size()) &&
+                    (order.empty() || order.back() != ids[column]))
+                    order.push_back(ids[column]);
+            }
+            if (order.size() != ids.size())
+                continue;
+            Require(order == vector<int>({27, 1, 14, 2, 6}), "native building stability changed the retail solid group order");
+            return;
+        }
+    }
+    Require(false, "solid order fixture could not isolate native junctions for five authored solid groups");
+}
+
 void TransformedCellarJunctions(const char* databasePath, const char* resourcePath)
 {
     CFileStream database;
@@ -276,6 +341,7 @@ void StabilityObjectCells(const char* databasePath, const char* resourcePath, in
 
 bool RunBuildingTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "retail-solid-group-order") && argc == 4) { RetailSolidGroupOrder(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "object-destroy-stage-vitality")) { ObjectDestroyStageVitality(); return true; }
     if (!std::strcmp(mode, "building-indestructible-hp")) { BuildingIndestructibleHP(); return true; }
     if (!std::strcmp(mode, "building-damage-parts")) { BuildingDamageParts(); return true; }

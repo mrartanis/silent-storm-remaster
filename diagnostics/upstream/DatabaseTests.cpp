@@ -168,7 +168,7 @@ CObj<CObjectBase> ColumnFixtureTable(vector<string> fields, vector<vector<int>> 
     return table;
 }
 
-void LoadColumnFixture(unordered_map<int, CObj<CObjectBase>> tables)
+void LoadColumnFixture(unordered_map<int, CObj<CObjectBase>> tables, bool overlay = false)
 {
     list<NativeContextEmptyRelation> relations;
     CMemoryStream database;
@@ -179,10 +179,47 @@ void LoadColumnFixture(unordered_map<int, CObj<CObjectBase>> tables)
     }
     database.Seek(0);
     try {
-        NDatabase::Serialize(database, CStructureSaver::READ, false, false);
+        NDatabase::Serialize(database, CStructureSaver::READ, overlay, false);
     } catch (const SFileIOError& error) {
         throw std::runtime_error(error.szError);
     }
+}
+
+void RetailDatabaseRecordOrder()
+{
+    const auto type = NDatabase::GetRecordTypes().GetTypeID(static_cast<NDb::CRPGAP*>(nullptr));
+    LoadColumnFixture({
+        {2, ColumnFixtureTable({"ID"}, {})},
+        {type, ColumnFixtureTable({"ID", "AP"}, {{2, 20}, {6, 60}, {14, 140}, {1, 10}, {27, 270}})},
+    });
+    auto* table = NDatabase::GetTable<NDb::CRPGAP>();
+    auto collect = [&] {
+        vector<int> result;
+        CDBIterator<NDb::CRPGAP> rows(*table);
+        while (rows.MoveNext())
+            result.push_back(rows.Get()->GetRecordID());
+        return result;
+    };
+    const vector<int> baseOrder = {27, 1, 14, 2, 6};
+    Require(collect() == baseOrder, "columnar database discarded retail bucket order with colliding row IDs");
+    auto* original = table->GetRecord(14);
+    Require(original && original->nAP == 140, "database order fixture lost its original AP record");
+    LoadColumnFixture({
+        {2, ColumnFixtureTable({"ID"}, {})},
+        {type, ColumnFixtureTable({"ID", "AP"}, {{14, 141}, {53, 530}, {26, 260}})},
+    }, true);
+    const vector<int> overlayOrder = {26, 53, 27, 1, 14, 2, 6};
+    Require(collect() == overlayOrder && table->GetRecord(14) == original && original->nAP == 141,
+        "overlay duplicated, reordered or replaced an earlier row while adding new IDs");
+
+    CMemoryStream archive;
+    { CStructureSaver writer(archive, CStructureSaver::WRITE); table->operator&(writer); }
+    archive.Seek(0);
+    CDBTable<NDb::CRPGAP> restored;
+    { CStructureSaver reader(archive, CStructureSaver::READ); restored.operator&(reader); }
+    table = &restored;
+    Require(collect() == overlayOrder && table->GetRecord(14)->nAP == 141,
+        "the legacy typed database round trip changed runtime order or the saved row");
 }
 
 void BossWeaponNames()
@@ -274,6 +311,7 @@ bool RunDatabaseTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "critical-tables-follow-mods") && argc == 3) { CriticalTablesFollowMods(argv[2]); return true; }
     if (!std::strcmp(mode, "retail-ammo-subtypes") && argc == 3) { RetailAmmoSubtypes(argv[2]); return true; }
     if (!std::strcmp(mode, "ui-texture-fallback-dimensions")) { UITextureFallbackDimensions(); return true; }
+    if (!std::strcmp(mode, "retail-db-record-order") && argc == 2) { RetailDatabaseRecordOrder(); return true; }
     if (!std::strcmp(mode, "boss-weapon-names") && argc == 2) { BossWeaponNames(); return true; }
     if (!std::strcmp(mode, "firearm-attack-creation") && argc == 3) { FirearmAttackCreationResult(argv[2]); return true; }
     return false;
