@@ -21,6 +21,7 @@
 #include "../../Main/RPGUnitMission.h"
 #include "../../Main/RPGItem.h"
 #include "../../Main/RPGItemSet.h"
+#include "../../Main/GAnimParticles.h"
 #include "../../Main/rpgGlobal.h"
 #include "../../Main/rpgPerk.h"
 #include "../../Main/wUnitAttackExec.h"
@@ -33,6 +34,7 @@
 #include "../../DBFormat/DataPerk.h"
 #include "../../Misc/RandomGen.h"
 #include "SoundVisitor.h"
+#include "NativeGrenadeThrowFixture.h"
 #include <set>
 #include <cstring>
 
@@ -457,6 +459,18 @@ NDb::CRPGGrenade* FindModelledGrenade()
     return authored;
 }
 
+list<NWorld::CExplosionMaster::SStartInfo> PendingExplosions(NWorld::CWorld* world)
+{
+    auto* master = world->GetExplosionMasterForHarness();
+    Require(IsValid(master), "projectile fixture lacks its native blast scheduler");
+    list<NWorld::CExplosionMaster::SStartInfo> pending;
+    CStructureNetworkContext refs;
+    auto fields = BorrowedObjectFields(master, &refs);
+    CStructureSaver reader(fields, CStructureSaver::READ, &refs);
+    reader.Add(5, &pending);
+    return pending;
+}
+
 void ExplosionModifierOwnership(const char* databasePath, const char* resourcePath, int mode)
 {
     auto world = FixtureWorld(databasePath, resourcePath, true);
@@ -475,17 +489,7 @@ void ExplosionModifierOwnership(const char* databasePath, const char* resourcePa
     { CStructureSaver reader(perkFields, CStructureSaver::READ); static_cast<CObjectBase*>(tree)->operator&(reader); }
     Require(unit->HasPerk(perk->GetRecordID()), "native RPG unit did not recover the saved explosive perk");
 
-    auto* master = world->GetExplosionMasterForHarness();
-    Require(IsValid(master), "explosive perk fixture lacks a native blast scheduler");
-    auto queue = [&] {
-        list<NWorld::CExplosionMaster::SStartInfo> pending;
-        CStructureNetworkContext refs;
-        auto fields = BorrowedObjectFields(master, &refs);
-        CStructureSaver reader(fields, CStructureSaver::READ, &refs);
-        reader.Add(5, &pending);
-        return pending;
-    };
-    const auto before = queue().size();
+    const auto before = PendingExplosions(world).size();
     NWorld::SPerkMineModifiers placed;
     placed.fStructureDmgModifier = 0.5f;
     placed.fAEDmgModifier = 1.25f;
@@ -533,7 +537,7 @@ void ExplosionModifierOwnership(const char* databasePath, const char* resourcePa
         }
         Require(finished, "native grenade never reached its detonation condition");
     }
-    const auto pending = queue();
+    const auto pending = PendingExplosions(world);
     Require(pending.size() == before + 1 && pending.back().pThrower.GetPtr() == actor,
         "native blast queue lost the detonation or its attribution");
     const auto& modifiers = pending.back().modifiers;
@@ -548,6 +552,136 @@ void ExplosionModifierOwnership(const char* databasePath, const char* resourcePa
     if (mode == 1)
         Require(pending.back().pEngGrenade.GetPtr() == engineer && pending.back().nEngSkill == 57,
             "native engineer blast changed its record or engineering skill");
+}
+
+auto CurrentProjectileObjects(NWorld::CWorld* world)
+{
+    std::set<NWorld::IDynamicObject*> existing;
+    for (const auto& object : *world->GetMiscObjects())
+        existing.insert(object.GetPtr());
+    return existing;
+}
+
+NWorld::IDynamicObject* NewFlyingGrenade(NWorld::CWorld* world,
+    const std::set<NWorld::IDynamicObject*>& existing)
+{
+    NWorld::IDynamicObject* launched = nullptr;
+    for (const auto& object : *world->GetMiscObjects()) {
+        if (existing.count(object.GetPtr()) || pSSClasses->GetObjectTypeID(object.GetPtr()) != int(0x118B1160))
+            continue;
+        Require(!launched, "native release created more than one flying grenade");
+        launched = object;
+    }
+    Require(launched, "native release did not create a flying grenade");
+    return launched;
+}
+
+CQuat InitialGrenadeRotation(NWorld::IDynamicObject* grenade, CVec3* center)
+{
+    CStructureNetworkContext refs;
+    auto fields = BorrowedObjectFields(grenade, &refs);
+    CObj<NAnimation::CAnimator> animator;
+    { CStructureSaver reader(fields, CStructureSaver::READ, &refs); reader.Add(10, &animator); }
+    Require(dynamic_cast<NAnimation::CASphereSet*>(animator.GetPtr()), "flying grenade lacks its native collision body");
+    CStructureNetworkContext physicsRefs;
+    auto physicsFields = BorrowedObjectFields(animator, &physicsRefs);
+    CStructureSaver reader(physicsFields, CStructureSaver::READ, &physicsRefs);
+    CQuat rotation;
+    reader.Add(12, center);
+    reader.Add(13, &rotation);
+    return rotation;
+}
+
+void GrenadeReleaseOrientation(const char* databasePath, const char* resourcePath, bool engineer)
+{
+    NativeGrenadeThrowFixture fixture(databasePath, resourcePath, engineer);
+    auto* world = fixture.world.GetPtr();
+    auto* executor = fixture.executor.GetPtr();
+    executor->Run();
+    Require(executor->IsExecuting(), "the orientation fixture could not begin its native throw");
+    const auto existing = CurrentProjectileObjects(world);
+    GlobalGameRandom().SeedForHarness(207);
+    executor->TimeLabelReached();
+    auto* grenade = NewFlyingGrenade(world, existing);
+
+    NWorld::SGrenadeParams trajectory;
+    CStructureNetworkContext refs;
+    auto fields = BorrowedObjectFields(executor, &refs);
+    { CStructureSaver reader(fields, CStructureSaver::READ, &refs); reader.Add(3, &trajectory); }
+    CVec3 forward = trajectory.vel;
+    CVec3 right(forward.y, -forward.x, 0.f);
+    Require(fabs2(right) > 0.01f, "native throw fixture lacks a nonvertical release direction");
+    Normalize(&forward);
+    Normalize(&right);
+    CVec3 center;
+    const auto rotation = InitialGrenadeRotation(grenade, &center);
+    Require(center == trajectory.ptStart, "grenade rotation fixture changed the prepared mass center");
+    Require(fabs2(rotation.Rotate(V3_AXIS_Z) - forward) < 1e-5f &&
+        fabs2(rotation.Rotate(V3_AXIS_X) - right) < 1e-5f,
+        "the native collision body ignored the grenade release direction");
+}
+
+CObj<NRPG::IClipItem> FixtureRocketAmmo()
+{
+    CDBIterator<NDb::CRPGAmmo> ammo(*NDatabase::GetTable<NDb::CRPGAmmo>());
+    while (ammo.MoveNext()) {
+        if (!IsValid(ammo.Get()->pExplosiveBullet))
+            continue;
+        CDBIterator<NDb::CRPGClip> clips(*NDatabase::GetTable<NDb::CRPGClip>());
+        while (clips.MoveNext()) {
+            if (IsValid(clips.Get()->pItem) && clips.Get()->nAmmoGroup == ammo.Get()->nAmmoGroup)
+                return dynamic_cast<NRPG::IClipItem*>(NRPG::CreateClipItem(clips.Get(), ammo.Get(), 1));
+        }
+    }
+    throw std::runtime_error("the projectile fixture needs native rocket ammunition");
+}
+
+void RocketImpactPoint(const char* databasePath, const char* resourcePath, bool expires)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    SRand random(SRandomSeed(607));
+    CObj<NDb::CModel> model = FindModelledGrenade()->pItem->pModel->CreateModel(&random);
+    auto ammo = FixtureRocketAmmo();
+    Require(IsValid(model) && IsValid(model->pGeometry) && IsValid(ammo), "rocket fixture lacks its model or payload");
+    const auto origin = actor->GetPosition().GetCP() + CVec3(0.6f, 0.f, expires ? 50.f : 4.f);
+    const CVec3 direction = expires ? V3_AXIS_Y : -V3_AXIS_Z;
+    CRay ray;
+    ray.ptOrigin = origin;
+    ray.ptDir = direction;
+    vector<NAI::SInterval> obstacles;
+    world->GetAIMap()->Sync();
+    world->GetAIMap()->Trace(ray, &obstacles, NWorld::TS_FRAGMENTED);
+    const auto collision = std::find_if(obstacles.begin(), obstacles.end(), [&](const auto& obstacle) {
+        return obstacle.enter.fT > 0.f && obstacle.pSrc->pUserData.GetPtr() != actor;
+    });
+    Require(expires ? collision == obstacles.end() || collision->enter.fT > 3.f : collision != obstacles.end(),
+        "rocket fixture lacks the expected clear path or collision surface");
+    const float distance = expires ? 2.f : collision->enter.fT + 1.f;
+    const auto release = world->GetTime()->GetValue();
+    NRPG::CAttackPortion attack(100000, 0, 0.f, 5, 5, 0);
+    CObj<NWorld::IDynamicObject> rocket = dynamic_cast<NWorld::IDynamicObject*>(world->LaunchRocket(
+        origin, direction * 10.f, release, distance, model, attack, ammo, actor, nullptr));
+    Require(rocket && !rocket->Segment(), "rocket fixture did not begin a live flight");
+    const auto existing = CurrentProjectileObjects(world);
+    const auto before = PendingExplosions(world).size();
+    world->GetTime()->Set(release + STime(std::ceil(distance * 100)) + (expires ? 20 : -25));
+    MarkNewDGFrame();
+    Require(rocket->Segment(), "native rocket did not retire on impact or expiry");
+    const auto pending = PendingExplosions(world);
+    if (expires) {
+        Require(pending.size() == before, "a rocket expired in free flight but queued an immediate blast");
+        CVec3 center;
+        const auto orientation = InitialGrenadeRotation(NewFlyingGrenade(world, existing), &center);
+        Require(center == origin && fabs2(orientation.Rotate(V3_AXIS_X) - direction) < 1e-5f,
+            "the expired rocket lost its orientation on the continuing collision body");
+    } else {
+        Require(pending.size() == before + 1 && pending.back().pThrower.GetPtr() == actor,
+            "native rocket impact did not queue one attributed blast");
+        const CVec3 expected = origin + direction * (std::max)(0.f, collision->enter.fT - 0.05f) + CVec3(0, 0, 0.005f);
+        Require(fabs2(pending.back().vCenter - expected) < 1e-6f,
+            "native rocket explosion did not use the collision position");
+    }
 }
 
 static void FlyingGrenadeLifetime(const char* databasePath, const char* resourcePath)
@@ -656,19 +790,7 @@ void InvalidProjectileResources(const char* databasePath, const char* resourcePa
         Require(!world->ThrowGrenade(start, velocity, when, 0.f, noGeometry, grenade, actor),
             "the world accepted a grenade without geometry");
     } else {
-        CObj<NRPG::IInventoryItem> ammunition;
-        CDBIterator<NDb::CRPGAmmo> ammo(*NDatabase::GetTable<NDb::CRPGAmmo>());
-        while (!ammunition && ammo.MoveNext()) {
-            if (!IsValid(ammo.Get()->pExplosiveBullet)) continue;
-            CDBIterator<NDb::CRPGClip> clips(*NDatabase::GetTable<NDb::CRPGClip>());
-            while (clips.MoveNext()) {
-                if (IsValid(clips.Get()->pItem) && clips.Get()->nAmmoGroup == ammo.Get()->nAmmoGroup) {
-                    ammunition = NRPG::CreateClipItem(clips.Get(), ammo.Get(), 1);
-                    break;
-                }
-            }
-        }
-        auto* rocket = dynamic_cast<NRPG::IClipItem*>(ammunition.GetPtr());
+        auto rocket = FixtureRocketAmmo();
         Require(rocket && rocket->GetIncQuantity() == 1, "the fixture needs a live rocket ammunition record");
         NRPG::CAttackPortion hit(100000, 0, 0.f, 5, 5, 0);
         Require(world->LaunchRocket(start, velocity, when, 3.f, model, hit, rocket, actor, nullptr) &&
@@ -819,6 +941,8 @@ bool RunProjectileTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "sniper-target-policy") && argc == 5) { SniperTargetPolicy(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "disarm-callback") && argc == 6) { DisarmCallback(argv[2], argv[3], std::atoi(argv[4]) != 0, std::atoi(argv[5]) != 0); return true; }
     if (!std::strcmp(mode, "explosion-modifier-ownership") && argc == 5) { ExplosionModifierOwnership(argv[2], argv[3], std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "grenade-release-orientation") && argc == 5) { GrenadeReleaseOrientation(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
+    if (!std::strcmp(mode, "rocket-impact-point") && argc == 5) { RocketImpactPoint(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "cover-ray-row-order") && argc == 4) { CoverRayRowOrder(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "equal-miss-ray-order") && argc == 2) { EqualMissRayOrder(); return true; }
     if (!std::strcmp(mode, "burst-ray-previous") && argc == 3) { BurstRayFollowsPrevious(std::atoi(argv[2]) != 0); return true; }

@@ -169,18 +169,16 @@ bool CRocketServer::Segment()
 	Normalize( &ray.ptDir );
 	pWorld->GetAIMap()->Trace( ray, &intersect, NWorld::TS_FRAGMENTED );
 	//
-	float fCollDist = 0;
 	for ( vector<NAI::SInterval>::iterator i = intersect.begin(); i != intersect.end(); ++i )
 	{
 		if ( i->enter.fT > 0 && i->enter.fT < fDist )
 		{
-			fCollDist = i->enter.fT;
 			CObjectBase *pCollided = i->pSrc->pUserData;
 			CUnitServer *pI = pIgnored;
 			if ( pCollided == pI )
 				continue;
-			// add grenade explosion
-			pWorld->AddGrenadeExplosion( curPos, pRocket->GetDBAmmo()->pExplosiveBullet, pIgnored );
+			const CVec3 ptImpact = ray.ptOrigin + ray.ptDir * Max( 0.f, i->enter.fT - 0.05f ) + CVec3( 0, 0, 0.005f );
+			pWorld->AddGrenadeExplosion( ptImpact, pRocket->GetDBAmmo()->pExplosiveBullet, pIgnored );
 			return true;
 		}
 	}
@@ -189,7 +187,7 @@ bool CRocketServer::Segment()
 	{
 		// add фиктивную grenade
 		pWorld->ThrowGrenade( curPos, velocity, pWorld->GetTime()->GetValue(), 
-			0, pModel, pRocket->GetDBAmmo()->pExplosiveBullet, pIgnored );
+			0, pModel, pRocket->GetDBAmmo()->pExplosiveBullet, pIgnored, 0, nextRot );
 		return true;
 	}
 	//

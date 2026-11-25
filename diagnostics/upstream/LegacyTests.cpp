@@ -277,6 +277,7 @@ using GeometryTestHash = NGScene::SGeometryPosHash;
 #include <algorithm>
 #include <type_traits>
 #include <map>
+#include "NativeGrenadeThrowFixture.h"
 
 extern CPtr<NScript::CScript> pScript;
 
@@ -289,6 +290,7 @@ using UpstreamTests::FixtureWorld;
 using UpstreamTests::NativeContextColumn;
 using UpstreamTests::NativeContextEmptyRelation;
 using UpstreamTests::NativeDisplayContext;
+using UpstreamTests::NativeGrenadeThrowFixture;
 using UpstreamTests::ObjectStageAudio;
 using UpstreamTests::Require;
 

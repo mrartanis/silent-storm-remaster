@@ -3185,7 +3185,7 @@ CObjectBase *CWorld::PerformRangedAttack( const NRPG::CAttackPortion &ap, const 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 CObjectBase *CWorld::ThrowGrenade( const CVec3 &vFrom, const CVec3 &vSpeed, STime tThrow,
 	float fTFly, NDb::CModel *pModel, NDb::CRPGGrenade *pRPGGrenade, CUnitServer *pUnitServer,
-	NDb::CRPGEngGrenade *pRPGEngGrenade )
+	NDb::CRPGEngGrenade *pRPGEngGrenade, const CQuat &rotation )
 {
 	if ( !IsValid( pModel ) || !IsValid( pModel->pGeometry ) )
 		return 0;
@@ -3197,7 +3197,7 @@ CObjectBase *CWorld::ThrowGrenade( const CVec3 &vFrom, const CVec3 &vSpeed, STim
 	if ( IsValid( pRPGGrenade ) )
 	{
 		pBullet = CreateGrenadeServer( this, vFrom, vSpeed, tThrow,
-			fTFly, pModel, pRPGGrenade, pUnitServer );
+			fTFly, pModel, pRPGGrenade, pUnitServer, rotation );
 	}
 	else if ( IsValid( pRPGEngGrenade ) )
 	{
@@ -3205,7 +3205,7 @@ CObjectBase *CWorld::ThrowGrenade( const CVec3 &vFrom, const CVec3 &vSpeed, STim
 		if ( IsValid( pUnitServer ) )
 			nEngSkill = pUnitServer->GetUnitRPG()->GetRPGUnit()->Skills( NDb::ST_ENGINEERING );
 		pBullet = CreateGrenadeServer( this, vFrom, vSpeed, tThrow,
-			fTFly, pModel, pRPGEngGrenade, pUnitServer, nEngSkill );
+			fTFly, pModel, pRPGEngGrenade, pUnitServer, nEngSkill, rotation );
 	}
 	if ( pBullet )
 		miscObjects.push_back( pBullet );
