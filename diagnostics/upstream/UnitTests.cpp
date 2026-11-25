@@ -274,6 +274,42 @@ void DifficultySkillScaling()
         "raising the difficulty cap rounded up or increased the unit's current value");
 }
 
+void PersonaSkillInitialization(const char* databasePath)
+{
+    CFileStream database;
+    database.OpenRead(databasePath);
+    NDatabase::Serialize(database, CStructureSaver::READ);
+    auto* persona = NDb::GetPers(103);
+    Require(IsValid(persona) && IsValid(persona->pBaseValue) && IsValid(persona->pClass),
+        "persona initialization fixture lacks an authored class and base record");
+    auto* authored = persona->pBaseValue.GetPtr();
+    authored->nBaseXP = 42;
+    authored->skills[NDb::ST_STR] = 12;
+    authored->skills[NDb::ST_DEX] = 9;
+    authored->skills[NDb::ST_INT] = 8;
+    authored->skills[NDb::ST_SHOOTING] = 17;
+    authored->skills[NDb::ST_ENGINEERING] = 0;
+    authored->skills[NDb::ST_VP] = 111;
+    authored->skills[NDb::ST_AP] = 43;
+    CObj<NRPG::IUnitMission> mission = NRPG::CreateUnit(persona);
+    auto* unit = mission->GetRPGUnit();
+    Require(unit->fXP == 42.f && int(unit->Skills(NDb::ST_SHOOTING)) == 17 &&
+        unit->Skills(NDb::ST_SHOOTING).GetXPPart() == -12,
+        "explicit persona skill was clamped to its derived base instead of keeping the authored value");
+    auto& engineering = unit->Skills(NDb::ST_ENGINEERING);
+    Require(int(engineering) == 25 + unit->GetSkillCap(NDb::ST_ENGINEERING, 42.f),
+        "an empty persona skill did not derive from attributes and class XP");
+    auto& hp = unit->Skills(NDb::ST_VP);
+    auto& ap = unit->Skills(NDb::ST_AP);
+    Require(int(hp) == 111 && hp.GetMaxValue() == 222 && int(ap) == 43 && ap.GetMaxValue() == 86,
+        "authored expendable cells did not keep their original live value and independently derived cap");
+    hp.Modify(-10);
+    ap.Modify(-4);
+    unit->UpdateSkills();
+    Require(int(hp) == 101 && int(ap) == 39 && int(unit->Skills(NDb::ST_SHOOTING)) == 17,
+        "updating derived attributes restored spent AP or lost an explicit skill adjustment");
+}
+
 void TakePerkDuringTreatment(const char* databasePath, const char* resourcePath)
 {
     using namespace NWorld;
@@ -1218,6 +1254,7 @@ bool RunUnitTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "corpse-density") && argc == 5) { CorpseDensity(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "path-command-goal") && argc == 5) { PathCommandGoal(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "difficulty-skill-scaling") && argc == 2) { DifficultySkillScaling(); return true; }
+    if (!std::strcmp(mode, "persona-skill-initialization") && argc == 3) { PersonaSkillInitialization(argv[2]); return true; }
     if (!std::strcmp(mode, "take-perk-during-treatment") && argc == 4) { TakePerkDuringTreatment(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "take-pk-adaptation") && argc == 5) { TakePKAdaptation(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
     if (!std::strcmp(mode, "selected-critical-treatment-log") && argc == 3) { SelectedCriticalTreatmentLog(argv[2]); return true; }

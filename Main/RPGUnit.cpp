@@ -268,10 +268,6 @@ CUnit::CUnit( NDb::CRPGPers *_pPers, NDb::CComplexHead *_pHead, bool _bHero, NDb
 	pPerksTree = IsValid( pPers->pClass ) ? CreatePerksTree( pPers->pClass->nPerkTreeID ) : 0;
 	pInventory = CreateInventory(this);
 	NDb::CRPGBaseValue &baseValues = *pPers->pBaseValue;
-	skills[NDb::ST_STR] = new CDynamicSkill( baseValues.skills[NDb::ST_STR], baseValues.skills[NDb::ST_STR] );
-	skills[NDb::ST_DEX] = new CDynamicSkill( baseValues.skills[NDb::ST_DEX], baseValues.skills[NDb::ST_DEX] );
-	skills[NDb::ST_INT] = new CDynamicSkill( baseValues.skills[NDb::ST_INT], baseValues.skills[NDb::ST_INT] );
-	fXP = baseValues.nBaseXP;
 
 	pClass = pPers->pClass;
 	pUniform = pPers->pUniform;                    // release-new (CUnit::pUniform)
@@ -376,27 +372,22 @@ CUnit::CUnit( NDb::CRPGPers *_pPers, NDb::CComplexHead *_pHead, bool _bHero, NDb
 		}
 	}
 
-	for ( int i = 0; i < NDb::ST_STR; ++i )
-		skills[i] = new CDynamicSkill( baseValues.skills.skills[i], GetSkillBaseStatValue( NDb::ESkillType(i) ) );
-	// Static skills follow their modified cap; only VP/AP have expendable values.
+	// Russian Patch 1 0x6bc780 creates empty live cells with authored bases.
 	for ( int i = 0; i < NDb::SKILL_TYPE_NUMBERS; ++i )
 	{
+		const int nBase = baseValues.skills[i];
+		skills[i] = new CDynamicSkill( nBase, nBase );
+		Skills(i).SetValue( 0 );
 		if ( i != NDb::ST_VP && i != NDb::ST_AP )
-		{
 			Skills(i).FreezeToMax( true );
-			Skills(i).Update();
-		}
 	}
-	if ( pClass )
+	CSkilledObject::AddXP( float( baseValues.nBaseXP ) );
+	for ( int i = 0; i < NDb::ST_STR; ++i )
 	{
-		for ( int i = NDb::ST_MELEE; i < NDb::ST_STR; ++i )
-		{
-			if ( baseValues.skills.skills[i] == 0 )
-			{
-				Skills(i).SetXPPart( GetSkillCap( NDb::ESkillType(i), fXP ) );
-				Skills(i).Reset();
-			}
-		}
+		const int nAuthored = baseValues.skills[i];
+		auto &skill = Skills(i);
+		const int nXP = nAuthored == 0 ? GetSkillByCap( cap[i], fXP ) : nAuthored - int( skill );
+		skill.SetXPPart( nXP );
 	}
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
