@@ -1640,7 +1640,7 @@ void CExecShoot::SelectPointRay()
 			attack, pUS, ptAnimTarget, pUS->GetMinClearDistance(), 0x8210 );
 		float fHit = NRPG::CheckTileToHit( pUS, ptAnimTarget,
 			GetExtraAP(), NAI::THL_LOWER, pCover, pWorld->IsFirstTurn(), &nTmpToHit, nBulletGone );   // retail: no eHL member, tile always THL_LOWER; the exec's burst cursor is the bullet index
-		rayInfo = NRPG::SAttackRayInfo( attack, CVec3(0,0,0), CVec3(0,0,0), pUS, pUS->GetPosition(),
+		rayInfo = NRPG::SAttackRayInfo( attack, VNULL3, nBulletGone > 0 ? rayInfo.vDir : VNULL3, pUS, pUS->GetPosition(),
 			nBulletGone, GetExtraAP(), false, pUS->GetMinClearDistance(), 30.0f, 0 );
 		rayInfo.pIgnore = const_cast<CObjectBase*>( pUS->GetAttackIgnore() );
 		NRPG::PrepareAttackRay( pWorld->GetAIMap(), pCover, &rayInfo, fHit );
@@ -1700,7 +1700,7 @@ void CExecShootObject::SelectRay()
 	// AttackObjectRanged uses tile accuracy for non-units, but object hull cover.
 	float fHit = NRPG::CheckTileToHit( pUS, ptTarget, GetExtraAP(), NAI::THL_LOWER,
 		pCover, pWorld->IsFirstTurn(), &nTmpToHit, nBulletGone );
-	rayInfo = NRPG::SAttackRayInfo( attack, CVec3(0,0,0), CVec3(0,0,0), pUS, pUS->GetPosition(),
+	rayInfo = NRPG::SAttackRayInfo( attack, VNULL3, nBulletGone > 0 ? rayInfo.vDir : VNULL3, pUS, pUS->GetPosition(),
 		nBulletGone, GetExtraAP(), false, pUS->GetMinClearDistance(), 30.0f, pTarget.GetPtr() );
 	rayInfo.pIgnore = const_cast<CObjectBase*>( pUS->GetAttackIgnore() );
 	NRPG::PrepareAttackRay( pWorld->GetAIMap(), pCover, &rayInfo, fHit );
@@ -1793,7 +1793,7 @@ void CExecShootUnit::SelectRay() // false, when it is the last shot
 		// Retail RealCalcCovers applies the same alternating origin to unit shots.
 		CObj<NRPG::CCoverInfo> pCover = pWorld->GetGame()->CalcCovers( pUS->GetAttackOrigin( pUS->GetPosition(), ( nBulletGone & 1 ) != 0 ), attack, pUS, pTarget, eHL, pUS->GetMinClearDistance(), false, 0x8210 );
 		float fHit = NRPG::CheckToHit( pUS, pTarget, GetExtraAP(), eHL, accessibleHLs, pCover, pWorld->IsFirstTurn(), &nTmpToHit, nBulletGone );
-		rayInfo = NRPG::SAttackRayInfo( attack, CVec3(0,0,0), CVec3(0,0,0), pUS, pUS->GetPosition(),
+		rayInfo = NRPG::SAttackRayInfo( attack, VNULL3, nBulletGone > 0 ? rayInfo.vDir : VNULL3, pUS, pUS->GetPosition(),
 			nBulletGone, GetExtraAP(), false, pUS->GetMinClearDistance(), 30.0f, pTarget.GetPtr() );
 		rayInfo.pIgnore = const_cast<CObjectBase*>( pUS->GetAttackIgnore() );
 		NRPG::PrepareAttackRay( pWorld->GetAIMap(), pCover, &rayInfo, fHit );

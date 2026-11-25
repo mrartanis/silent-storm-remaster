@@ -57,6 +57,24 @@ void CoverRayRowOrder(const char* databasePath, const char* resourcePath)
         }
 }
 
+CObj<NRPG::CCoverInfo> RestoreCoverRays(vector<CoverParitySnapshot::Ray> hits, vector<CoverParitySnapshot::Ray> loose)
+{
+    CObj<CObjectBase> savedCover = pSSClasses->CreateObject(0x02841161);
+    CObj<NRPG::CCoverInfo> cover = CastToUserObject(savedCover.GetPtr(), static_cast<NRPG::CCoverInfo*>(nullptr));
+    Require(cover, "retail cover save class is unavailable");
+    CMemoryStream fields;
+    CVec3 origin(1.f, 2.f, 3.f);
+    {
+        CStructureSaver writer(fields, CStructureSaver::WRITE);
+        writer.Add(2, &hits);
+        writer.Add(3, &origin);
+        writer.Add(4, &loose);
+    }
+    fields.Seek(0);
+    { CStructureSaver reader(fields, CStructureSaver::READ); savedCover->operator&(reader); }
+    return cover;
+}
+
 void EqualMissRayOrder()
 {
     using Ray = CoverParitySnapshot::Ray;
@@ -66,17 +84,10 @@ void EqualMissRayOrder()
         {CVec3(-1.f, 0.f, 0.f), false, 0.4f},
         {CVec3(0.f, -1.f, 0.f), false, 0.7f},
     };
-    CObj<CObjectBase> savedCover = pSSClasses->CreateObject(0x02841161);
-    CObj<NRPG::CCoverInfo> cover = CastToUserObject(savedCover.GetPtr(), static_cast<NRPG::CCoverInfo*>(nullptr));
-    Require(cover, "retail cover save class is unavailable");
-    CMemoryStream fields;
-    CVec3 origin(1.f, 2.f, 3.f);
-    { CStructureSaver writer(fields, CStructureSaver::WRITE); writer.Add(3, &origin); writer.Add(4, &authored); }
-    fields.Seek(0);
-    { CStructureSaver reader(fields, CStructureSaver::READ); savedCover->operator&(reader); }
+    auto cover = RestoreCoverRays({}, authored);
     CRay ray;
     bool missed = false;
-    Require(NRPG::PeekRay(cover, &ray, 0.5f, &missed) && missed && ray.ptOrigin == origin,
+    Require(NRPG::PeekRay(cover, &ray, 0.5f, &missed) && missed && ray.ptOrigin == CVec3(1.f, 2.f, 3.f),
         "native miss selection did not use the restored cover");
     const auto after = CoverSnapshot(cover);
     const int order[] = {2, 0, 3, 1};
@@ -85,6 +96,44 @@ void EqualMissRayOrder()
         Require(after.loose[index].direction == authored[order[index]].direction &&
             after.loose[index].deviation == authored[order[index]].deviation,
             "equal miss rays did not take the second retail merge chain first");
+}
+
+void BurstRayFollowsPrevious(bool miss)
+{
+    const CVec3 preceding(0.f, 1.f, 0.f);
+    const CVec3 orthogonal(1.f, 0.f, 0.f);
+    const vector<CoverParitySnapshot::Ray> rays = {{preceding, true, 0.f}, {orthogonal, true, 0.9f}};
+    auto cover = miss ? RestoreCoverRays({}, rays) : RestoreCoverRays(rays, {});
+    NRPG::SAttackRayInfo shot;
+    const float score = miss ? 0.f : 2.f;
+    shot.vDir = preceding;
+    shot.nBullet = 0;
+    Require(NRPG::PrepareAttackRay(nullptr, cover, &shot, score) && shot.vDir == orthogonal,
+        "first burst shot did not use the ordinary deviation weights");
+    shot.nBullet = 1;
+    shot.vDir = preceding;
+    Require(NRPG::PrepareAttackRay(nullptr, cover, &shot, score) && shot.vDir == preceding &&
+        shot.bTargetIsHit == !miss, "next burst shot ignored the preceding bullet direction");
+    shot.vDir = VNULL3;
+    Require(NRPG::PrepareAttackRay(nullptr, cover, &shot, score) && shot.vDir == orthogonal,
+        "a restored burst without a previous direction could not use ordinary deviation weights");
+}
+
+void BurstRayWeightOperationOrder(bool miss)
+{
+    const float diagonal = 0.70710677f;
+    const CVec3 previous(0.57735026f, 0.57735026f, 0.57735026f);
+    const CVec3 zero(0.f, diagonal, -diagonal);
+    const CVec3 cancelled(diagonal, -diagonal, 1e-8f);
+    const vector<CoverParitySnapshot::Ray> rays = {{zero, true, 0.2f}, {cancelled, true, 0.8f}};
+    auto cover = miss ? RestoreCoverRays({}, rays) : RestoreCoverRays(rays, {});
+    CRay ray;
+    ray.ptDir = previous;
+    bool missed = false;
+    // Both retail dot products cancel to zero. The alternate addition order leaves
+    // a positive residue in the second ray and changes the roulette result.
+    Require(NRPG::PeekRay(cover, &ray, miss ? 0.f : 2.f, &missed, true) && ray.ptDir == zero,
+        "burst ray weight accumulated x and y before z and changed the selected ray");
 }
 
 void UnitKnifeIllumination(const char* databasePath, const char* resourcePath)
@@ -447,6 +496,8 @@ bool RunProjectileTests(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "cover-ray-row-order") && argc == 4) { CoverRayRowOrder(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "equal-miss-ray-order") && argc == 2) { EqualMissRayOrder(); return true; }
+    if (!std::strcmp(mode, "burst-ray-previous") && argc == 3) { BurstRayFollowsPrevious(std::atoi(argv[2]) != 0); return true; }
+    if (!std::strcmp(mode, "burst-ray-weight-order") && argc == 3) { BurstRayWeightOperationOrder(std::atoi(argv[2]) != 0); return true; }
     if (!std::strcmp(mode, "unit-knife-illumination") && argc == 4) { UnitKnifeIllumination(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "frozen-item-armor-resistance") && argc == 4) { FrozenItemArmorResistance(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "flying-grenade-lifetime") && argc == 4) { FlyingGrenadeLifetime(argv[2], argv[3]); return true; }

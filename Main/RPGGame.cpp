@@ -634,6 +634,17 @@ bool PeekRayForRocket( CCoverInfo *pCover, CRay *pRes, bool bHit )
 	return PeekRay( pCover, pRes, fHitFlag, &bIsMiss );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+static float GetBurstRayWeight( const CVec3 &previous, const CVec3 &candidate, float angleThreshold )
+{
+	// Keep each product at single precision before the retail z, y, x accumulation.
+	const volatile float x = previous.x * candidate.x;
+	const volatile float y = previous.y * candidate.y;
+	const volatile float z = previous.z * candidate.z;
+	const float dot = ( z + y ) + x;
+	const float weight = ( dot * dot ) * dot;
+	return weight < angleThreshold ? weight * 0.001f : weight;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 static bool RealPeekRay( CCoverInfo *pCover, CRay *pRes, float fHit, bool *bIsMiss, bool bStickTo_pRes, CCoverInfo::SRay *pSelected )
 {
 	*bIsMiss = true;
@@ -653,12 +664,7 @@ static bool RealPeekRay( CCoverInfo *pCover, CRay *pRes, float fHit, bool *bIsMi
 		{
 			float fK = i->fDeviation;
 			if ( bStickTo_pRes )
-			{
-				fK = pRes->ptDir * i->ptDir;
-				fK *= fK * fK;
-				if ( fK < fMaxAngle )
-					fK /= 1000;
-			}
+				fK = GetBurstRayWeight( pRes->ptDir, i->ptDir, fMaxAngle );
 			// RealPeekRay @0x2b3f00: on a rolled hit, only PENETRATING rays are eligible. Zero the weight of any
 			// obstacle-blocked (non-penetrating) ray so the roulette can never pick it as the fired trajectory
 			// while *bIsMiss (which drives the shooter's hit/miss bark) reports a hit -- the reported bug where a
@@ -690,12 +696,7 @@ static bool RealPeekRay( CCoverInfo *pCover, CRay *pRes, float fHit, bool *bIsMi
 		{
 			float fK = sqr( fHit - fabs( float(n) * fStep - fHit ) * i->fDeviation );
 			if ( bStickTo_pRes )
-			{
-				fK = pRes->ptDir * i->ptDir;
-				fK *= fK * fK;
-				if ( fK < fMaxAngle )
-					fK /= 1000;
-			}
+				fK = GetBurstRayWeight( pRes->ptDir, i->ptDir, fMaxAngle );
 			roulette.AddSector(fK);
 		}
 		int nPick = roulette.GetRandomSector( &rand );
@@ -719,7 +720,9 @@ bool PrepareAttackRay( NAI::IAIMap *pAIMap, CCoverInfo *pCover, SAttackRayInfo *
 	bool bMissed;
 	pInfo->trailPoints.clear();
 	pInfo->bTargetIsHit = false;
-	if ( !RealPeekRay( pCover, &ray, fHit, &bMissed, false, &selected ) )
+	const float lengthSquared = fabs2( ray.ptDir );
+	const bool followPrevious = pInfo->nBullet > 0 && lengthSquared > 0.f && std::isfinite( lengthSquared );
+	if ( !RealPeekRay( pCover, &ray, fHit, &bMissed, followPrevious, &selected ) )
 	{
 		pInfo->vOrigin = pCover->src;
 		pInfo->vDir = V3_AXIS_Z;
