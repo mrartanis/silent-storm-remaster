@@ -40,6 +40,8 @@ IAIUnit* CAIAction::GetEnemy() const
 //
 SPlaceWithAP CAIAction::GetCurrentPlace() const
 {
+	if ( pExecutionPlace )
+		return *pExecutionPlace;
 	SPlaceWithAP p;
 	if ( IsValid( pUnit ) )
 	{
@@ -47,6 +49,18 @@ SPlaceWithAP CAIAction::GetCurrentPlace() const
 		p.nUnitAP = pUnit->GetAP();
 	}
 	return p;
+}
+//
+void CAIAction::DoFromPlace( CAILog *pLog, const SPlaceWithAP &place )
+{
+	struct SRestorePlace
+	{
+		const SPlaceWithAP *&slot;
+		const SPlaceWithAP *previous;
+		~SRestorePlace() { slot = previous; }
+	} restore{ pExecutionPlace, pExecutionPlace };
+	pExecutionPlace = &place;
+	Do( pLog );
 }
 //
 // @0x13a80 - gate on a LIVE unit. The release rejects a null/dead pUnit

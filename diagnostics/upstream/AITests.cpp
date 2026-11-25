@@ -13,6 +13,7 @@
 #include "../../Main/RPGItem.h"
 #include "../../Main/RPGItemSet.h"
 #include "../../Main/wUnitAttackExec.h"
+#include "../../Main/wUnitAttack.h"
 #include "../../Main/rpgGlobal.h"
 #include "../../Main/aiActions.h"
 #include "../../Main/aiCommander.h"
@@ -1254,6 +1255,69 @@ void AIPlaceSourcePolicy(const char* databasePath, const char* resourcePath, int
         "defensive stance priced a native candidate using its maximum AP");
 }
 
+void AICannonCandidatePosition(const char* databasePath, const char* resourcePath)
+{
+    auto fixture = MakeNativeCannonFixture(databasePath, resourcePath);
+    auto* actor = fixture.actor.GetPtr();
+    auto* ai = NAI::GetAIUnit(actor);
+    auto* world = fixture.world.GetPtr();
+    auto* map = world->GetAIMap();
+    auto* network = world->GetPathNetwork();
+    auto* cannon = fixture.cannon.GetPtr();
+    const auto candidate = actor->GetPosition();
+    Require(IsValid(ai) && ai->GetAIUnitState(), "cannon fixture needs a native decision unit");
+    list<CPtr<NWorld::CUnitServer>> units;
+    world->GetAllUnits(&units);
+    auto enemy = std::find_if(units.begin(), units.end(), [&](const auto& unit) {
+        return IsValid(unit) && unit->CanFight() && IsValid(NAI::GetAIUnit(unit)) &&
+            actor->GetDiplomacyState(unit) == NDb::DS_ENEMY;
+    });
+    Require(enemy != units.end(), "cannon fixture needs a live hostile");
+    auto* target = enemy->GetPtr();
+    vector<NAI::SPathPlace> positions;
+    const CVec3 gun = cannon->GetPosition();
+    network->GetNearPlaces(SSphere(gun, 9.f), &positions);
+    auto targetPlace = std::find_if(positions.begin(), positions.end(), [&](auto& place) {
+        place.SetPose(NAI::CM_STAND);
+        const CVec3 delta = NAI::SPosition(place, network).GetCP() - gun;
+        return fabs(delta.z) < 1.f && fabs(delta) > 5.5f && network->IsPassable(place) && !network->IsLocked(place) &&
+            NWorld::CanAttackWithCannon(cannon, gun + delta + CVec3(0, 0, 0.7f)) == NWorld::UCR_OK;
+    });
+    Require(targetPlace != positions.end(), "no usable hostile position in the authored cannon firing arc");
+    auto enemyPosition = target->GetPosition();
+    enemyPosition.pos.p = *targetPlace;
+    network->Unlock(target);
+    target->SetPosition(enemyPosition);
+    target->animator.AlignTime();
+    target->animator.PlaceUnit(enemyPosition);
+    MarkNewDGFrame();
+    map->Sync();
+    CVec3 body;
+    Require(map->GetUnitHLPos(&body, map->GetHull(target), NAI::HL_BODY) &&
+        NWorld::CanAttackWithCannon(cannon, body) == NWorld::UCR_OK,
+        "cannon fixture did not produce a damageable real hostile");
+    auto* state = ai->GetAIUnitState();
+    auto* hostile = NAI::GetAIUnit(target);
+    state->AddEnemy(hostile);
+    state->pEnemy = hostile;
+    state->pPossibleEnemy = nullptr;
+    CObj<NAI::CAIDockWithHGAction> dock = new NAI::CAIDockWithHGAction(ai);
+    const int cost = actor->GetUnitRPG()->GetActionAP(candidate.GetPose(), NRPG::AC_APPROACH_CANNON);
+    const NAI::SPlaceWithAP from(candidate, cost);
+    NAI::CAIDockWithHGAction::SInfo control;
+    dock->GetInfoInner(from, &control);
+    Require(control.bCanDo && control.pGun == cannon, "cannon approach does not fit the budget from its own tile");
+    NAI::SPosition elevated;
+    Require(NAI::MakeFlyPos(candidate.GetCP() + CVec3(0, 0, 20.f), network, &elevated),
+        "cannon fixture could not isolate the actor's live position from the candidate");
+    auto live = candidate;
+    live.pos = elevated;
+    actor->SetPosition(live);
+    ai->SetPosition(live);
+    NAI::CAIDockWithHGAction::SInfo score;
+    dock->GetInfoInner(from, &score);
+    Require(score.bCanDo && score.pGun == cannon, "AI priced the cannon approach from the actor's live position");
+}
 
 static void AIContactMembership(const char* databasePath, const char* resourcePath, int kind, int check)
 {
@@ -1692,6 +1756,7 @@ static void OwnedAIEnemySelection(bool placeSource)
 bool RunAITests(const char* mode, int argc, char** argv)
 {
     if (!std::strcmp(mode, "ai-place-source-policy") && argc == 5) { AIPlaceSourcePolicy(argv[2], argv[3], std::atoi(argv[4])); return true; }
+    if (!std::strcmp(mode, "ai-cannon-candidate-position") && argc == 4) { AICannonCandidatePosition(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-logic-readiness") && argc == 5) { AILogicReadiness(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "ai-command-log-policy") && argc == 5) { AICommandLogPolicy(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "ai-contact-perception") && argc == 5) { AIContactPerception(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }

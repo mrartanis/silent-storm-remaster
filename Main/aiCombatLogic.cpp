@@ -82,6 +82,8 @@ void CAICombatLogic::DoAction( CAIAction *pAction )
 			EPose wishPose = pUS->IsWearingPK() ? NAI::WALK : NAI::RUN;
 			*pLog << new CAILogPosition( pUnit, place.place, wishPose );
 		}
+		pAction->DoFromPlace( pLog, place );
+		return;
 	}
 	pAction->Do( pLog );
 }

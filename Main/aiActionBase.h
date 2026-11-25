@@ -34,7 +34,7 @@ struct SPlaceWithAP
 {
 	ZDATA
 	SUnitPosition place;
-	int nUnitAP;
+	int nUnitAP = 0;
 	ZEND int operator&( CStructureSaver &f ) { f.Add(2,&place); f.Add(3,&nUnitAP); return 0; }
 	SPlaceWithAP() {}
 	SPlaceWithAP( const SUnitPosition &_place, int _nUnitAP ): place( _place ), nUnitAP( _nUnitAP ) {}
@@ -46,6 +46,8 @@ struct SPlaceWithAP
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class CAIAction: public CObjectBase
 {
+	// Issuing commands can use a scored position the unit has yet to reach.
+	const SPlaceWithAP *pExecutionPlace = 0;
 	ZDATA
 	CPtr<IAIUnit> pUnit;          // +0x0c  acting unit
 public:
@@ -61,7 +63,8 @@ public:
 	CAIAction() {}
 	CAIAction( IAIUnit *_pUnit ): pUnit( _pUnit ) {}
 	//
-	virtual bool CanPerform();                                          // slot4: prerequisites hold (base: true)
+	virtual bool CanPerform();
+	void DoFromPlace( CAILog *pLog, const SPlaceWithAP &place );
 	virtual void Do( CAILog *pLog ) const = 0;                          // slot5: emit the log records
 	virtual bool ComparePlaces( const SPlaceWithAP &p1, const SPlaceWithAP &p2 ) const = 0; // slot6
 	virtual bool CanDo( const SPlaceWithAP &place ) = 0;                // slot7: delegates to SActionInfo

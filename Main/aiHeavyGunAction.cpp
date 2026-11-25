@@ -11,13 +11,14 @@
 #include "aiUnitState.h"      // NAI::SAIUnitState (complete): GetKnownEnemies / pEnemy / pPossibleEnemy
 #include "aiPosition.h"
 #include "aiPath.h"
+#include "aiMisc.h"
+#include "aiMoveAction.h"
 #include "aiMap.h"
 #include "AILog.h"             // CAILogShot
 #include "aiCombatLog.h"       // CAILogUseCannon / CAILogExitCannon (release log records)
 #include "wMain.h"             // NWorld::CWorld: GetCannons / GetPathNetwork / GetAIMap
 #include "wUnitServer.h"       // NWorld::CUnitServer: GetWorld / GetUnitRPG / GetAIMapHull / Get/SetWishPose
 #include "wMainPath.h"         // NWorld::FindPath
-#include "wMainMoves.h"        // NWorld::GetMoveActionType
 #include "wObject.h"           // NWorld::CCannon / ICannon
 #include "wUnitAttack.h"       // NWorld::CanAttackWithCannon
 #include "wUnitCommands.h"     // NWorld::UCR_OK / UCR_NEED_RELOAD
@@ -108,23 +109,15 @@ static bool HG_CanReachCannon( IAIUnit *pU, const SPlaceWithAP &place, NWorld::C
 		return false;
 	NAI::EPose nOldWish = pUS->GetWishPose();
 	pUS->SetWishPose( NAI::RUN );
-	CPtr<NAI::CPath> pPath = NWorld::FindPath( pNet, pUS, pU->GetPosition().p, approaches, pUS );
+	CPtr<NAI::CPath> pPath = NWorld::FindPath( pNet, pUS, place.place.pos.p, approaches, pUS );
 	pUS->SetWishPose( nOldWish );
+	if ( nOldWish == CRAWL )
+		pUS->SetStrafe( false );
 	if ( !IsValid( pPath ) || pPath->points.empty() )
 		return false;
-	// walk the path summing per-move action AP, then add the use-cannon action cost.
-	SUnitPosition cur = pU->GetUnitPosition();
-	int nPathAP = 0;
-	for ( vector<SPathPlace>::const_iterator i = pPath->points.begin(); i != pPath->points.end(); ++i )
-	{
-		SUnitPosition next( cur );
-		next.pos.p = *i;
-		NRPG::EAction act = NWorld::GetMoveActionType( pNet, cur, next, false );
-		nPathAP += pRPG->GetActionAP( (NAI::EPose)cur.GetPose(), act );
-		cur = next;
-	}
-	int nUseAP = pRPG->GetActionAP( (NAI::EPose)pU->GetUnitPosition().GetPose(), NRPG::AC_APPROACH_CANNON );
-	return nPathAP + nUseAP <= place.nUnitAP;
+	const EPose arrival = GetUnitPos( pPath->points.back(), pNet ).GetPose();
+	const int nUseAP = pRPG->GetActionAP( arrival, NRPG::AC_APPROACH_CANNON );
+	return GetPathAP( pUS, pPath ) + nUseAP <= place.nUnitAP;
 }
 // CanUseCannon @0x51fa0: live, working cannon within 10m of `place`; no live enemy within
 // 5m of the gun, no suspect within 3m; and the unit can reach it with enough AP. `pfDist` returns the
@@ -141,7 +134,7 @@ static bool HG_CanUseCannon( IAIUnit *pU, const SPlaceWithAP &place, NWorld::CCa
 	SAIUnitState *pState = pU->GetAIUnitState();
 	if ( pState == 0 )
 		return false;
-	float fEnemy = 65535.0f, fPossible = 65535.0f;
+	float fEnemy = 0.0f, fPossible = 65535.0f;
 	IAIUnit *pEnemy = pState->pEnemy.GetPtr();
 	if ( IsValid( pEnemy ) )
 		fEnemy = fabs( pEnemy->GetPosition().GetCP() - gun );
@@ -193,7 +186,7 @@ void CAIDockWithHGAction::Do( CAILog *pLog ) const                       // @0x5
 	if ( !IsValid( pLog ) )
 		return;
 	SInfo info;
-	GetInfoInner( GetCurrentPlace(), &info );
+	GetInfo( GetCurrentPlace(), &info );
 	if ( info.bCanDo && IsValid( info.pGun ) )
 		*pLog << new CAILogUseCannon( GetUnit(), info.pGun.GetPtr() );
 }
@@ -271,17 +264,14 @@ void CAIShootFromHGAction::Do( CAILog *pLog ) const                      // @0x5
 {
 	if ( !IsValid( pLog ) )
 		return;
-	SInfo info;
-	GetInfoInner( GetCurrentPlace(), &info );
-	if ( !info.bCanDo )
-		return;
 	IAIUnit *pU = GetUnit();
-	NWorld::CCannon *pC = pU->GetCannon();
-	if ( !IsValid( pC ) )
+	IAIUnit *pEnemy = GetEnemy();
+	NWorld::CCannon *pC = IsValid( pU ) ? pU->GetCannon() : 0;
+	if ( !IsValid( pC ) || !IsValid( pEnemy ) )
 		return;
 	if ( IsValid( pC->GetItem() ) )
 		pC->GetItem()->SetShootMode( (NDb::EShootMode)4 );   // the cannon's firing mode before the shot
-	*pLog << new CAILogShot( pU, info.pTarget.GetPtr(), HL_ANY );
+	*pLog << new CAILogShot( pU, pEnemy, HL_ANY );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 }

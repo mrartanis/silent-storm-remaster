@@ -17,6 +17,7 @@
 #include "../../Main/wUnitAttackExec.h"
 #include "../../Main/aiInventory.h"
 #include "../../Main/aiActions.h"
+#include "../../Main/aiCombatLog.h"
 #include "../../Main/aiMisc.h"
 #include "../../Main/aiUnit.h"
 #include "../../Main/aiUnitState.h"
@@ -492,7 +493,7 @@ void AICandidateClearance(const char* databasePath, const char* resourcePath)
     Require(false, "candidate-clearance fixture found no distinguishing native blocked target");
 }
 
-void AIRocketCandidateSafety(const char* databasePath, const char* resourcePath, bool checkFallbackAlly)
+void AIRocketCandidateSafety(const char* databasePath, const char* resourcePath, int mode)
 {
     CObj<NRPG::CGlobalGame> game;
     auto world = FixtureWorld(databasePath, resourcePath, true, &game);
@@ -540,7 +541,7 @@ void AIRocketCandidateSafety(const char* databasePath, const char* resourcePath,
     bool verified = false;
     actor->SetScriptToHit(100);
     for (const auto& direction : {CVec3(1,0,0),CVec3(-1,0,0),CVec3(0,1,0),CVec3(0,-1,0)}) {
-        if (checkFallbackAlly) {
+        if (mode == 1) {
             rocket->nMaxRange = 5;
             const CVec3 primary = position.GetCP() + direction * 3.6f - CVec3(0, 0, 0.6f);
             const CVec3 fallback = position.GetCP() + direction * 1.9f;
@@ -570,12 +571,23 @@ void AIRocketCandidateSafety(const char* databasePath, const char* resourcePath,
         rifle->nMaxRange = rifleRange;
         Require(info.bCanDo && info.pWeapon->GetItem() == candidate && info.ptTarget == point && inventory->GetActive() == active,
             "AI rejected an open candidate rocket shot using the range of the weapon in its hand");
+        if (mode == 2) {
+            ai->SetAP(100, 100);
+            Require(aim->CanDo(place), "cache fixture could not score its actual rocket shot");
+            CObj<NAI::CAILog> log = NAI::CreateAILog();
+            state.enemyGroups.clear();
+            aim->Do(log);
+            list<CPtr<NWorld::CCommand>> commands;
+            log->GetWorldCommands(&commands);
+            Require(!commands.empty(), "issuing the scored rocket command recomputed the group search");
+            aim->ResetInfoHash();
+            Require(!aim->CanDo(place), "reset did not invalidate the previously scored rocket action");
+        }
         verified = true;
         break;
     }
     Require(verified, "rocket planning fixture could not find an open native launch ray");
 }
-
 
 void AIThrowKnifeCandidateAP(const char* databasePath, const char* resourcePath)
 {
@@ -634,7 +646,7 @@ bool RunAccuracyTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-throw-knife-candidate-ap") && argc == 4) { AIThrowKnifeCandidateAP(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-candidate-clearance") && argc == 4) { AICandidateClearance(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "ai-rocket-candidate-safety") && (argc == 4 || argc == 5)) {
-        AIRocketCandidateSafety(argv[2], argv[3], argc == 5);
+        AIRocketCandidateSafety(argv[2], argv[3], argc == 5 ? std::atoi(argv[4]) : 0);
         return true;
     }
     if (!std::strcmp(mode, "ai-exposed-head-accuracy") && argc == 4) { AIExposedHeadAccuracy(argv[2], argv[3]); return true; }
