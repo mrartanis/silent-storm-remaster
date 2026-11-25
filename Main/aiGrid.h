@@ -330,6 +330,7 @@ public:
 	const CPathNetwork *GetNetwork() const { return pGroup->pNet; }
 	void GetSamePoints( const SPathPlace& p, vector<SPathPlace> *pRes );
 	int GetSamePoints( const SPathPlace& p, SPathPlace *places ); // quicker version: places is an array having enough memory
+	int GetGeometricSamePoints( const SPathPlace &p, SPathPlace *places ) const;
 	bool RefreshLadder( int nLadder, IAIMap *pMap );   // retail @0x408b0: true = a recalc actually ran
 
 	char GetLocks( int x, int y ) const { return tiles[y][x].nLocks; }

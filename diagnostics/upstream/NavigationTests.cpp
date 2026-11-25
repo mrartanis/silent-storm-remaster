@@ -20,6 +20,53 @@ namespace UpstreamTests
 {
 namespace
 {
+void GeometricAliasColouring()
+{
+    using namespace NAI;
+    CObj<CPathNetwork> network = new CPathNetwork;
+    network->CreateLayer(8, 8, VNULL2, 0.f, 0);
+    auto* lower = network->GetLayer(0);
+    network->CreateLayer(8, 8, VNULL2, 0.f, 1, lower->pGroup);
+    network->CreateLayer(8, 8, VNULL2, 0.f, 2, lower->pGroup);
+    network->Freeze(true);
+    for (int y = 0; y < 8; ++y)
+        for (int x = 0; x < 8; ++x) {
+            auto& tile = lower->tiles[y][x];
+            tile = STile{};
+            tile.nPassable = CP_STAND;
+            tile.nFlags = TF_STAND_PASSABLE;
+            tile.nMoveStand = static_cast<char>(0xff);
+        }
+    auto& origin = lower->tiles[3][3];
+    origin.nFlags |= TF_HAS_SAME;
+    origin.nHeight = 20;
+    for (int layer : {1, 2}) {
+        auto& alias = network->GetLayer(layer)->tiles[3][3];
+        alias = STile{};
+        alias.nPassable = CP_STAND;
+        alias.nFlags = TF_STAND_PASSABLE;
+        alias.nHeight = origin.nHeight;
+        alias.nDisplacement = layer == 2 ? 1 : 0;
+        Require(!alias.HasNavigationLinks(), "fixture alias unexpectedly acquired a local move");
+    }
+    const SPathPlace from(3, 3, 0);
+    vector<SPathPlace> local;
+    lower->GetSamePoints(from, &local);
+    Require(local.empty(), "local movement offered an isolated alias as a destination");
+    for (int layer : {0, 1, 2})
+        network->GetColourer(layer)->ConstructColouring(network);
+    auto* colourer = network->GetColourer(0);
+    colourer->AttachTransitions(network);
+    for (auto mode : {PM_STAND_ONLY, PM_ANY_MOVE}) {
+        vector<unsigned char> xs, ys;
+        vector<int> layers;
+        colourer->GetColorNeighbourCenters(network, colourer->GetPointColor(3, 3), &xs, &ys, &layers, mode);
+        Require(layers == vector<int>{1}, "zone connectivity omitted the coincident geometric alias or included the displaced layer");
+    }
+    lower->GetSamePoints(from, &local);
+    Require(local.empty(), "building the zone graph exposed an isolated alias to local movement");
+}
+
 class FootprintOwner : public NWorld::CUnitServer
 {
     OBJECT_NOCOPY_METHODS(FootprintOwner);
@@ -875,6 +922,7 @@ static void FlyingShootDirection()
 
 bool RunNavigationTests(const char* mode)
 {
+    if (!std::strcmp(mode, "geometric-alias-colouring")) { GeometricAliasColouring(); return true; }
     if (!std::strcmp(mode, "known-mine-path-reservations")) { KnownMinePathReservations(); return true; }
     if (!std::strcmp(mode, "nearest-invalid")) { InvalidNearestPosition(); return true; }
     if (!std::strcmp(mode, "precalc-sweep-bounds")) { PrecalcSweepBounds(); return true; }

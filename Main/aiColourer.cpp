@@ -1233,8 +1233,8 @@ void CMapColourer::AttachSameTransitions( CPathNetwork* pNet,
 {
 	unsigned char cX = (unsigned char)search.GetX();
 	unsigned char cY = (unsigned char)search.GetY();
-	SPathPlace sames[32];
-	int nP = pNet->GetLayer( nLayer )->GetSamePoints( search, sames );
+	SPathPlace sames[N_MAX_FLOORS * N_MAX_LAYERS_PER_FLOOR];
+	int nP = pNet->GetLayer( nLayer )->GetGeometricSamePoints( search, sames );
 	for ( int i = 0; i < nP; ++i )
 	{
 		CMapColourer *pAnother = pNet->GetColourer( sames[i].GetLayer() );

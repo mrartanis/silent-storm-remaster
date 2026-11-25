@@ -703,6 +703,24 @@ int CNodesLayer::GetSamePoints( const SPathPlace& p, SPathPlace *places )
 	return nP;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+int CNodesLayer::GetGeometricSamePoints( const SPathPlace &p, SPathPlace *places ) const
+{
+	const STile &origin = tiles[p.GetY()][p.GetX()];
+	if ( ( origin.nFlags & TF_HAS_SAME ) == 0 )
+		return 0;
+
+	int count = 0;
+	for ( const auto &layer : pGroup->layers )
+	{
+		if ( !layer || layer == this )
+			continue;
+		const STile &candidate = layer->tiles[p.GetY()][p.GetX()];
+		if ( candidate.nHeight == origin.nHeight && candidate.nDisplacement == origin.nDisplacement )
+			places[count++] = SPathPlace( p.GetX(), p.GetY(), layer->nLayer );
+	}
+	return count;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 /*void CNodesLayer::SetRoom( int x, int y, unsigned short nRoom ) 
 {
 	if ( ((unsigned)x) < rooms.GetXSize() && ((unsigned)y) < rooms.GetYSize() )
