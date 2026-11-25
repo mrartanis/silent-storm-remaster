@@ -3135,6 +3135,8 @@ if(S2_GAME_DB_PATH AND S2_RESOURCE_PACKAGE_PATH)
   set_tests_properties(UpstreamPKModelOwnership UpstreamEffectiveWeaponMode PROPERTIES WORKING_DIRECTORY "${_s2_upstream_game_dir}" TIMEOUT 60)
   add_test(NAME UpstreamAIIdle COMMAND UpstreamBugTests ai-idle
     "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
+  add_test(NAME UpstreamAICombatInterruptHandover COMMAND UpstreamBugTests combat-interrupt-handover
+    "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
   add_test(NAME UpstreamAIRoamingCurrentPosition COMMAND UpstreamBugTests ai-roaming-current-position
     "${S2_GAME_DB_PATH}" "${_s2_upstream_res_dir}")
   foreach(_deployment_route_case RANGE 0 2)

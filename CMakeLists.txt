@@ -4425,6 +4425,8 @@ endif()
 if(S2_GAME_DIR)
   add_test(NAME UpstreamAIIdle COMMAND UpstreamBugTests ai-idle
     "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
+  add_test(NAME UpstreamAICombatInterruptHandover COMMAND UpstreamBugTests combat-interrupt-handover
+    "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   add_test(NAME UpstreamAIRoamingCurrentPosition COMMAND UpstreamBugTests ai-roaming-current-position
     "${S2_GAME_DIR}/game.db" "${S2_GAME_DIR}/res")
   foreach(_deployment_route_case RANGE 0 2)

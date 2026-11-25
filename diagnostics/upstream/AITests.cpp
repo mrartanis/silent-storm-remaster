@@ -16,6 +16,7 @@
 #include "../../Main/rpgGlobal.h"
 #include "../../Main/aiActions.h"
 #include "../../Main/aiCommander.h"
+#include "../../Main/aiCombatLogic.h"
 #include "../../Main/aiJob.h"
 #include "../../Main/aiMisc.h"
 #include "../../Main/aiUnit.h"
@@ -1277,6 +1278,44 @@ static void RoamingUsesCurrentPosition(const char* databasePath, const char* res
     Require(false, "roaming fixture lacks a moving actor with two valid, disjoint origins");
 }
 
+void CombatInterruptHandover(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    auto* owner = actor->GetTBSPlayer();
+    vector<CPtr<NWorld::CPlayer>> players;
+    world->GetPlayersList(&players);
+    const auto other = std::find_if(players.begin(), players.end(), [&](const auto& player) {
+        return IsValid(player) && player.GetPtr() != owner;
+    });
+    auto* ai = NAI::GetAIUnit(actor);
+    Require(IsValid(ai) && other != players.end(), "combat handover fixture needs a real AI wrapper and two players");
+    world->GivePlayerTurn(owner);
+    actor->GetUnitRPG()->StartNewTurn(actor->GetPosition().GetCP());
+    Require(actor->GetAP() > 5, "combat fixture cannot begin planning with its native AP");
+    CObj<NAI::CAIAttackLogic> logic = new NAI::CAIAttackLogic(ai);
+    struct CombatSnapshot {
+        int ap = -1;
+        int operator&(CStructureSaver& reader) { reader.Add(9, &ap); return 0; }
+    };
+    auto savedAP = [&] {
+        CombatSnapshot snapshot;
+        CStructureNetworkContext refs;
+        auto fields = BorrowedObjectFields(logic, &refs);
+        CStructureSaver reader(fields, CStructureSaver::READ, &refs);
+        reader.Add(2, &snapshot);
+        return snapshot.ap;
+    };
+    logic->Think();
+    Require(logic->IsThinking(), "native combat job did not enter its planning cycle");
+    world->OnPassControlNotify(other->GetPtr());
+    Require(!logic->IsThinking() && savedAP() == actor->GetAP(), "interrupt handover left the previous combat plan running");
+    logic->Think();
+    Require(logic->IsThinking(), "combat logic could not begin the next planning cycle");
+    world->OnPassControlNotify(owner);
+    Require(!logic->IsThinking() && savedAP() == 0, "returning interrupt control retained the previous AP snapshot");
+}
+
 static void RemovedSelectedAIContact(int kind)
 {
     CObj<ThreatOwnerFixture> owner = new ThreatOwnerFixture;
@@ -1395,6 +1434,7 @@ bool RunAITests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "fresh-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 1); return true; }
     if (!std::strcmp(mode, "legacy-ai-event-owner") && argc == 4) { AIEventOwnerBinding(argv[2], argv[3], 2); return true; }
     if (!std::strcmp(mode, "removed-selected-enemy")) { RemovedSelectedAIContact(0); return true; }
+    if (!std::strcmp(mode, "combat-interrupt-handover") && argc == 4) { CombatInterruptHandover(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "removed-selected-possible")) { RemovedSelectedAIContact(1); return true; }
     if (!std::strcmp(mode, "removed-selected-ally")) { RemovedSelectedAIContact(2); return true; }
     if (!std::strcmp(mode, "owned-ai-action-enemy")) { OwnedAIEnemySelection(false); return true; }
