@@ -879,12 +879,6 @@ bool UpstreamTests::RunLegacyTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-tohit-server-valid-control") && argc == 4) { AIToHitServerValidity(argv[2],argv[3],2); return true; }
     if (!std::strcmp(mode, "ai-tohit-server-null-empty") && argc == 4) { AIToHitServerValidity(argv[2],argv[3],3); return true; }
     if (!std::strcmp(mode, "ai-tohit-server-invalid-empty") && argc == 4) { AIToHitServerValidity(argv[2],argv[3],4); return true; }
-    if (!std::strcmp(mode, "ai-snipe-proposed-pose-and-target") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],7); return true; }
-    if (!std::strcmp(mode, "ai-snipe-selected-empty-hand") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],0); return true; }
-    if (!std::strcmp(mode, "ai-snipe-selected-current-hand") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],1); return true; }
-    if (!std::strcmp(mode, "ai-snipe-selected-no-ammo") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],2); return true; }
-    if (!std::strcmp(mode, "ai-snipe-escape-four-visible") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],3); return true; }
-    if (!std::strcmp(mode, "ai-snipe-escape-four-blocked") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],4); return true; }
     if (!std::strcmp(mode, "ai-cover-precision-query-ratio") && argc == 4) { AICoverPrecision(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "ai-cover-precision-constructor-fractional") && argc == 4) { AICoverPrecision(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "ai-cover-precision-constructor-integer") && argc == 4) { AICoverPrecision(argv[2],argv[3],2); return true; }
@@ -899,8 +893,6 @@ bool UpstreamTests::RunLegacyTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "ai-first-incapacitation-repeat-dead") && argc == 4) { AIFirstIncapacitation(argv[2],argv[3],5); return true; }
     if (!std::strcmp(mode, "ai-first-incapacitation-finish-unconscious") && argc == 4) { AIFirstIncapacitation(argv[2],argv[3],6); return true; }
     if (!std::strcmp(mode, "ai-first-incapacitation-corpse-event") && argc == 4) { AIFirstIncapacitation(argv[2],argv[3],7); return true; }
-    if (!std::strcmp(mode, "ai-snipe-facing-parity-visible") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],5); return true; }
-    if (!std::strcmp(mode, "ai-snipe-facing-parity-blocked") && argc == 4) { AISnipeSelectedWeapon(argv[2],argv[3],6); return true; }
     if (!std::strcmp(mode, "scenario-discovery-carrier") && argc == 4) { ScenarioDiscovery(argv[2],argv[3],0); return true; }
     if (!std::strcmp(mode, "scenario-discovery-item") && argc == 4) { ScenarioDiscovery(argv[2],argv[3],1); return true; }
     if (!std::strcmp(mode, "scenario-discovery-person") && argc == 4) { ScenarioDiscovery(argv[2],argv[3],2); return true; }

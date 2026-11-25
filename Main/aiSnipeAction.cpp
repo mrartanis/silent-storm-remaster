@@ -22,16 +22,14 @@
 #include "wMain.h"            // NWorld::CWorld: GetGame / GetPathNetwork
 #include "RPGGame.h"          // NRPG::IGame::CheckPositionVisibility
 #include "RPGUnit.h"          // NRPG::CUnit::GetSightFOV (@0x2ba6c0) for the retail sight cone
+#include "RPGUnitMission.h"
 #include "../DBFormat/DataRPG.h" // NDb::SM_Snipe
 //
 #include "aiActions.h"
 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // The snipe state machine selects a firing position, banks AP, shoots or cancels.
-// One documented dev<->release divergence: the release reads the snipe AP pool + the unit's current AP from
-// the RPG skill block; the dev-native CUnitStateSniping caches the pool as nBaseAP (set at snipe start). The
-// AP CAP is the unit's CURRENT AP (pU->GetAP()), read PLACE-INDEPENDENTLY exactly as the release does -- the
-// release GetInfoInner @0x4a4490 ignores its `place` arg entirely. (Earlier this capped by place.nUnitAP.)
+// The sniper's pool is limited by its current RPG skill and available action points.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 namespace NAI
 {
@@ -149,15 +147,17 @@ void CAIBeginSnipeAction::Do( CAILog *pLog ) const                       // @0x4
 	if ( !info.bCanDo )
 		return;
 	IAIUnit *pU = GetUnit();
+	NRPG::IUnitMission *pMission = pU->GetUnitMission();
+	if ( !IsValid( pMission ) || !pMission->CanSpendAP( 1 ) )
+		return;
 	CAIFireArmsWeapon *pWeapon = info.pWeapon.GetPtr();
 	CAIInventory *pInv = pU->GetAIInventory();
 	if ( IsValid( pInv ) && !pInv->IsCurrentItem( pWeapon ) )    // switch to the snipe weapon if not in hand
 		*pLog << new CAILogChangeWeapon( pU, pWeapon );
 	*pLog << new CAILogChangeShootMode( pU, pWeapon, NDb::SM_Snipe );   // shoot-mode 5 = snipe
 	*pLog << new CAILogBeginSnipe( pU, info.pTarget.GetPtr(), info.hitLocation );
-	// (the release also flips the RPG-side "snipe started" mark here -- pU->GetUnitMission() vtbl+0x7c(1);
-	//  elided like the cannon Undock mark: it only sets the SIMULATED is-sniping flag for same-think chaining,
-	//  observationally inert under build-validation -- the real state flips when the logged snipe-aim executes.)
+	// Retail 0x4a5222 charges the real AP pool when the aim is planned.
+	pMission->SpendAP( 1 );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // CAICollectSnipeAPAction::GetInfoInner @0x4a4490: while sniping, bank AP into the snipe pool -- collect
@@ -175,16 +175,12 @@ void CAICollectSnipeAPAction::GetInfoInner( const SPlaceWithAP &place, SInfo *pI
 	NWorld::CUnitStateSniping *pSnipe = pUS->GetSnipingState();
 	if ( !CanHitSnipeTarget( pUS, pSnipe ) )
 		return;
-	int nPool = pSnipe->GetBaseSnipeAP();
+	int nPool = pUS->GetUnitRPG()->GetSkillValue( NDb::ST_SNIPE );
 	int nCollected = pSnipe->GetCollectedSnipeAP();
 	if ( nCollected >= nPool )
 		return;
 	int nAP = nPool - nCollected;
-	// @0x4a4490 -- the release caps by the unit's CURRENT AP (its RPG AP skill), read PLACE-INDEPENDENTLY:
-	// GetInfoInner never references its `place` arg (raw decode reads GetUnit()->GetRPG()+0x14+0x28). Oracle
-	// s2_aisnipeaction.h: Min( nPool - nCollected, GetUnitAPAsInt(pU) ). Was: place.nUnitAP, which the per-place
-	// SActionInfo cache memoizes separately and which diverges for non-current candidate places (move-cost reduced).
-	int nCurAP = pU->GetAP();        // IAIUnit::GetAP() == the unit's current AP (same getter aiAction.cpp seeds nUnitAP with)
+	int nCurAP = pUS->GetAP();
 	if ( nCurAP < nAP )
 		nAP = nCurAP;
 	pInfo->nAP = nAP;

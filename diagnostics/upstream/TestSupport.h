@@ -22,6 +22,7 @@ CObj<NWorld::CWorld> FixtureWorld(const char* databasePath, const char* resource
 NWorld::CUnitServer* MovementPolicyActor(NWorld::CWorld* world);
 
 bool RunAITests(const char* mode, int argc, char** argv);
+bool RunAISnipingTests(const char* mode, int argc, char** argv);
 bool RunInventoryTests(const char* mode, int argc, char** argv);
 bool RunNavigationTests(const char* mode);
 bool RunUITests(const char* mode, int argc, char** argv);

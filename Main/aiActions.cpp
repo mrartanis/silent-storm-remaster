@@ -841,9 +841,23 @@ bool CAIBeginSnipeAction::ComparePlaces( const SPlaceWithAP &p1, const SPlaceWit
 		return true;
 	return p2.nUnitAP < p1.nUnitAP;
 }
-bool CAICollectSnipeAPAction::ComparePlaces( const SPlaceWithAP &p1, const SPlaceWithAP &p2 ) const { return p2.nUnitAP < p1.nUnitAP; }
-bool CAISnipeShotAction::ComparePlaces( const SPlaceWithAP &p1, const SPlaceWithAP &p2 ) const { return p2.nUnitAP < p1.nUnitAP; }
-bool CAICancelSnipeAction::ComparePlaces( const SPlaceWithAP &p1, const SPlaceWithAP &p2 ) const { return p2.nUnitAP < p1.nUnitAP; }
+static bool IsCurrentSnipePlace( IAIUnit *pUnit, const SPlaceWithAP &candidate )
+{
+	const unsigned tileLayerAndPose = 0xc1feffff;
+	return IsValid( pUnit ) && IsSamePlace( pUnit->GetPosition().p, candidate.place.pos.p, tileLayerAndPose );
+}
+bool CAICollectSnipeAPAction::ComparePlaces( const SPlaceWithAP &p1, const SPlaceWithAP & ) const
+{
+	return IsCurrentSnipePlace( GetUnit(), p1 );
+}
+bool CAISnipeShotAction::ComparePlaces( const SPlaceWithAP &p1, const SPlaceWithAP & ) const
+{
+	return IsCurrentSnipePlace( GetUnit(), p1 );
+}
+bool CAICancelSnipeAction::ComparePlaces( const SPlaceWithAP &p1, const SPlaceWithAP & ) const
+{
+	return IsCurrentSnipePlace( GetUnit(), p1 );
+}
 bool CAIDockWithHGAction::ComparePlaces( const SPlaceWithAP &p1, const SPlaceWithAP &p2 ) const { return p2.nUnitAP < p1.nUnitAP; }
 bool CAIUndockFromHGAction::ComparePlaces( const SPlaceWithAP &p1, const SPlaceWithAP &p2 ) const { return p2.nUnitAP < p1.nUnitAP; }
 bool CAIShootFromHGAction::ComparePlaces( const SPlaceWithAP &p1, const SPlaceWithAP &p2 ) const { return p2.nUnitAP < p1.nUnitAP; }

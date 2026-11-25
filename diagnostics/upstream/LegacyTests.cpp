@@ -2,6 +2,7 @@
 #include "NativeCoverSnapshot.h"
 #include "NativeDatabaseFixtures.h"
 #include "NativeDisplayContext.h"
+#include "NativeSnipeFixture.h"
 #include "SoundVisitor.h"
 
 #if defined(_WIN32)
