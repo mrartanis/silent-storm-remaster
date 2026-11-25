@@ -912,6 +912,7 @@ static void MoveInventoryItem( CUnitServer *pUS, CCmdMoveInventoryItem *pMoveIte
 		return;
 	}
 	NDb::ESlot clueSlot = (NDb::ESlot)NDb::N_SLOTS;
+	bool bPlacedInInventory = false;
 
 	if ( g_bSaveLoadDiag )
 	{
@@ -981,7 +982,7 @@ static void MoveInventoryItem( CUnitServer *pUS, CCmdMoveInventoryItem *pMoveIte
 				pUSTarget->GetTBSPlayer()->SetInHandItem( sInfo );
 			}
 
-			pInventory->Equip( (NDb::ESlot)sTarget.nSlot, pItem );
+			bPlacedInInventory = pInventory->Equip( (NDb::ESlot)sTarget.nSlot, pItem );
 			clueSlot = (NDb::ESlot)sTarget.nSlot;
 			break;
 		}
@@ -1031,7 +1032,7 @@ static void MoveInventoryItem( CUnitServer *pUS, CCmdMoveInventoryItem *pMoveIte
 				pUSTarget->GetTBSPlayer()->SetInHandItem( sInfo );
 			}
 
-			pInventory->Place( sTargetPosition, pItem );
+			bPlacedInInventory = pInventory->Place( sTargetPosition, pItem );
 			break;
 		}
 	case SItem::GROUND:
@@ -1060,7 +1061,7 @@ static void MoveInventoryItem( CUnitServer *pUS, CCmdMoveInventoryItem *pMoveIte
 				if ( !IsValid( pInventory->Get( eSlot ) ) && pInventory->CanEquip( eSlot, pItem ) )
 				{
 					bComplete = true;
-					pInventory->Equip( eSlot, pItem );
+					bPlacedInInventory = pInventory->Equip( eSlot, pItem );
 					clueSlot = eSlot;
 					break;
 				}
@@ -1072,7 +1073,7 @@ static void MoveInventoryItem( CUnitServer *pUS, CCmdMoveInventoryItem *pMoveIte
 				if ( pInventory->FindPlace( pItem, &sTargetPosition ) )
 				{
 					bComplete = true;
-					pInventory->Place( sTargetPosition, pItem );
+					bPlacedInInventory = pInventory->Place( sTargetPosition, pItem );
 				}
 			}
 
@@ -1084,6 +1085,8 @@ static void MoveInventoryItem( CUnitServer *pUS, CCmdMoveInventoryItem *pMoveIte
 		// reference (pItem is a CObj) -- the item is removed from the world. (DestroyItemInHand)
 		break;
 	}
+	if ( bPlacedInInventory )
+		pUS->GetWorld()->AddUIHint( pItem->GetDBItem()->pHint );
 	if ( bClue && IsValid( pTargetUnit ) )
 	{
 		++pTargetUnit->nClueCount;

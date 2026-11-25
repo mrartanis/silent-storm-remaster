@@ -2619,6 +2619,18 @@ void CWorld::ScriptWantTurnBased( bool bWant )
 	WantTurnBased( pls.back() );
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+void CWorld::AddUIHint( NDb::CUIHint *pHint )
+{
+	NRPG::CGlobalGame *pGame = GetGlobalGame();
+	if ( bNetworkArena || !IsValid( pHint ) || !IsValid( pGame ) )
+		return;
+	for ( const auto &shown : pGame->hintsSet )
+		if ( shown.GetPtr() == pHint )
+			return;
+	pGame->hintsSet.push_back( pHint );
+	AddUICommand( new CUICmdShowHint( pHint ) );
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 // LUA convergence (hint machinery): retail NWorld::CWorld::AddNextUIHint @0x368140 (IWorld vtbl+0x118).
 // Walk the CUIHint table and pick the not-yet-shown hint with the smallest nSequenceID strictly greater
 // than the global game's cursor (nHintSequenceID); advance the cursor onto it and remember it in hintsSet.

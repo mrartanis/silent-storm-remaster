@@ -422,6 +422,73 @@ void CursorClipOntoWeapon(const char* databasePath, const char* resourcePath, bo
         "the drop changed the active slot or loaded a different firearm");
 }
 
+void ItemHintOnInventoryPlacement(const char* databasePath, const char* resourcePath, int mode)
+{
+    using namespace NWorld;
+    CObj<NRPG::CGlobalGame> game;
+    auto world = FixtureWorld(databasePath, resourcePath, true, &game);
+    auto* actor = MovementPolicyActor(world);
+    auto* inventory = actor->GetUnitRPG()->GetInventory();
+    world->GivePlayerTurn(actor->GetTBSPlayer());
+    const bool arena = mode == 4;
+    const bool equipped = mode == 1 || mode == 2;
+    world->bNetworkArena = arena;
+    NDb::CUIHint* hint = nullptr;
+    CDBIterator<NDb::CUIHint> hints(*NDatabase::GetTable<NDb::CUIHint>());
+    while (hints.MoveNext()) {
+        auto* candidate = hints.Get();
+        if (candidate->nSequenceID > game->nHintSequenceID &&
+            (!hint || candidate->GetRecordID() < hint->GetRecordID()))
+            hint = candidate;
+    }
+    auto* record = NDb::GetWeapon(65);
+    Require(record && record->pItem && hint, "fixture lacks authored equipment or a tutorial hint");
+    record->pItem->pHint = hint;
+    CObj<NRPG::IInventoryItem> item = new NRPG::CWeaponItem(record);
+    for (const auto slot : {NDb::SLOT_1, NDb::SLOT_2})
+        if (inventory->Get(slot)) inventory->TakeOff(slot);
+    CObj<NRPG::IInventoryItem> blocker = new NRPG::CWeaponItem(record);
+    Require(inventory->Equip(NDb::SLOT_1, blocker) && inventory->Activate(NDb::SLOT_1),
+        "fixture cannot reserve the active firearm slot");
+    if (mode == 3)
+        Require(inventory->Equip(NDb::SLOT_2, new NRPG::CWeaponItem(record)), "fixture cannot force automatic backpack placement");
+    CTPoint<int> cell;
+    if (!equipped)
+        Require(inventory->FindPlace(item, &cell), "fixture has no backpack space");
+    const SItem destination = mode == 2 || mode == 3 ? SItem(actor, SItem::UNIT_ANYPLACE)
+        : equipped ? SItem(actor, SItem::SLOT, NDb::SLOT_2) : SItem(actor, SItem::BACKPACK, cell);
+    const int cursor = game->nHintSequenceID;
+    const size_t known = game->hintsSet.size();
+    auto countHints = [&] {
+        int count = 0;
+        while (CObj<CUICmd> event = world->GetUICommand())
+            if (auto* shown = dynamic_cast<CUICmdShowHint*>(event.GetPtr()); shown && shown->pHint == hint)
+                ++count;
+        return count;
+    };
+    Require(countHints() == 0, "the item hint is already queued");
+    for (int attempt = 0; attempt < 2; ++attempt) {
+        const SItem held(actor, SItem::HAND, item);
+        actor->GetTBSPlayer()->SetInHandItem(held);
+        CObj<CCmdMoveInventoryItem> command = new CCmdMoveInventoryItem(held, destination);
+        EUnitCommandResult result = UCR_UNAVAILABLE;
+        CObj<CCommandExecute> order = actor->CreateExecutor(command, &result);
+        Require(order && result == UCR_OK, "the item transfer could not be issued");
+        order->Run();
+        if (equipped)
+            Require(inventory->TakeOff(NDb::SLOT_2) == item, "the hinted item did not reach the requested slot");
+        else {
+            Require(std::any_of(inventory->GetItems().begin(), inventory->GetItems().end(),
+                [&](const auto& entry) { return entry.pItem == item; }), "the hinted item did not reach the backpack");
+            inventory->Take(item);
+        }
+        Require(countHints() == (!arena && attempt == 0 ? 1 : 0),
+            "the item did not produce exactly one campaign hint across repeated transfers");
+        Require(game->nHintSequenceID == cursor && game->hintsSet.size() == known + (arena ? 0 : 1) &&
+            (arena || game->hintsSet.back() == hint), "the item hint altered book progression or the wrong journal entry");
+    }
+}
+
 static void InventoryWithoutUniform()
 {
     CObj<NRPG::CUnit> owner = new NRPG::CUnit;
@@ -834,6 +901,7 @@ bool RunInventoryTests(const char* mode, int argc, char** argv)
     if (!std::strcmp(mode, "queued-reload-removed-magazine") && argc == 4) { QueuedReloadMagazine(argv[2], argv[3], true); return true; }
     if (!std::strcmp(mode, "inventory-cursor-commands") && argc == 4) { InventoryCursorCommands(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "cursor-clip-onto-weapon") && argc == 5) { CursorClipOntoWeapon(argv[2], argv[3], std::atoi(argv[4]) != 0); return true; }
+    if (!std::strcmp(mode, "item-hint-on-inventory-placement") && argc == 5) { ItemHintOnInventoryPlacement(argv[2], argv[3], std::atoi(argv[4])); return true; }
     if (!std::strcmp(mode, "inventory-without-uniform")) { InventoryWithoutUniform(); return true; }
     if (!std::strcmp(mode, "weapon-clip-archive-valid") && argc==3) { WeaponClipArchive(argv[2],false); return true; }
     if (!std::strcmp(mode, "weapon-clip-archive-legacy") && argc==3) { WeaponClipArchive(argv[2],true); return true; }
