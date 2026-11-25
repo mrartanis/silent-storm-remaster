@@ -9,6 +9,7 @@
 #include <cstring>
 #include <cstddef>
 #include "RPGGame.h"
+#include "../Misc/RetailSort.h"
 #include "RPGCover.h"
 #include "aiMap.h"
 #include "aiRender.h"
@@ -110,7 +111,6 @@ public:
 	// Runtime-only union of all hit/loose ray cells; never added to saved fields.
 	unordered_map<CPtr<CObjectBase>, int, SPtrHash> potentialObjects;
 };
-static bool operator < ( const CCoverInfo::SRay &right, const CCoverInfo::SRay &left ) { return right.fDeviation < left.fDeviation; }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool CanShoot( CCoverInfo *pCover )
 {
@@ -212,10 +212,8 @@ static void AddGridToCovers( CCoverInfo *pRes, const NAI::CFastRenderer &res, co
 	for ( int i = 0; i < res.resGrid.GetXSize(); ++i )
 		fputc( '-', f );
 	fputc( '\n', f );
-	for ( int y = res.resGrid.GetYSize() - 1; y >= 0; --y )
-#else
-	for ( int y = 0; y < res.resGrid.GetYSize(); ++y )
 #endif
+	for ( int y = res.resGrid.GetYSize() - 1; y >= 0; --y )
 	{
 		for ( int x = 0; x < res.resGrid.GetXSize(); ++x )
 		{
@@ -684,7 +682,8 @@ static bool RealPeekRay( CCoverInfo *pCover, CRay *pRes, float fHit, bool *bIsMi
 			return false;
 
 		CRoulette roulette;
-		sort( pCover->looseRays.begin(), pCover->looseRays.end() ); // sort from worst to best
+		NRetail::Sort( pCover->looseRays.begin(), pCover->looseRays.end(),
+			[]( const CCoverInfo::SRay &a, const CCoverInfo::SRay &b ) { return a.fDeviation < b.fDeviation; } );
 		float fStep = 1.f / float( pCover->looseRays.size() );
 		int n = 0;
 		for ( vector<CCoverInfo::SRay>::const_iterator i = pCover->looseRays.begin(); i != pCover->looseRays.end(); ++i, ++n )

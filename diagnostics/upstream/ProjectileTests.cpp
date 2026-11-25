@@ -1,4 +1,5 @@
 #include "TestSupport.h"
+#include "NativeCoverSnapshot.h"
 #include "../../Main/wMain.h"
 #include "../../Main/wExplTracker.h"
 #include "../../Main/wUnitServer.h"
@@ -30,6 +31,62 @@ namespace UpstreamTests
 {
 namespace
 {
+void CoverRayRowOrder(const char* databasePath, const char* resourcePath)
+{
+    auto world = FixtureWorld(databasePath, resourcePath, true);
+    auto* actor = MovementPolicyActor(world);
+    const CVec3 source = actor->GetAttackOrigin(actor->GetPosition()) + CVec3(0.f, 0.f, 50.f);
+    const CVec3 target = source + CVec3(8.f, 0.f, 0.f);
+    NRPG::CAttackPortion attack(100000, 0, 0.f, 5, 5, 0);
+    CObj<NRPG::CCoverInfo> cover = world->GetGame()->CalcCoversForTile(source, attack, actor, target, 0.f);
+    Require(cover, "tile cover solver returned no native ray grid");
+    const auto saved = CoverSnapshot(cover);
+    Require(saved.source == source && saved.hits.size() == 16 && saved.loose.size() == 384 && saved.obstacles.empty(),
+        "native open tile cover fixture did not partition the complete 20-by-20 ray grid");
+    NAI::CFastRenderer projection;
+    const float halfView = 1.25f * 30.f / (8.f - 0.625f);
+    projection.InitProjective(source, source + CVec3(30.f, 0.f, 0.f), CVec2(halfView, halfView), 10);
+    size_t hit = 0, loose = 0;
+    for (int y = 19; y >= 0; --y)
+        for (int x = 0; x < 20; ++x) {
+            CVec3 expected;
+            projection.GetDir(&expected, float(x), float(y));
+            const auto& ray = x >= 8 && x < 12 && y >= 8 && y < 12 ? saved.hits[hit++] : saved.loose[loose++];
+            Require(fabs2(ray.direction - expected) < 1e-10f,
+                "native cover rays did not traverse descending rows from left to right");
+        }
+}
+
+void EqualMissRayOrder()
+{
+    using Ray = CoverParitySnapshot::Ray;
+    vector<Ray> authored = {
+        {CVec3(1.f, 0.f, 0.f), false, 0.4f},
+        {CVec3(0.f, 1.f, 0.f), false, 0.7f},
+        {CVec3(-1.f, 0.f, 0.f), false, 0.4f},
+        {CVec3(0.f, -1.f, 0.f), false, 0.7f},
+    };
+    CObj<CObjectBase> savedCover = pSSClasses->CreateObject(0x02841161);
+    CObj<NRPG::CCoverInfo> cover = CastToUserObject(savedCover.GetPtr(), static_cast<NRPG::CCoverInfo*>(nullptr));
+    Require(cover, "retail cover save class is unavailable");
+    CMemoryStream fields;
+    CVec3 origin(1.f, 2.f, 3.f);
+    { CStructureSaver writer(fields, CStructureSaver::WRITE); writer.Add(3, &origin); writer.Add(4, &authored); }
+    fields.Seek(0);
+    { CStructureSaver reader(fields, CStructureSaver::READ); savedCover->operator&(reader); }
+    CRay ray;
+    bool missed = false;
+    Require(NRPG::PeekRay(cover, &ray, 0.5f, &missed) && missed && ray.ptOrigin == origin,
+        "native miss selection did not use the restored cover");
+    const auto after = CoverSnapshot(cover);
+    const int order[] = {2, 0, 3, 1};
+    Require(after.loose.size() == authored.size(), "native miss selection lost authored rays");
+    for (size_t index = 0; index < after.loose.size(); ++index)
+        Require(after.loose[index].direction == authored[order[index]].direction &&
+            after.loose[index].deviation == authored[order[index]].deviation,
+            "equal miss rays did not take the second retail merge chain first");
+}
+
 void UnitKnifeIllumination(const char* databasePath, const char* resourcePath)
 {
     CObj<NRPG::CGlobalGame> game;
@@ -388,6 +445,8 @@ void RangedHitRollRange(const char* databasePath, const char* resourcePath)
 
 bool RunProjectileTests(const char* mode, int argc, char** argv)
 {
+    if (!std::strcmp(mode, "cover-ray-row-order") && argc == 4) { CoverRayRowOrder(argv[2], argv[3]); return true; }
+    if (!std::strcmp(mode, "equal-miss-ray-order") && argc == 2) { EqualMissRayOrder(); return true; }
     if (!std::strcmp(mode, "unit-knife-illumination") && argc == 4) { UnitKnifeIllumination(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "frozen-item-armor-resistance") && argc == 4) { FrozenItemArmorResistance(argv[2], argv[3]); return true; }
     if (!std::strcmp(mode, "flying-grenade-lifetime") && argc == 4) { FlyingGrenadeLifetime(argv[2], argv[3]); return true; }

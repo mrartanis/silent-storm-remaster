@@ -1,4 +1,5 @@
 #include "TestSupport.h"
+#include "NativeCoverSnapshot.h"
 #include "NativeDatabaseFixtures.h"
 #include "NativeDisplayContext.h"
 #include "SoundVisitor.h"
@@ -282,6 +283,8 @@ extern CPtr<NScript::CScript> pScript;
 REGISTER_SAVELOAD_CLASS_NM(0x7f550105, AIUnitFixture, NAI);
 
 using UpstreamTests::BorrowedObjectFields;
+using UpstreamTests::CoverParitySnapshot;
+using UpstreamTests::CoverSnapshot;
 using UpstreamTests::FixtureWorld;
 using UpstreamTests::NativeContextColumn;
 using UpstreamTests::NativeContextEmptyRelation;
